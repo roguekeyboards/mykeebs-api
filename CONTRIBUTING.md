@@ -166,7 +166,7 @@ Then the steps a script can't do:
 - **`mykeebs-api-prod` account:** set the `mykeebs-api-prod-oidc` stack's `GitHubActionsDeployRoleArn` output as the `PROD_DEPLOY_ROLE_ARN` repo variable. CI's role ARN is in `.github/actions/mykeebs-api-pr-stack/action.yml`.
 - **Every account:** confirm the cost budget's email subscription. Its link only works while you're signed in to that account's console.
 
-CI and the prod deploy both run `mise run bootstrap-check`, which stops them when one of the account's bootstrap stacks is behind the repo. After merging a change to a bootstrap template, run `mise run bootstrap` for each account it's in.
+CI and the prod deploy both run `mise run bootstrap-check`, which stops them when one of the account's bootstrap stacks is behind the repo. `ci` runs it on PRs too, so a change to a bootstrap template needs `mise run bootstrap ci` from its branch before its checks can pass. Run `mise run bootstrap` for every other account the template is in before merging, so the prod deploy never stops.
 
 #### Stack permissions boundary
 
