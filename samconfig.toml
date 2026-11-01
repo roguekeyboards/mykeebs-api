@@ -31,7 +31,7 @@ parameter_overrides = """\
   CustomDomainCertificateArn=arn:aws:acm:us-east-2:992234857260:certificate/9779ae75-a23b-4a33-8619-e26b7125f237 \
   ImagesDomainName=jay.images.mykeebs.dev \
   ImagesDomainCertificateArn=arn:aws:acm:us-east-1:992234857260:certificate/88553c3c-cb56-4fa1-a8cf-15fd5ee48a32 \
-  AlarmEmail=kbdb-alerts-dev@mykeebs.com\
+  AlarmEmail=mykeebs-alerts-dev@mykeebs.com\
   """
 
 [prod.deploy.parameters]
@@ -58,7 +58,7 @@ parameter_overrides = """\
   ThrottleRateLimit=5 \
   ThrottleBurstLimit=50 \
   ApiReservedConcurrency=15 \
-  AlarmEmail=kbdb-alerts-prd@mykeebs.com\
+  AlarmEmail=mykeebs-alerts-prd@mykeebs.com\
   """
 
 # CI deploys per-PR stacks into the separate mykeebs-api-ci account (475976462467),

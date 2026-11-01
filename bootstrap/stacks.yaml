@@ -28,8 +28,12 @@ stacks:
     template: bootstrap/cost-budget.yaml
     accounts: [dev, ci, prod]
     parameters:
+      dev:
+        AlertEmail: mykeebs-budget-dev@mykeebs.com
+      ci:
+        AlertEmail: mykeebs-budget-ci@mykeebs.com
       prod:
-        AlertEmail: kbdb-budget-prd@mykeebs.com
+        AlertEmail: mykeebs-budget-prd@mykeebs.com
 
   # One template, deployed under each account's own stack name.
   - name: mykeebs-api-ci-oidc

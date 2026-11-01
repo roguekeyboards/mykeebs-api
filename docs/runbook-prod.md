@@ -12,8 +12,8 @@ What to do when something goes wrong in production, and how to do the rare jobs 
 | AWS account | `mykeebs-api-prod` (`416860882648`), region `us-east-2` |
 | Stack | `mykeebs-api-prod`, defined by the `[prod]` section of `samconfig.toml` |
 | Identity provider | the Stytch **Live** project, issuer `https://auth.mykeebs.info` |
-| Alarm emails | `kbdb-alerts-prd@mykeebs.com` |
-| Budget emails | `kbdb-budget-prd@mykeebs.com` |
+| Alarm emails | `mykeebs-alerts-prd@mykeebs.com` |
+| Budget emails | `mykeebs-budget-prd@mykeebs.com` |
 
 Prod is deployed only by `deploy-prod.yml`, for every published release.
 
