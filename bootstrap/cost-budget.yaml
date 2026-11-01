@@ -12,7 +12,6 @@ Parameters:
     Description: Monthly budget limit in USD.
   AlertEmail:
     Type: String
-    Default: aws-budget@rogueserenity.dev
     Description: Email address notified at 80% and 100% of the budget.
 
 Resources:
