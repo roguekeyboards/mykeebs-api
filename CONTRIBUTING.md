@@ -150,6 +150,8 @@ Four accounts, one SSO session (`aws configure sso` once, then `aws sso login --
 
 There's no default AWS profile — commands will fail with `NoCredentials` unless `AWS_PROFILE` is set.
 
+The organization root has an AWS AI services opt-out policy, `ai-opt-out`, attached by hand from `mgmt-admin` rather than through `bootstrap/stacks.yaml`, and every account inherits it. Don't detach it: without it, Rekognition may use uploaded photos to improve AWS's models, and [mykeebs.com's AI statement](https://github.com/roguekeyboards/mykeebs.com/blob/main/src/routes/about/ai/%2Bpage.svelte) promises that nothing in mykeebs is used to train a model.
+
 ### First-time account bootstrap
 
 New AWS account, never deployed to before? With an admin profile for it:
