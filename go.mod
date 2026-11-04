@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/HugoSmits86/nativewebp v1.3.0
-	github.com/alecthomas/kong v1.16.1
+	github.com/alecthomas/kong v1.17.0
 	github.com/aws/aws-lambda-go v1.55.1
 	github.com/aws/aws-sdk-go-v2 v1.47.5
 	github.com/aws/aws-sdk-go-v2/config v1.33.13
