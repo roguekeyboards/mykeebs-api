@@ -32,7 +32,7 @@ require (
 	github.com/mxschmitt/playwright-go v0.6401.0
 	github.com/oapi-codegen/nethttp-middleware v1.3.1
 	github.com/oapi-codegen/runtime v1.8.0
-	github.com/onsi/ginkgo/v2 v2.33.1
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/roguekeyboards/mykeebs-consent v1.0.1
 	github.com/roguekeyboards/oidc-testkit v1.0.5
