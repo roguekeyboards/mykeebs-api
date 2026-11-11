@@ -1,4 +1,4 @@
-FROM golang:1.27.3 AS build
+FROM golang:1.27.4 AS build
 WORKDIR /src
 # Build context is the repo root (see template.yaml Metadata.DockerContext).
 COPY go.mod go.sum ./
