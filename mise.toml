@@ -47,17 +47,17 @@ file = "scripts/bootstrap-check.sh"
 [tasks.cf-login]
 description = "Sign in to Cloudflare for the dns and setup tasks (opens the browser): mise run cf-login"
 run = "cf auth login --use-keyring"
-tools = { node = "26.13.1", "npm:cf" = "1.0.0-beta.31" }
+tools = { node = "26.13.1", "npm:cf" = "1.0.0-beta.32" }
 
 [tasks.dns]
 description = "Point an environment's custom domains at its stack in Cloudflare: mise run dns [env] (needs cf auth login and the env's AWS credentials)"
 file = "scripts/dns.sh"
-tools = { node = "26.13.1", "npm:cf" = "1.0.0-beta.31" }
+tools = { node = "26.13.1", "npm:cf" = "1.0.0-beta.32" }
 
 [tasks.setup]
 description = "One-time setup of an environment's ECR repo + stack: mise run setup [env], env defaults to dev-$(whoami) (requires an authenticated AWS profile)"
 file = "scripts/setup.sh"
-tools = { node = "26.13.1", "npm:cf" = "1.0.0-beta.31" }
+tools = { node = "26.13.1", "npm:cf" = "1.0.0-beta.32" }
 
 [tasks.deploy]
 description = "Deploy the current code to an environment: mise run deploy [env], env defaults to dev-$(whoami) (run setup first)"
