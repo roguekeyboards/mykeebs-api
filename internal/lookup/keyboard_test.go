@@ -54,13 +54,20 @@ func (s *ValidateKeyboardSuite) TestLayoutNotValidForSize_ReturnsFieldError() {
 	}, errs)
 }
 
-func (s *ValidateKeyboardSuite) TestNumpadWithRowLayout_ReturnsNoErrors() {
+func (s *ValidateKeyboardSuite) TestNumpadWith5RowLayout_ReturnsNoErrors() {
 	size := "Numpad"
-	for _, layoutName := range []string{"5 Row", "6 Row"} {
-		kb := repository.Keyboard{Size: &size, Layout: &layoutName}
+	layoutName := "5 Row"
+	kb := repository.Keyboard{Size: &size, Layout: &layoutName}
 
-		s.Empty(lookup.ValidateKeyboard(s.T().Context(), kb), layoutName)
-	}
+	s.Empty(lookup.ValidateKeyboard(s.T().Context(), kb))
+}
+
+func (s *ValidateKeyboardSuite) TestNumpadWith6RowLayout_ReturnsNoErrors() {
+	size := "Numpad"
+	layoutName := "6 Row"
+	kb := repository.Keyboard{Size: &size, Layout: &layoutName}
+
+	s.Empty(lookup.ValidateKeyboard(s.T().Context(), kb))
 }
 
 func (s *ValidateKeyboardSuite) TestNumpadWithFullSizeLayout_ReturnsFieldError() {
