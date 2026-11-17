@@ -54,6 +54,44 @@ func (s *ValidateKeyboardSuite) TestLayoutNotValidForSize_ReturnsFieldError() {
 	}, errs)
 }
 
+func (s *ValidateKeyboardSuite) TestNumpadWith5RowLayout_ReturnsNoErrors() {
+	size := "Numpad"
+	layoutName := "5 Row"
+	kb := repository.Keyboard{Size: &size, Layout: &layoutName}
+
+	s.Empty(lookup.ValidateKeyboard(s.T().Context(), kb))
+}
+
+func (s *ValidateKeyboardSuite) TestNumpadWith6RowLayout_ReturnsNoErrors() {
+	size := "Numpad"
+	layoutName := "6 Row"
+	kb := repository.Keyboard{Size: &size, Layout: &layoutName}
+
+	s.Empty(lookup.ValidateKeyboard(s.T().Context(), kb))
+}
+
+func (s *ValidateKeyboardSuite) TestNumpadWithFullSizeLayout_ReturnsFieldError() {
+	size := "Numpad"
+	layoutName := "WK"
+	kb := repository.Keyboard{Size: &size, Layout: &layoutName}
+
+	errs := lookup.ValidateKeyboard(s.T().Context(), kb)
+	s.Equal([]lookup.FieldError{
+		{Field: "layout", Value: "WK", Reason: `"WK" is not a valid layout for size "Numpad"`},
+	}, errs)
+}
+
+func (s *ValidateKeyboardSuite) TestRowLayoutWithNonNumpadSize_ReturnsFieldError() {
+	size := "60%"
+	layoutName := "5 Row"
+	kb := repository.Keyboard{Size: &size, Layout: &layoutName}
+
+	errs := lookup.ValidateKeyboard(s.T().Context(), kb)
+	s.Equal([]lookup.FieldError{
+		{Field: "layout", Value: "5 Row", Reason: `"5 Row" is not a valid layout for size "60%"`},
+	}, errs)
+}
+
 func (s *ValidateKeyboardSuite) TestInvalidSize_SkipsLayoutSizeCrossCheck() {
 	size := "not-a-size"
 	layoutName := "WK"

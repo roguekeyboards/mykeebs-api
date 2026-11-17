@@ -34,5 +34,13 @@
   {
     "name": "Staggered",
     "sizes": ["40%"]
+  },
+  {
+    "name": "5 Row",
+    "sizes": ["Numpad"]
+  },
+  {
+    "name": "6 Row",
+    "sizes": ["Numpad"]
   }
 ]

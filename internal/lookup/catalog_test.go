@@ -68,3 +68,20 @@ func (s *CatalogSuite) TestGetCategory_UnknownCategory_ReturnsFalse() {
 	_, ok := lookup.GetCategory(context.Background(), "not-a-real-category")
 	s.False(ok)
 }
+
+func (s *CatalogSuite) TestKeyboardSize_IncludesNumpad() {
+	l, ok := lookup.GetCategory(s.T().Context(), lookup.CategoryKeyboardSize)
+	s.Require().True(ok)
+
+	s.Contains(l.Strings(), "Numpad")
+}
+
+func (s *CatalogSuite) TestKeyboardLayout_IncludesNumpadRowLayouts() {
+	l, ok := lookup.GetCategory(s.T().Context(), lookup.CategoryKeyboardLayout)
+	s.Require().True(ok)
+
+	s.Subset(l.LayoutValues(), []lookup.LayoutValue{
+		{Name: "5 Row", Sizes: []string{"Numpad"}},
+		{Name: "6 Row", Sizes: []string{"Numpad"}},
+	})
+}
