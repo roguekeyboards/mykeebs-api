@@ -10,15 +10,15 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.33.19
 	github.com/aws/aws-sdk-go-v2/credentials v1.21.1
 	github.com/aws/aws-sdk-go-v2/feature/cloudfront/sign v1.12.12
-	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.21.22
-	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.10.10
+	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.21.23
+	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.10.11
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.84.0
 	github.com/aws/aws-sdk-go-v2/service/cloudfront v1.75.6
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.92.2
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.74.0
-	github.com/aws/aws-sdk-go-v2/service/lambda v1.116.0
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.74.1
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.117.0
 	github.com/aws/aws-sdk-go-v2/service/rekognition v1.62.6
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.10
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.115.0
 	github.com/aws/aws-sdk-go-v2/service/sns v1.48.0
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.53.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.83.0
