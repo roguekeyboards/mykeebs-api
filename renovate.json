@@ -6,7 +6,7 @@
     ":semanticCommits"
   ],
   "automerge": true,
-  "postUpdateOptions": ["gomodTidy"],
+  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
   "packageRules": [
     {
       "description": "Dockerfile images ship in the deployed Lambda image, so bumps must release",
