@@ -23,6 +23,7 @@ type Config struct {
 	// image is deleted. Empty invalidates nothing.
 	ImagesDistributionID     string `env:"IMAGES_DISTRIBUTION_ID"`
 	SwitchTableName          string `env:"SWITCH_TABLE_NAME" required:""`
+	ECPartTableName          string `env:"EC_PART_TABLE_NAME" required:""`
 	KeyboardTableName        string `env:"KEYBOARD_TABLE_NAME" required:""`
 	KeycapSetTableName       string `env:"KEYCAP_SET_TABLE_NAME" required:""`
 	BuildTableName           string `env:"BUILD_TABLE_NAME" required:""`

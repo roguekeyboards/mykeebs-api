@@ -12,6 +12,7 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 : "${MYKEEBS_SWITCH_TABLE_NAME:?run scripts/func-setup.sh first}"
+: "${MYKEEBS_EC_PART_TABLE_NAME:?run scripts/func-setup.sh first}"
 : "${MYKEEBS_KEYBOARD_TABLE_NAME:?run scripts/func-setup.sh first}"
 : "${MYKEEBS_KEYCAP_SET_TABLE_NAME:?run scripts/func-setup.sh first}"
 : "${MYKEEBS_BUILD_TABLE_NAME:?run scripts/func-setup.sh first}"

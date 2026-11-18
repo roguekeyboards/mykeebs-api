@@ -357,6 +357,28 @@ Resources:
         - AttributeName: id
           KeyType: RANGE
 
+  # User-owned EC parts (domes, sliders, housings, springs, silencing
+  # rings). Same key schema/rationale as SwitchTable above.
+  ECPartTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      DeletionProtectionEnabled: !If [HasDataProtection, true, !Ref AWS::NoValue]
+      PointInTimeRecoverySpecification: !If
+        - HasDataProtection
+        - PointInTimeRecoveryEnabled: true
+        - !Ref AWS::NoValue
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: id
+          KeyType: RANGE
+
   # User-owned keyboards. Same key schema/rationale as SwitchTable above.
   KeyboardTable:
     Type: AWS::DynamoDB::Table
@@ -593,6 +615,7 @@ Resources:
       Environment:
         Variables:
           SWITCH_TABLE_NAME: !Ref SwitchTable
+          EC_PART_TABLE_NAME: !Ref ECPartTable
           KEYBOARD_TABLE_NAME: !Ref KeyboardTable
           KEYCAP_SET_TABLE_NAME: !Ref KeycapSetTable
           BUILD_TABLE_NAME: !Ref BuildTable
@@ -618,6 +641,7 @@ Resources:
                 - dynamodb:UpdateItem
               Resource:
                 - !GetAtt SwitchTable.Arn
+                - !GetAtt ECPartTable.Arn
                 - !GetAtt KeyboardTable.Arn
                 - !GetAtt KeycapSetTable.Arn
                 - !GetAtt BuildTable.Arn
@@ -796,6 +820,7 @@ Resources:
           IMAGES_SIGNING_KEY_ID_PARAM: /mykeebs-api/image-delivery/public-key-id
           IMAGES_DISTRIBUTION_ID: !If [HasImageInvalidation, !Ref ImagesDistribution, '']
           SWITCH_TABLE_NAME: !Ref SwitchTable
+          EC_PART_TABLE_NAME: !Ref ECPartTable
           KEYBOARD_TABLE_NAME: !Ref KeyboardTable
           KEYCAP_SET_TABLE_NAME: !Ref KeycapSetTable
           BUILD_TABLE_NAME: !Ref BuildTable
@@ -853,6 +878,15 @@ Resources:
                 - dynamodb:DeleteItem
                 - dynamodb:BatchWriteItem
               Resource: !GetAtt SwitchTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:BatchWriteItem
+              Resource: !GetAtt ECPartTable.Arn
             - Effect: Allow
               Action:
                 - dynamodb:Query
@@ -1030,6 +1064,9 @@ Outputs:
   SwitchTableName:
     Description: DynamoDB table backing GET /users/{userId}/switches
     Value: !Ref SwitchTable
+  ECPartTableName:
+    Description: DynamoDB table backing GET /users/{userId}/ec-parts
+    Value: !Ref ECPartTable
   KeyboardTableName:
     Description: DynamoDB table backing GET /users/{userId}/keyboards
     Value: !Ref KeyboardTable

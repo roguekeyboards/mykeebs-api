@@ -9,6 +9,7 @@ import "context"
 func OwnerImagePrefixes(ownerID string) []string {
 	return []string{
 		"builds/" + ownerID + "/",
+		"ec-parts/" + ownerID + "/",
 		"keyboards/" + ownerID + "/",
 		"keycap-sets/" + ownerID + "/",
 		"profiles/" + ownerID + "/",

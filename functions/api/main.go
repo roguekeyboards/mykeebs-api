@@ -68,6 +68,7 @@ func main() {
 		}
 	})
 	switchRepo := dynamo.NewSwitchRepository(dynamoClient, cfg.SwitchTableName)
+	ecPartRepo := dynamo.NewECPartRepository(dynamoClient, cfg.ECPartTableName)
 	keyboardRepo := dynamo.NewKeyboardRepository(dynamoClient, cfg.KeyboardTableName)
 	keycapSetRepo := dynamo.NewKeycapSetRepository(dynamoClient, cfg.KeycapSetTableName)
 	buildRepo := dynamo.NewBuildRepository(dynamoClient, cfg.BuildTableName)
@@ -105,7 +106,7 @@ func main() {
 		deleteNotices = deletenotice.NewSNS(sns.NewFromConfig(awsCfg), cfg.AccountDeleteTopicARN)
 	}
 
-	handler := router.New(verifier, switchRepo, switchImageStore, keyboardRepo, keyboardImageStore, keycapSetRepo, keycapKitImageStore, buildRepo, buildImageStore, profileRepo, profileImageStore, ownerImageStore, deleteNotices, uploads, cfg.OIDCIssuerURL, cfg.IDPConsentPublicToken, Version)
+	handler := router.New(verifier, switchRepo, switchImageStore, ecPartRepo, keyboardRepo, keyboardImageStore, keycapSetRepo, keycapKitImageStore, buildRepo, buildImageStore, profileRepo, profileImageStore, ownerImageStore, deleteNotices, uploads, cfg.OIDCIssuerURL, cfg.IDPConsentPublicToken, Version)
 
 	// ReadHeaderTimeout bounds a slow/malicious client independently of
 	// Lambda's own per-invocation timeout.

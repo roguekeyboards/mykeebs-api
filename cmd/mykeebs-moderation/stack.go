@@ -54,7 +54,7 @@ func resolveStack(ctx context.Context, cfg aws.Config, name string) (*stack, err
 		}
 	}
 	for _, logical := range []string{
-		"ImagesBucket", "ModerateFunctionLogGroup", "SwitchTable", "KeyboardTable",
+		"ImagesBucket", "ModerateFunctionLogGroup", "SwitchTable", "ECPartTable", "KeyboardTable",
 		"KeycapSetTable", "BuildTable", "ProfileTable", "ProfileUsernameTable",
 		"ModerateFunction", "ModerationDLQ", "ImagesDistribution",
 	} {
@@ -76,6 +76,7 @@ func resolveStack(ctx context.Context, cfg aws.Config, name string) (*stack, err
 			Keyboards:  dynamo.NewKeyboardRepository(db, ids["KeyboardTable"]),
 			Builds:     dynamo.NewBuildRepository(db, ids["BuildTable"]),
 			Switches:   dynamo.NewSwitchRepository(db, ids["SwitchTable"]),
+			ECParts:    dynamo.NewECPartRepository(db, ids["ECPartTable"]),
 			KeycapSets: dynamo.NewKeycapSetRepository(db, ids["KeycapSetTable"]),
 			Profiles:   dynamo.NewProfileRepository(db, ids["ProfileTable"], ids["ProfileUsernameTable"]),
 		},

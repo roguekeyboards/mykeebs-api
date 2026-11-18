@@ -165,7 +165,7 @@ The user-data tables have deletion protection and point-in-time recovery (PITR) 
 
 PITR restores a table as it was at any second in the last 35 days, but only into a **new** table, so you copy the data back from it.
 
-1. Find the live table's name (`SwitchTableName`, `KeyboardTableName`, `KeycapSetTableName`, `BuildTableName`, `ProfileTableName` or `ProfileUsernameTableName`):
+1. Find the live table's name (`SwitchTableName`, `ECPartTableName`, `KeyboardTableName`, `KeycapSetTableName`, `BuildTableName`, `ProfileTableName` or `ProfileUsernameTableName`):
    ```sh
    LIVE=$(aws cloudformation describe-stacks --stack-name mykeebs-api-prod \
      --query "Stacks[0].Outputs[?OutputKey=='KeyboardTableName'].OutputValue" --output text)

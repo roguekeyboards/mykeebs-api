@@ -45,6 +45,11 @@ func (s *ParseSuite) TestSwitch() {
 	s.Equal(Ref{Entity: Switch, OwnerID: "owner-1", ItemID: "sw-1", ImageID: "up-1"}, s.parse(string(key), err))
 }
 
+func (s *ParseSuite) TestECPart() {
+	key, err := repository.NewECPartImageKey(s.ctx, "part-1", "up-1")
+	s.Equal(Ref{Entity: ECPart, OwnerID: "owner-1", ItemID: "part-1", ImageID: "up-1"}, s.parse(string(key), err))
+}
+
 func (s *ParseSuite) TestKeycapKit() {
 	key, err := repository.NewKeycapKitImageKey(s.ctx, "set-1", "kit-1", "up-1")
 	s.Equal(Ref{Entity: KeycapKit, OwnerID: "owner-1", ItemID: "set-1", KitID: "kit-1", ImageID: "up-1"}, s.parse(string(key), err))
@@ -66,6 +71,7 @@ func (s *ParseSuite) TestUnknown() {
 		"keyboards/owner-1/kb-1/images/",
 		"/keyboards/owner-1/kb-1/images/img-1",
 		"switches/owner-1/sw-1/image",
+		"ec-parts/owner-1/part-1/images/up-1",
 		"keycap-sets/owner-1/set-1/kits/kit-1/image",
 		"profiles/owner-1/avatar",
 	} {

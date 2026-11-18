@@ -1,5 +1,6 @@
 // Package accountdelete deletes a user's whole account: every image they
-// own, every build, keyboard, switch and keycap set, then their profile.
+// own, every build, keyboard, switch, EC part and keycap set, then their
+// profile.
 // mykeebs-api has no account apart from the profile, so the REST profile delete
 // and MCP's delete_profile both call [Account.Delete].
 package accountdelete
@@ -34,6 +35,7 @@ type Account struct {
 	Builds     ItemStore
 	Keyboards  ItemStore
 	Switches   ItemStore
+	ECParts    ItemStore
 	KeycapSets ItemStore
 	Profiles   repository.ProfileRepository
 	// Notices is optional: nil sends none (deployments without an operator
@@ -58,6 +60,7 @@ func (a Account) Delete(ctx context.Context) error {
 		{"builds", a.Builds},
 		{"keyboards", a.Keyboards},
 		{"switches", a.Switches},
+		{"EC parts", a.ECParts},
 		{"keycap sets", a.KeycapSets},
 	} {
 		if err := items.store.DeleteAll(ctx); err != nil {

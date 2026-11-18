@@ -32,9 +32,11 @@ func (s *OwnerImagePrefixesSuite) TestCoversEveryImageKeyFormat() {
 	s.Require().NoError(err)
 	sw, err := repository.NewSwitchImageKey(ctx, "s1", "u1")
 	s.Require().NoError(err)
+	ecPart, err := repository.NewECPartImageKey(ctx, "p1", "u1")
+	s.Require().NoError(err)
 
 	prefixes := repository.OwnerImagePrefixes("alice")
-	for _, key := range []string{string(build), string(keyboard), string(kit), string(profile), string(sw)} {
+	for _, key := range []string{string(build), string(keyboard), string(kit), string(profile), string(sw), string(ecPart)} {
 		covered := false
 		for _, p := range prefixes {
 			covered = covered || strings.HasPrefix(key, p)
