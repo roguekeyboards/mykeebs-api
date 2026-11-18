@@ -35,5 +35,8 @@ const (
 	CategoryBuildStabilizerMountType    Category = "build_stabilizer_mount_type"
 	CategoryBuildCaseMountType          Category = "build_case_mount_type"
 	CategoryBuildDurometer              Category = "build_durometer"
+	CategoryBuildType                   Category = "build_type"
+	CategoryECDomeMaterial              Category = "ec_dome_material"
+	CategoryECRingMaterial              Category = "ec_ring_material"
 	CategoryImageContentType            Category = "image_content_type"
 )
