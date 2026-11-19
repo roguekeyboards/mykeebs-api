@@ -164,6 +164,10 @@ jobs:
             --stack-name "${{ steps.pr-stack.outputs.stack-name }}" \
             --query "Stacks[0].Outputs[?OutputKey=='SwitchTableName'].OutputValue" \
             --output text)
+          EC_PART_TABLE_NAME=$(aws cloudformation describe-stacks \
+            --stack-name "${{ steps.pr-stack.outputs.stack-name }}" \
+            --query "Stacks[0].Outputs[?OutputKey=='ECPartTableName'].OutputValue" \
+            --output text)
           KEYBOARD_TABLE_NAME=$(aws cloudformation describe-stacks \
             --stack-name "${{ steps.pr-stack.outputs.stack-name }}" \
             --query "Stacks[0].Outputs[?OutputKey=='KeyboardTableName'].OutputValue" \
@@ -207,6 +211,7 @@ jobs:
           {
             echo "api-url=$API_URL"
             echo "switch-table-name=$SWITCH_TABLE_NAME"
+            echo "ec-part-table-name=$EC_PART_TABLE_NAME"
             echo "keyboard-table-name=$KEYBOARD_TABLE_NAME"
             echo "keycap-set-table-name=$KEYCAP_SET_TABLE_NAME"
             echo "build-table-name=$BUILD_TABLE_NAME"
@@ -226,6 +231,7 @@ jobs:
           MYKEEBS_OIDC_AUDIENCE: ${{ steps.oidc.outputs.audience }}
           MYKEEBS_OIDC_SIGNING_KEY_PATH: ${{ steps.oidc.outputs.key-path }}
           MYKEEBS_SWITCH_TABLE_NAME: ${{ steps.stack-outputs.outputs.switch-table-name }}
+          MYKEEBS_EC_PART_TABLE_NAME: ${{ steps.stack-outputs.outputs.ec-part-table-name }}
           MYKEEBS_KEYBOARD_TABLE_NAME: ${{ steps.stack-outputs.outputs.keyboard-table-name }}
           MYKEEBS_KEYCAP_SET_TABLE_NAME: ${{ steps.stack-outputs.outputs.keycap-set-table-name }}
           MYKEEBS_BUILD_TABLE_NAME: ${{ steps.stack-outputs.outputs.build-table-name }}

@@ -306,6 +306,7 @@ func (s *HandleDeleteProfileSuite) call() error {
 		Builds:     emptyItemStore{},
 		Keyboards:  emptyItemStore{},
 		Switches:   emptyItemStore{},
+		ECParts:    emptyItemStore{},
 		KeycapSets: emptyItemStore{},
 		Profiles:   s.mockRepo,
 	}

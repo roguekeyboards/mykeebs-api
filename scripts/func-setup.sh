@@ -164,6 +164,7 @@ export MYKEEBS_API_BASE_URL='$ENDPOINT/execute-api/$API_ID/\$default'
 export MYKEEBS_DYNAMODB_ENDPOINT_URL=$ENDPOINT
 export MYKEEBS_S3_ENDPOINT_URL=$ENDPOINT
 export MYKEEBS_SWITCH_TABLE_NAME=$(out SwitchTableName)
+export MYKEEBS_EC_PART_TABLE_NAME=$(out ECPartTableName)
 export MYKEEBS_KEYBOARD_TABLE_NAME=$(out KeyboardTableName)
 export MYKEEBS_KEYCAP_SET_TABLE_NAME=$(out KeycapSetTableName)
 export MYKEEBS_BUILD_TABLE_NAME=$(out BuildTableName)

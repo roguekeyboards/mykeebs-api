@@ -4,6 +4,7 @@ package main
 // functions/api's.
 type Config struct {
 	SwitchTableName          string `env:"SWITCH_TABLE_NAME" required:""`
+	ECPartTableName          string `env:"EC_PART_TABLE_NAME" required:""`
 	KeyboardTableName        string `env:"KEYBOARD_TABLE_NAME" required:""`
 	KeycapSetTableName       string `env:"KEYCAP_SET_TABLE_NAME" required:""`
 	BuildTableName           string `env:"BUILD_TABLE_NAME" required:""`

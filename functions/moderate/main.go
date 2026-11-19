@@ -35,6 +35,7 @@ func main() {
 		Keyboards:  dynamo.NewKeyboardRepository(dynamoClient, cfg.KeyboardTableName),
 		Builds:     dynamo.NewBuildRepository(dynamoClient, cfg.BuildTableName),
 		Switches:   dynamo.NewSwitchRepository(dynamoClient, cfg.SwitchTableName),
+		ECParts:    dynamo.NewECPartRepository(dynamoClient, cfg.ECPartTableName),
 		KeycapSets: dynamo.NewKeycapSetRepository(dynamoClient, cfg.KeycapSetTableName),
 		Profiles:   dynamo.NewProfileRepository(dynamoClient, cfg.ProfileTableName, cfg.ProfileUsernameTableName),
 	}

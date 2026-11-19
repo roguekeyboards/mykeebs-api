@@ -39,6 +39,12 @@ func SwitchTableName() string {
 	return os.Getenv("MYKEEBS_SWITCH_TABLE_NAME")
 }
 
+// ECPartTableName returns the DynamoDB table name backing
+// GET /users/{userId}/ec-parts, so specs can seed fixture rows directly.
+func ECPartTableName() string {
+	return os.Getenv("MYKEEBS_EC_PART_TABLE_NAME")
+}
+
 // KeyboardTableName returns the DynamoDB table name backing
 // GET /users/{userId}/keyboards, so specs can seed fixture rows directly.
 func KeyboardTableName() string {

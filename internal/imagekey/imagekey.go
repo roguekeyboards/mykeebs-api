@@ -18,6 +18,7 @@ const (
 	Keyboard  Entity = "keyboard"
 	Build     Entity = "build"
 	Switch    Entity = "switch"
+	ECPart    Entity = "ec_part"
 	KeycapKit Entity = "keycap_kit"
 	Profile   Entity = "profile"
 )
@@ -26,7 +27,7 @@ const (
 var ErrUnknownKey = errors.New("unknown image key format")
 
 // Ref is the item and slot a key addresses. ItemID is the keyboard,
-// build, switch or keycap set id (empty for a profile); KitID is set only
+// build, switch, EC part or keycap set id (empty for a profile); KitID is set only
 // for a keycap kit. ImageID is the images map key for keyboards and
 // builds, and the upload id for the single-image slots.
 type Ref struct {
@@ -49,6 +50,8 @@ func Parse(key string) (Ref, error) {
 		return Ref{Entity: Build, OwnerID: p[1], ItemID: p[2], ImageID: p[4]}, nil
 	case match(p, "switches", "", "", "image", ""):
 		return Ref{Entity: Switch, OwnerID: p[1], ItemID: p[2], ImageID: p[4]}, nil
+	case match(p, "ec-parts", "", "", "image", ""):
+		return Ref{Entity: ECPart, OwnerID: p[1], ItemID: p[2], ImageID: p[4]}, nil
 	case match(p, "keycap-sets", "", "", "kits", "", "image", ""):
 		return Ref{Entity: KeycapKit, OwnerID: p[1], ItemID: p[2], KitID: p[4], ImageID: p[6]}, nil
 	case match(p, "profiles", "", "avatar", ""):

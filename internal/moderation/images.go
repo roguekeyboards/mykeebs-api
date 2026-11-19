@@ -15,6 +15,7 @@ type Images struct {
 	Keyboards  repository.KeyboardRepository
 	Builds     repository.BuildRepository
 	Switches   repository.SwitchRepository
+	ECParts    repository.ECPartRepository
 	KeycapSets repository.KeycapSetRepository
 	Profiles   repository.ProfileRepository
 }
@@ -44,6 +45,12 @@ func (i *Images) Status(ctx context.Context, ref imagekey.Ref, key string) (stat
 			return absent(err)
 		}
 		return sw.ImageStatus.Effective(), sw.ImagePath != nil && string(*sw.ImagePath) == key, nil
+	case imagekey.ECPart:
+		p, err := i.ECParts.Get(ctx, ref.OwnerID, ref.ItemID)
+		if err != nil {
+			return absent(err)
+		}
+		return p.ImageStatus.Effective(), p.ImagePath != nil && string(*p.ImagePath) == key, nil
 	case imagekey.KeycapKit:
 		set, err := i.KeycapSets.Get(ctx, ref.OwnerID, ref.ItemID)
 		if err != nil {
@@ -80,6 +87,8 @@ func (i *Images) SetStatus(ctx context.Context, ref imagekey.Ref, key string, fr
 		return i.Builds.SetImageStatus(ctx, ref.OwnerID, ref.ItemID, ref.ImageID, repository.BuildImageKey(key), from, to, reason)
 	case imagekey.Switch:
 		return i.Switches.SetImageStatus(ctx, ref.OwnerID, ref.ItemID, repository.SwitchImageKey(key), from, to, reason)
+	case imagekey.ECPart:
+		return i.ECParts.SetImageStatus(ctx, ref.OwnerID, ref.ItemID, repository.ECPartImageKey(key), from, to, reason)
 	case imagekey.KeycapKit:
 		return i.KeycapSets.SetKitImageStatus(ctx, ref.OwnerID, ref.ItemID, ref.KitID, repository.KeycapKitImageKey(key), from, to, reason)
 	case imagekey.Profile:

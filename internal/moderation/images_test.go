@@ -17,6 +17,7 @@ type ImagesSuite struct {
 	keyboards  *repomocks.MockKeyboardRepository
 	builds     *repomocks.MockBuildRepository
 	switches   *repomocks.MockSwitchRepository
+	ecParts    *repomocks.MockECPartRepository
 	keycapSets *repomocks.MockKeycapSetRepository
 	profiles   *repomocks.MockProfileRepository
 	images     *Images
@@ -30,9 +31,10 @@ func (s *ImagesSuite) SetupTest() {
 	s.keyboards = repomocks.NewMockKeyboardRepository(s.T())
 	s.builds = repomocks.NewMockBuildRepository(s.T())
 	s.switches = repomocks.NewMockSwitchRepository(s.T())
+	s.ecParts = repomocks.NewMockECPartRepository(s.T())
 	s.keycapSets = repomocks.NewMockKeycapSetRepository(s.T())
 	s.profiles = repomocks.NewMockProfileRepository(s.T())
-	s.images = &Images{Keyboards: s.keyboards, Builds: s.builds, Switches: s.switches, KeycapSets: s.keycapSets, Profiles: s.profiles}
+	s.images = &Images{Keyboards: s.keyboards, Builds: s.builds, Switches: s.switches, ECParts: s.ecParts, KeycapSets: s.keycapSets, Profiles: s.profiles}
 }
 
 func (s *ImagesSuite) status(key string) (repository.ImageStatus, bool) {
@@ -102,6 +104,26 @@ func (s *ImagesSuite) TestSwitch_Replaced_NotCurrent() {
 	s.switches.EXPECT().Get(mock.Anything, "alice", "sw1").Return(&repository.Switch{ImagePath: &path}, nil)
 
 	_, current := s.status("switches/alice/sw1/image/up1")
+	s.False(current)
+}
+
+func (s *ImagesSuite) TestECPart() {
+	key := "ec-parts/alice/p1/image/up1"
+	path := repository.ECPartImageKey(key)
+	s.ecParts.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ImagePath: &path, ImageStatus: repository.ImageStatusPending}, nil)
+	s.ecParts.EXPECT().SetImageStatus(mock.Anything, "alice", "p1", path, repository.ImageStatusPending, repository.ImageStatusRejected, mock.Anything).Return(true, nil)
+
+	status, current := s.status(key)
+	s.True(current)
+	s.Equal(repository.ImageStatusPending, status)
+	s.True(s.setStatus(key))
+}
+
+func (s *ImagesSuite) TestECPart_Replaced_NotCurrent() {
+	path := repository.ECPartImageKey("ec-parts/alice/p1/image/up2")
+	s.ecParts.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ImagePath: &path}, nil)
+
+	_, current := s.status("ec-parts/alice/p1/image/up1")
 	s.False(current)
 }
 

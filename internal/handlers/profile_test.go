@@ -452,6 +452,7 @@ func (s *DeleteProfileSuite) SetupTest() {
 		Builds:     emptyItemStore{},
 		Keyboards:  emptyItemStore{},
 		Switches:   emptyItemStore{},
+		ECParts:    emptyItemStore{},
 		KeycapSets: emptyItemStore{},
 		Profiles:   s.mockRepo,
 	})

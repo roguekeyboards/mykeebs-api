@@ -38,6 +38,12 @@ packages:
       SwitchImageStore:
         config:
           structname: 'MockSwitchImageStore'
+      ECPartRepository:
+        config:
+          structname: 'MockECPartRepository'
+      ECPartImageStore:
+        config:
+          structname: 'MockECPartImageStore'
       ProfileRepository:
         config:
           structname: 'MockProfileRepository'
