@@ -21,7 +21,7 @@ type FieldError struct {
 
 // ValidateReferences also checks that Plate and PCB are ids of the
 // referenced keyboard's plates and PCBs. It doesn't report an unset/empty Keyboard or
-// empty Switches/KeycapKits entry - required/minLength constraints
+// empty Switches/ECParts/KeycapKits entry - required/minLength constraints
 // upstream already guard those.
 //
 // "Doesn't exist" and "exists but owned by someone else" are reported
@@ -34,6 +34,7 @@ func ValidateReferences(
 	b repository.Build,
 	keyboardRepo repository.KeyboardRepository,
 	switchRepo repository.SwitchRepository,
+	ecPartRepo repository.ECPartRepository,
 	keycapSetRepo repository.KeycapSetRepository,
 ) ([]FieldError, error) {
 	var fieldErrs []FieldError
@@ -78,6 +79,23 @@ func ValidateReferences(
 			})
 		case err != nil:
 			return nil, fmt.Errorf("checking switch %q: %w", entry.Switch, err)
+		}
+	}
+
+	for i, entry := range b.ECParts {
+		if entry.ECPart == "" {
+			continue
+		}
+
+		_, err := ecPartRepo.Get(ctx, ownerID, entry.ECPart)
+		switch {
+		case errors.Is(err, repository.ErrNotFound):
+			fieldErrs = append(fieldErrs, FieldError{
+				Field: fmt.Sprintf("ec_parts[%d].ec_part", i), Value: entry.ECPart,
+				Reason: "does not reference an EC part in your collection",
+			})
+		case err != nil:
+			return nil, fmt.Errorf("checking EC part %q: %w", entry.ECPart, err)
 		}
 	}
 

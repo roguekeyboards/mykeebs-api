@@ -8,8 +8,9 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
 
-// ValidateBuild does not check whether b.Keyboard/Switches/KeycapKits
-// reference entities that actually exist - that needs live repository
+// ValidateBuild treats an empty BuildType as MX. It does not check whether
+// b.Keyboard/Switches/ECParts/KeycapKits reference entities that actually
+// exist - that needs live repository
 // data, not this package's static lookup-category model, so it's handled
 // separately by
 // [github.com/roguekeyboards/mykeebs-api/internal/buildrefs.ValidateReferences].
@@ -22,6 +23,8 @@ func ValidateBuild(ctx context.Context, b repository.Build) []FieldError {
 		checks = append(checks, fieldCheck{Field: field, Value: *value, Category: category})
 	}
 
+	buildType := b.EffectiveBuildType()
+	add("build_type", &buildType, CategoryBuildType)
 	if b.Stabs != nil {
 		add("stabs.name", b.Stabs.Name, CategoryBuildStabilizer)
 		add("stabs.mount_type", b.Stabs.MountType, CategoryBuildStabilizerMountType)
@@ -33,7 +36,21 @@ func ValidateBuild(ctx context.Context, b repository.Build) []FieldError {
 		fieldErrs = append(fieldErrs, validateBuildCaseMountType(ctx, *b.CaseMountType)...)
 	}
 
-	return fieldErrs
+	return append(fieldErrs, validateBuildParts(b)...)
+}
+
+func validateBuildParts(b repository.Build) []FieldError {
+	buildType := b.EffectiveBuildType()
+	if buildType == repository.BuildTypeEC {
+		if len(b.Switches) > 0 {
+			return []FieldError{{Field: "switches", Reason: "not allowed when build_type is EC; list ec_parts instead"}}
+		}
+		return nil
+	}
+	if len(b.ECParts) > 0 {
+		return []FieldError{{Field: "ec_parts", Reason: fmt.Sprintf("only allowed when build_type is EC, not %s; list switches instead", buildType)}}
+	}
+	return nil
 }
 
 // validateBuildCaseMountType checks case_mount_type.type against

@@ -6,6 +6,12 @@ type BuildSwitchEntry struct {
 	Count  int    `json:"count" jsonschema:"how many of this switch are installed"`
 }
 
+// BuildECPartEntry is one entry in BuildInput.ECParts.
+type BuildECPartEntry struct {
+	ECPart string `json:"ec_part" jsonschema:"the id of an EC part in the caller's collection"`
+	Count  int    `json:"count" jsonschema:"how many of this part are installed"`
+}
+
 // BuildKeycapKitEntry is one entry in BuildInput.KeycapKits.
 type BuildKeycapKitEntry struct {
 	KeycapSet string `json:"keycap_set" jsonschema:"the id of a KeycapSet resource in the caller's collection"`
@@ -37,12 +43,14 @@ type BuildCaseMountType struct {
 // through their own tools, never carried in a build write.
 type BuildInput struct {
 	Keyboard      string                `json:"keyboard" jsonschema:"the id of a Keyboard resource in the caller's collection"`
+	BuildType     string                `json:"build_type,omitempty" jsonschema:"the switch platform: an approved build_type lookup value, MX when omitted; an EC build lists ec_parts and no switches, any other lists switches and no ec_parts"`
 	Plate         *string               `json:"plate,omitempty" jsonschema:"the id of the keyboard's plate that's installed; must be one of the keyboard's plates"`
 	PCB           *string               `json:"pcb,omitempty" jsonschema:"the id of the keyboard's PCB that's installed; must be one of the keyboard's pcbs"`
 	CaseMountType *BuildCaseMountType   `json:"case_mount_type,omitempty" jsonschema:"the case's mounting style"`
 	Stabs         *BuildStabsInput      `json:"stabs,omitempty" jsonschema:"the stabilizers used"`
 	Foam          *bool                 `json:"foam,omitempty" jsonschema:"whether the build has case foam"`
 	Switches      []BuildSwitchEntry    `json:"switches,omitempty" jsonschema:"the switches used and how many of each"`
+	ECParts       []BuildECPartEntry    `json:"ec_parts,omitempty" jsonschema:"the EC parts used and how many of each"`
 	KeycapKits    []BuildKeycapKitEntry `json:"keycap_kits,omitempty" jsonschema:"the keycap kits used"`
 	BuildDate     *string               `json:"build_date,omitempty" jsonschema:"when the build was assembled (YYYY-MM-DD)"`
 	Notes         *string               `json:"notes,omitempty" jsonschema:"free-form notes"`
@@ -54,12 +62,14 @@ type BuildInput struct {
 type Build struct {
 	ID            string                `json:"id" jsonschema:"the build's unique id"`
 	Keyboard      string                `json:"keyboard" jsonschema:"the id of the Keyboard resource this build is based on"`
+	BuildType     string                `json:"build_type" jsonschema:"the switch platform, e.g. MX or EC"`
 	Plate         *string               `json:"plate,omitempty" jsonschema:"the id of the keyboard's plate that's installed"`
 	PCB           *string               `json:"pcb,omitempty" jsonschema:"the id of the keyboard's PCB that's installed"`
 	CaseMountType *BuildCaseMountType   `json:"case_mount_type,omitempty" jsonschema:"the case's mounting style"`
 	Stabs         *BuildStabs           `json:"stabs,omitempty" jsonschema:"the stabilizers used"`
 	Foam          *bool                 `json:"foam,omitempty" jsonschema:"whether the build has case foam"`
 	Switches      []BuildSwitchEntry    `json:"switches,omitempty" jsonschema:"the switches used and how many of each"`
+	ECParts       []BuildECPartEntry    `json:"ec_parts,omitempty" jsonschema:"the EC parts used and how many of each"`
 	KeycapKits    []BuildKeycapKitEntry `json:"keycap_kits,omitempty" jsonschema:"the keycap kits used"`
 	BuildDate     *string               `json:"build_date,omitempty" jsonschema:"when the build was assembled (YYYY-MM-DD)"`
 	Notes         *string               `json:"notes,omitempty" jsonschema:"free-form notes"`
@@ -126,10 +136,11 @@ type ListBuildsOutput struct {
 type BuildSummary struct {
 	ID         string                `json:"id" jsonschema:"the build's unique id"`
 	KeyboardID string                `json:"keyboard_id" jsonschema:"the id of the referenced Keyboard resource; useful for grouping builds by keyboard"`
+	BuildType  string                `json:"build_type" jsonschema:"the switch platform, e.g. MX or EC"`
 	BuildDate  *string               `json:"build_date,omitempty" jsonschema:"when the build was assembled (YYYY-MM-DD)"`
 	HasImage   bool                  `json:"has_image" jsonschema:"whether this build has any images you can see (its owner sees every image, anyone else only approved ones)"`
 	Keyboard   *BuildSummaryKeyboard `json:"keyboard,omitempty" jsonschema:"the build's keyboard, denormalized for display"`
-	TotalCost  *float64              `json:"total_cost,omitempty" jsonschema:"total cost of the build's priced components (keyboard, switches, keycap kits, stabs); components with no known price are excluded rather than treated as zero, so this may undercount; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
+	TotalCost  *float64              `json:"total_cost,omitempty" jsonschema:"total cost of the build's priced components (keyboard, switches or EC parts, keycap kits, stabs); components with no known price are excluded rather than treated as zero, so this may undercount; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
 	Currency   *string               `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for total_cost; present exactly when total_cost is"`
 	Visibility *string               `json:"visibility,omitempty" jsonschema:"who can read this build; one of \"public\", \"authenticated\", \"private\"; only ever present for the build's owner"`
 }

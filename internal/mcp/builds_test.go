@@ -30,6 +30,7 @@ type HandleCreateBuildSuite struct {
 	mockBuilds    *mocks.MockBuildRepository
 	mockKeyboards *mocks.MockKeyboardRepository
 	mockSwitches  *mocks.MockSwitchRepository
+	mockECParts   *mocks.MockECPartRepository
 	mockKeycaps   *mocks.MockKeycapSetRepository
 }
 
@@ -44,11 +45,12 @@ func (s *HandleCreateBuildSuite) SetupTest() {
 	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
 	s.mockKeyboards = mocks.NewMockKeyboardRepository(s.T())
 	s.mockSwitches = mocks.NewMockSwitchRepository(s.T())
+	s.mockECParts = mocks.NewMockECPartRepository(s.T())
 	s.mockKeycaps = mocks.NewMockKeycapSetRepository(s.T())
 }
 
 func (s *HandleCreateBuildSuite) handler() mcp.ToolHandlerFor[schema.CreateBuildInput, schema.CreateBuildOutput] {
-	return handleCreateBuild(s.mockBuilds, s.mockKeyboards, s.mockSwitches, s.mockKeycaps, s.mockPrefs)
+	return handleCreateBuild(s.mockBuilds, s.mockKeyboards, s.mockSwitches, s.mockECParts, s.mockKeycaps, s.mockPrefs)
 }
 
 // stubOwnedKeyboard arranges keyboardRepo.Get to report "kb-1" as existing
@@ -288,6 +290,7 @@ type HandleUpdateBuildSuite struct {
 	mockBuilds    *mocks.MockBuildRepository
 	mockKeyboards *mocks.MockKeyboardRepository
 	mockSwitches  *mocks.MockSwitchRepository
+	mockECParts   *mocks.MockECPartRepository
 	mockKeycaps   *mocks.MockKeycapSetRepository
 }
 
@@ -302,11 +305,12 @@ func (s *HandleUpdateBuildSuite) SetupTest() {
 	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
 	s.mockKeyboards = mocks.NewMockKeyboardRepository(s.T())
 	s.mockSwitches = mocks.NewMockSwitchRepository(s.T())
+	s.mockECParts = mocks.NewMockECPartRepository(s.T())
 	s.mockKeycaps = mocks.NewMockKeycapSetRepository(s.T())
 }
 
 func (s *HandleUpdateBuildSuite) handler() mcp.ToolHandlerFor[schema.UpdateBuildInput, schema.UpdateBuildOutput] {
-	return handleUpdateBuild(s.mockBuilds, s.mockKeyboards, s.mockSwitches, s.mockKeycaps, s.mockPrefs)
+	return handleUpdateBuild(s.mockBuilds, s.mockKeyboards, s.mockSwitches, s.mockECParts, s.mockKeycaps, s.mockPrefs)
 }
 
 func (s *HandleUpdateBuildSuite) stubOwnedKeyboard() {
@@ -421,6 +425,7 @@ type HandleListBuildsSuite struct {
 	mockBuilds    *mocks.MockBuildRepository
 	mockKeyboards *mocks.MockKeyboardRepository
 	mockSwitches  *mocks.MockSwitchRepository
+	mockECParts   *mocks.MockECPartRepository
 	mockKeycaps   *mocks.MockKeycapSetRepository
 	mockPrefs     *mocks.MockPreferencesReader
 }
@@ -433,6 +438,7 @@ func (s *HandleListBuildsSuite) SetupTest() {
 	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
 	s.mockKeyboards = mocks.NewMockKeyboardRepository(s.T())
 	s.mockSwitches = mocks.NewMockSwitchRepository(s.T())
+	s.mockECParts = mocks.NewMockECPartRepository(s.T())
 	s.mockKeycaps = mocks.NewMockKeycapSetRepository(s.T())
 	s.mockPrefs = mocks.NewMockPreferencesReader(s.T())
 }
@@ -443,7 +449,7 @@ func (s *HandleListBuildsSuite) handler() mcp.ToolHandlerFor[schema.ListBuildsIn
 		Return(repository.ProfilePreferences{}, nil).
 		Maybe()
 
-	return handleListBuilds(s.mockBuilds, s.mockKeyboards, s.mockSwitches, s.mockKeycaps, s.mockPrefs)
+	return handleListBuilds(s.mockBuilds, s.mockKeyboards, s.mockSwitches, s.mockECParts, s.mockKeycaps, s.mockPrefs)
 }
 
 func (s *HandleListBuildsSuite) TestEmpty_ReturnsEmptyList() {
@@ -1224,4 +1230,75 @@ func (s *HandleAddBuildImageSuite) TestReserveError_ReturnsFailed() {
 	})
 
 	s.Require().ErrorIs(err, errMutationFailed)
+}
+
+func (s *HandleCreateBuildSuite) TestECBuild_ValidatesPartsAndStoresThem() {
+	s.stubOwnedKeyboard()
+	s.mockECParts.EXPECT().Get(mock.Anything, callerID, "p-1").Return(&repository.ECPart{ID: "p-1"}, nil)
+	s.mockBuilds.EXPECT().
+		Create(mock.Anything, mock.MatchedBy(func(b repository.Build) bool {
+			return b.BuildType == "EC" && len(b.ECParts) == 1 && b.ECParts[0].ECPart == "p-1"
+		})).
+		RunAndReturn(func(_ context.Context, b repository.Build) (*repository.Build, error) { return &b, nil })
+
+	in := validBuildInput()
+	in.BuildType = "EC"
+	in.ECParts = []schema.BuildECPartEntry{{ECPart: "p-1", Count: 60}}
+
+	_, out, err := s.handler()(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
+
+	s.Require().NoError(err)
+	s.Equal("EC", out.Build.BuildType)
+}
+
+func (s *HandleCreateBuildSuite) TestInvalidECPartInputs_ReturnErrors() {
+	for name, tc := range map[string]struct {
+		edit func(*schema.BuildInput)
+		want string
+	}{
+		"zero count": {func(in *schema.BuildInput) {
+			in.BuildType, in.ECParts = "EC", []schema.BuildECPartEntry{{ECPart: "p-1"}}
+		}, "ec_parts[0].count"},
+		"ec parts on MX": {func(in *schema.BuildInput) { in.ECParts = []schema.BuildECPartEntry{{ECPart: "p-1", Count: 1}} }, "ec_parts"},
+		"switches on EC": {func(in *schema.BuildInput) {
+			in.BuildType, in.Switches = "EC", []schema.BuildSwitchEntry{{Switch: "sw-1", Count: 1}}
+		}, "switches"},
+		"unknown build type": {func(in *schema.BuildInput) { in.BuildType = "Topre" }, "build_type"},
+	} {
+		in := validBuildInput()
+		tc.edit(&in)
+
+		_, _, err := s.handler()(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
+
+		s.ErrorContains(err, tc.want, name)
+	}
+}
+
+func (s *HandleCreateBuildSuite) TestMissingECPart_ReturnsError() {
+	s.stubOwnedKeyboard()
+	s.mockECParts.EXPECT().Get(mock.Anything, callerID, "p-1").Return(nil, repository.ErrNotFound)
+
+	in := validBuildInput()
+	in.BuildType = "EC"
+	in.ECParts = []schema.BuildECPartEntry{{ECPart: "p-1", Count: 60}}
+
+	_, _, err := s.handler()(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
+
+	s.ErrorContains(err, "ec_parts[0].ec_part")
+}
+
+func (s *HandleCreateBuildSuite) TestBlankReferenceIDs_ReturnFieldErrors() {
+	for want, edit := range map[string]func(*schema.BuildInput){
+		"switches[0].switch must not be blank": func(in *schema.BuildInput) { in.Switches = []schema.BuildSwitchEntry{{Switch: " ", Count: 1}} },
+		"ec_parts[0].ec_part must not be blank": func(in *schema.BuildInput) {
+			in.BuildType, in.ECParts = "EC", []schema.BuildECPartEntry{{ECPart: "", Count: 1}}
+		},
+	} {
+		in := validBuildInput()
+		edit(&in)
+
+		_, _, err := s.handler()(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
+
+		s.EqualError(err, want)
+	}
 }

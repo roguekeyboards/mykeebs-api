@@ -20,8 +20,10 @@ type Build struct {
 	KitImages      repository.KeycapKitImageStore
 	KeyboardImages repository.KeyboardImageStore
 	SwitchImages   repository.SwitchImageStore
+	ECPartImages   repository.ECPartImageStore
 	KeyboardRepo   repository.KeyboardRepository
 	SwitchRepo     repository.SwitchRepository
+	ECPartRepo     repository.ECPartRepository
 	KeycapSetRepo  repository.KeycapSetRepository
 }
 
@@ -60,6 +62,11 @@ func (b Build) ToAPI(ctx context.Context, build repository.Build, isOwner bool, 
 		return api.Build{}, err
 	}
 
+	ecParts, ecPartsCost, err := b.ecPartEntriesResolvedToAPI(ctx, build.UserID, build.ECParts, isOwner)
+	if err != nil {
+		return api.Build{}, err
+	}
+
 	keycapSets, keycapKitsCost, err := b.keycapSetRefsToAPI(ctx, build.UserID, build.KeycapKits, isOwner)
 	if err != nil {
 		return api.Build{}, err
@@ -68,12 +75,14 @@ func (b Build) ToAPI(ctx context.Context, build repository.Build, isOwner bool, 
 	out := api.Build{
 		Id:            build.ID,
 		Keyboard:      keyboardRef,
+		BuildType:     build.EffectiveBuildType(),
 		Plate:         b.plateRefToAPI(plate),
 		Pcb:           b.pcbRefToAPI(pcb),
 		CaseMountType: b.caseMountTypeToAPI(build.CaseMountType),
 		Stabs:         b.stabsToAPI(build.Stabs, isOwner, ownerPrefs),
 		Foam:          build.Foam,
 		Switches:      switches,
+		EcParts:       ecParts,
 		KeycapSets:    keycapSets,
 		BuildDate:     buildDate,
 		Notes:         build.Notes,
@@ -87,7 +96,7 @@ func (b Build) ToAPI(ctx context.Context, build repository.Build, isOwner bool, 
 			stabsPrice = build.Stabs.Price
 		}
 		out.TotalCost = roundCents(sumKnownCosts(
-			kb.Purchase.Price, plate.Price(), pcb.Price(), switchesCost, keycapKitsCost, stabsPrice))
+			kb.Purchase.Price, plate.Price(), pcb.Price(), switchesCost, ecPartsCost, keycapKitsCost, stabsPrice))
 	}
 	out.Currency = ownerPrefs.CurrencyFor(out.TotalCost)
 
@@ -103,12 +112,14 @@ func (b Build) ToAPI(ctx context.Context, build repository.Build, isOwner bool, 
 func (b Build) ToRepo(in api.BuildInput) repository.Build {
 	return repository.Build{
 		Keyboard:      in.Keyboard,
+		BuildType:     in.BuildType,
 		Plate:         in.Plate,
 		PCB:           in.Pcb,
 		CaseMountType: b.caseMountTypeToRepo(in.CaseMountType),
 		Stabs:         b.stabsToRepo(in.Stabs),
 		Foam:          in.Foam,
 		Switches:      b.switchEntriesToRepo(in.Switches),
+		ECParts:       b.ecPartEntriesToRepo(in.EcParts),
 		KeycapKits:    b.keycapKitEntriesToRepo(in.KeycapKits),
 		BuildDate:     b.dateToRepo(in.BuildDate),
 		Notes:         in.Notes,
@@ -214,6 +225,19 @@ func (b Build) switchEntriesToRepo(entries *[]api.BuildSwitchEntry) []repository
 	out := make([]repository.BuildSwitchEntry, len(*entries))
 	for i, e := range *entries {
 		out[i] = repository.BuildSwitchEntry{Switch: e.Switch, Count: e.Count}
+	}
+
+	return out
+}
+
+func (b Build) ecPartEntriesToRepo(entries *[]api.BuildECPartEntry) []repository.BuildECPartEntry {
+	if entries == nil {
+		return nil
+	}
+
+	out := make([]repository.BuildECPartEntry, len(*entries))
+	for i, e := range *entries {
+		out[i] = repository.BuildECPartEntry{ECPart: e.EcPart, Count: e.Count}
 	}
 
 	return out
@@ -488,4 +512,60 @@ func (b Build) imagesToAPI(ctx context.Context, images []repository.BuildImage, 
 // download.
 func servedInRef(status repository.ImageStatus, isOwner bool) bool {
 	return status.VisibleTo(isOwner) && status.Downloadable()
+}
+
+// ecPartEntriesResolvedToAPI prices each entry at (Price/Quantity)*Count,
+// leaving out entries where either is unknown.
+func (b Build) ecPartEntriesResolvedToAPI(
+	ctx context.Context, ownerID string, entries []repository.BuildECPartEntry, isOwner bool,
+) (*[]api.BuildECPartEntryResolved, *float64, error) {
+	if entries == nil {
+		return nil, nil, nil //nolint:nilnil // no EC parts is a valid, expected result
+	}
+
+	out := make([]api.BuildECPartEntryResolved, len(entries))
+	costs := make([]*float64, len(entries))
+	errs := make([]error, len(entries))
+
+	var wg sync.WaitGroup
+	for i, e := range entries {
+		wg.Go(func() {
+			p, err := b.ECPartRepo.Get(ctx, ownerID, e.ECPart)
+			if err != nil {
+				errs[i] = fmt.Errorf("getting EC part %q: %w", e.ECPart, err)
+				return
+			}
+
+			out[i] = api.BuildECPartEntryResolved{
+				Count: e.Count,
+				EcPart: api.BuildECPartRef{
+					Id:       p.ID,
+					Brand:    p.Brand,
+					Name:     p.Name,
+					PartType: api.ECPartType(p.PartType),
+				},
+			}
+
+			if p.ImagePath != nil && servedInRef(p.ImageStatus, isOwner) {
+				url, err := b.ECPartImages.SignGet(ctx, *p.ImagePath)
+				if err != nil {
+					errs[i] = fmt.Errorf("signing EC part image for EC part %q: %w", e.ECPart, err)
+					return
+				}
+				out[i].EcPart.ImageUrl = &url
+			}
+
+			if p.Purchase.Price != nil && p.Purchase.Quantity != nil && *p.Purchase.Quantity != 0 {
+				entryCost := *p.Purchase.Price / float64(*p.Purchase.Quantity) * float64(e.Count)
+				costs[i] = &entryCost
+			}
+		})
+	}
+	wg.Wait()
+
+	if err := errors.Join(errs...); err != nil {
+		return nil, nil, err
+	}
+
+	return &out, sumKnownCosts(costs...), nil
 }

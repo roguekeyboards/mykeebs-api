@@ -218,3 +218,49 @@ func (s *BuildRefSuite) TestFindBuildsReferencingKeycapSet_UsesBeginsWithPrefix(
 	s.Require().NoError(err)
 	s.Empty(buildIDs)
 }
+
+func (s *BuildRefSuite) TestDeriveRefMarkers_ECParts() {
+	b := repository.Build{
+		ID:       "b1",
+		Keyboard: "kb1",
+		ECParts:  []repository.BuildECPartEntry{{ECPart: "domes", Count: 60}, {ECPart: "sliders", Count: 60}},
+	}
+
+	markers := deriveRefMarkers("alice", b)
+
+	s.Require().Len(markers, 3)
+	s.Contains(markers, refMarker{ownerID: "alice", refType: "ec_part", refID: "domes", buildID: "b1"})
+	s.Contains(markers, refMarker{ownerID: "alice", refType: "ec_part", refID: "sliders", buildID: "b1"})
+}
+
+func (s *BuildRefSuite) TestFindBuildsReferencingECPart_QueriesGSIByOwnerAndECPartID() {
+	mockClient := mocks.NewMockDynamoAPI(s.T())
+	repo := &BuildRepository{client: mockClient, tableName: "build-table"}
+
+	mockClient.EXPECT().
+		Query(mock.Anything, mock.MatchedBy(func(in *dynamodb.QueryInput) bool {
+			return *in.TableName == "build-table" && *in.IndexName == "BuildRefIndex" &&
+				in.ExpressionAttributeValues[":1"].(*types.AttributeValueMemberS).Value == "p1"
+		})).
+		Return(&dynamodb.QueryOutput{
+			Items: []map[string]types.AttributeValue{{"build_id": &types.AttributeValueMemberS{Value: "b1"}}},
+		}, nil)
+
+	buildIDs, err := repo.FindBuildsReferencingECPart(s.T().Context(), "alice", "p1")
+
+	s.Require().NoError(err)
+	s.Equal([]string{"b1"}, buildIDs)
+}
+
+func (s *BuildRefSuite) TestDeriveRefMarkers_RepeatedPartGetsOneMarker() {
+	b := repository.Build{
+		ID:       "b1",
+		Switches: []repository.BuildSwitchEntry{{Switch: "sw1", Count: 30}, {Switch: "sw1", Count: 30}},
+		ECParts:  []repository.BuildECPartEntry{{ECPart: "p1", Count: 30}, {ECPart: "p1", Count: 30}},
+	}
+
+	s.ElementsMatch([]refMarker{
+		{ownerID: "alice", refType: "switch", refID: "sw1", buildID: "b1"},
+		{ownerID: "alice", refType: "ec_part", refID: "p1", buildID: "b1"},
+	}, deriveRefMarkers("alice", b))
+}

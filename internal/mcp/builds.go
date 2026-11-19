@@ -34,7 +34,7 @@ var errNoCaller = errors.New("no caller identity on context")
 
 var createBuildTool = &mcp.Tool{
 	Name:        "create_build",
-	Description: "Adds a build to your own collection, recording an actual keyboard you've assembled from a keyboard, switches, keycap kit(s), and stabilizer/mount/foam details. keyboard must be the id of a Keyboard resource you own, switches[].switch must each be the id of a Switch resource you own, and keycap_kits[].keycap_set/kit must each name a KeycapSet you own and one of its kits, and plate and pcb, if set, must be the id of one of that keyboard's plates and pcbs (call get_keyboard to see them) - all are verified to exist and belong to you. stabs.name, stabs.mount_type, case_mount_type.type, and case_mount_type.durometer must be approved lookup values - call list_lookups and get_lookup to see them. Images aren't set here - a future tool adds them afterward.",
+	Description: "Adds a build to your own collection, recording an actual keyboard you've assembled from a keyboard, switches or EC parts, keycap kit(s), and stabilizer/mount/foam details. build_type is an approved build_type lookup value (MX when omitted): an EC build lists ec_parts and no switches, any other lists switches and no ec_parts. keyboard must be the id of a Keyboard resource you own, switches[].switch must each be the id of a Switch resource you own, ec_parts[].ec_part must each be the id of an EC part you own, and keycap_kits[].keycap_set/kit must each name a KeycapSet you own and one of its kits, and plate and pcb, if set, must be the id of one of that keyboard's plates and pcbs (call get_keyboard to see them) - all are verified to exist and belong to you. stabs.name, stabs.mount_type, case_mount_type.type, and case_mount_type.durometer must be approved lookup values - call list_lookups and get_lookup to see them. Images aren't set here - a future tool adds them afterward.",
 }
 
 var getBuildTool = &mcp.Tool{
@@ -49,7 +49,7 @@ var listBuildsTool = &mcp.Tool{
 
 var updateBuildTool = &mcp.Tool{
 	Name:        "update_build",
-	Description: "Replaces every field of one of your own builds - fields omitted from the call are cleared, not left unchanged. keyboard must be the id of a Keyboard resource you own, switches[].switch must each be the id of a Switch resource you own, and keycap_kits[].keycap_set/kit must each name a KeycapSet you own and one of its kits, and plate and pcb, if set, must be the id of one of that keyboard's plates and pcbs (call get_keyboard to see them) - all are verified to exist and belong to you. stabs.name, stabs.mount_type, case_mount_type.type, and case_mount_type.durometer must be approved lookup values - call list_lookups and get_lookup to see them. Images are managed separately and are unaffected by this call.",
+	Description: "Replaces every field of one of your own builds - fields omitted from the call are cleared, not left unchanged; send build_type again for an EC build, since an omitted build_type means MX. An EC build lists ec_parts and no switches, any other lists switches and no ec_parts. keyboard must be the id of a Keyboard resource you own, switches[].switch must each be the id of a Switch resource you own, ec_parts[].ec_part must each be the id of an EC part you own, and keycap_kits[].keycap_set/kit must each name a KeycapSet you own and one of its kits, and plate and pcb, if set, must be the id of one of that keyboard's plates and pcbs (call get_keyboard to see them) - all are verified to exist and belong to you. stabs.name, stabs.mount_type, case_mount_type.type, and case_mount_type.durometer must be approved lookup values - call list_lookups and get_lookup to see them. Images are managed separately and are unaffected by this call.",
 }
 
 var deleteBuildTool = &mcp.Tool{
@@ -76,6 +76,7 @@ func handleListBuilds(
 	buildRepo repository.BuildRepository,
 	keyboardRepo repository.KeyboardRepository,
 	switchRepo repository.SwitchRepository,
+	ecPartRepo repository.ECPartRepository,
 	keycapSetRepo repository.KeycapSetRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.ListBuildsInput, schema.ListBuildsOutput] {
@@ -106,6 +107,7 @@ func handleListBuilds(
 		mapper := repomcp.Build{
 			KeyboardRepo:  keyboardRepo,
 			SwitchRepo:    switchRepo,
+			ECPartRepo:    ecPartRepo,
 			KeycapSetRepo: keycapSetRepo,
 		}
 
@@ -179,6 +181,7 @@ func handleCreateBuild(
 	buildRepo repository.BuildRepository,
 	keyboardRepo repository.KeyboardRepository,
 	switchRepo repository.SwitchRepository,
+	ecPartRepo repository.ECPartRepository,
 	keycapSetRepo repository.KeycapSetRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.CreateBuildInput, schema.CreateBuildOutput] {
@@ -193,7 +196,7 @@ func handleCreateBuild(
 			return nil, schema.CreateBuildOutput{}, errNoCaller
 		}
 
-		fieldErrs, err := buildrefs.ValidateReferences(ctx, ownerID, b, keyboardRepo, switchRepo, keycapSetRepo)
+		fieldErrs, err := buildrefs.ValidateReferences(ctx, ownerID, b, keyboardRepo, switchRepo, ecPartRepo, keycapSetRepo)
 		if err != nil {
 			log.FromContext(ctx).Error("validating build references", log.Error, err)
 			return nil, schema.CreateBuildOutput{}, errors.New("failed to validate build")
@@ -235,6 +238,7 @@ func handleUpdateBuild(
 	buildRepo repository.BuildRepository,
 	keyboardRepo repository.KeyboardRepository,
 	switchRepo repository.SwitchRepository,
+	ecPartRepo repository.ECPartRepository,
 	keycapSetRepo repository.KeycapSetRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateBuildInput, schema.UpdateBuildOutput] {
@@ -253,7 +257,7 @@ func handleUpdateBuild(
 			return nil, schema.UpdateBuildOutput{}, errNoCaller
 		}
 
-		fieldErrs, err := buildrefs.ValidateReferences(ctx, ownerID, b, keyboardRepo, switchRepo, keycapSetRepo)
+		fieldErrs, err := buildrefs.ValidateReferences(ctx, ownerID, b, keyboardRepo, switchRepo, ecPartRepo, keycapSetRepo)
 		if err != nil {
 			log.FromContext(ctx).Error("validating build references", log.Error, err)
 			return nil, schema.UpdateBuildOutput{}, errors.New("failed to validate build")
@@ -299,8 +303,19 @@ func validatedBuild(ctx context.Context, in schema.BuildInput) (repository.Build
 	}
 
 	for i, entry := range in.Switches {
+		if strings.TrimSpace(entry.Switch) == "" {
+			return repository.Build{}, fmt.Errorf("switches[%d].switch must not be blank", i)
+		}
 		if entry.Count < 1 {
 			return repository.Build{}, fmt.Errorf("switches[%d].count: %d must be at least 1", i, entry.Count)
+		}
+	}
+	for i, entry := range in.ECParts {
+		if strings.TrimSpace(entry.ECPart) == "" {
+			return repository.Build{}, fmt.Errorf("ec_parts[%d].ec_part must not be blank", i)
+		}
+		if entry.Count < 1 {
+			return repository.Build{}, fmt.Errorf("ec_parts[%d].count: %d must be at least 1", i, entry.Count)
 		}
 	}
 

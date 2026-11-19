@@ -65,8 +65,10 @@ func New(
 		KitImages:      imageStore,
 		KeyboardImages: keyboardImageStore,
 		SwitchImages:   switchImageStore,
+		ECPartImages:   ecPartImageStore,
 		KeyboardRepo:   keyboardRepo,
 		SwitchRepo:     switchRepo,
+		ECPartRepo:     ecPartRepo,
 		KeycapSetRepo:  keycapSetRepo,
 	}
 	pr := repoapi.Profile{Images: profileImageStore}
@@ -190,11 +192,11 @@ func New(
 	mux.Handle("GET /v1/users/{userId}/builds",
 		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.ListBuilds(buildRepo, br)))))
 	mux.Handle("POST /v1/users/{userId}/builds",
-		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.CreateBuild(buildRepo, br, keyboardRepo, switchRepo, keycapSetRepo)))))
+		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.CreateBuild(buildRepo, br, keyboardRepo, switchRepo, ecPartRepo, keycapSetRepo)))))
 	mux.Handle("GET /v1/users/{userId}/builds/{buildId}",
 		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.GetBuild(buildRepo, br)))))
 	mux.Handle("PUT /v1/users/{userId}/builds/{buildId}",
-		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.UpdateBuild(buildRepo, br, keyboardRepo, switchRepo, keycapSetRepo)))))
+		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.UpdateBuild(buildRepo, br, keyboardRepo, switchRepo, ecPartRepo, keycapSetRepo)))))
 	mux.Handle("DELETE /v1/users/{userId}/builds/{buildId}",
 		middleware.RequireAuthorizerIdentity(validate(handlers.DeleteBuild(buildRepo, buildImageStore))))
 	mux.Handle("POST /v1/users/{userId}/builds/{buildId}/images",

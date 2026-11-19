@@ -3067,6 +3067,20 @@ components:
           type: integer
           minimum: 1
 
+    BuildECPartEntry:
+      type: object
+      required: [ec_part, count]
+      additionalProperties: false
+      properties:
+        ec_part:
+          type: string
+          minLength: 1
+          pattern: "\\S"
+          description: ID of an EC part resource.
+        count:
+          type: integer
+          minimum: 1
+
     BuildKeycapKitEntry:
       type: object
       required: [keycap_set, kit]
@@ -3180,6 +3194,38 @@ components:
           type: integer
           minimum: 1
 
+    BuildECPartRef:
+      type: object
+      description: A build's denormalized EC part reference.
+      required: [id, brand, name, part_type]
+      properties:
+        id:
+          type: string
+        brand:
+          type: string
+        name:
+          type: string
+        part_type:
+          $ref: "#/components/schemas/ECPartType"
+        image_url:
+          type: string
+          format: uri
+          description: >
+            A signed URL for the referenced part's image, if it has one the
+            caller may see (see BuildKeyboardRef.image_url). It's valid for
+            12 to 24 hours and unchanged for up to 12. Don't persist it;
+            fetch the item again for a new one once it expires.
+
+    BuildECPartEntryResolved:
+      type: object
+      required: [ec_part, count]
+      properties:
+        ec_part:
+          $ref: "#/components/schemas/BuildECPartRef"
+        count:
+          type: integer
+          minimum: 1
+
     BuildKeycapSetRef:
       type: object
       description: >
@@ -3275,6 +3321,18 @@ components:
           minLength: 1
           pattern: "\\S"
           description: ID of a Keyboard resource.
+        build_type:
+          type: string
+          minLength: 1
+          pattern: "\\S"
+          default: MX
+          x-omitempty: true
+          x-go-type-skip-optional-pointer: true
+          description: >
+            Open vocabulary — validated against the "build_type" lookup at
+            request time. An EC build lists its parts in ec_parts and has no
+            switches; any other build type lists switches and has no
+            ec_parts.
         plate:
           type: string
           description: >
@@ -3295,6 +3353,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BuildSwitchEntry"
+        ec_parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/BuildECPartEntry"
         keycap_kits:
           type: array
           items:
@@ -3351,20 +3413,23 @@ components:
     Build:
       type: object
       description: >
-        The read representation of a build. Unlike BuildInput, keyboard
-        and switches[].switch are denormalized into resolved reference
-        objects rather than bare ids, and BuildInput's keycap_kits are
+        The read representation of a build. Unlike BuildInput, keyboard,
+        switches[].switch and ec_parts[].ec_part are denormalized into
+        resolved reference objects rather than bare ids, and BuildInput's keycap_kits are
         grouped by set into keycap_sets, so a client can render a build
         without follow-up requests. The build's
         visibility governs everything shown in it: a caller who can read
         the build sees its referenced parts' details even if they couldn't
         read those parts directly.
-      required: [id, keyboard]
+      required: [id, keyboard, build_type]
       properties:
         id:
           type: string
         keyboard:
           $ref: "#/components/schemas/BuildKeyboardRef"
+        build_type:
+          type: string
+          description: The build's "build_type" lookup value, e.g. MX or EC.
         plate:
           $ref: "#/components/schemas/BuildPlateRef"
         pcb:
@@ -3379,6 +3444,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BuildSwitchEntryResolved"
+        ec_parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/BuildECPartEntryResolved"
         keycap_sets:
           type: array
           items:
@@ -3408,7 +3477,8 @@ components:
           $ref: "#/components/schemas/Money"
           description: >
             Total cost of the build's priced components (the keyboard's
-            base price, its plate and PCB, switches, keycap kits, stabs).
+            base price, its plate and PCB, switches or EC parts, keycap kits,
+            stabs).
             Components with no known price are excluded rather than
             treated as zero, so this may undercount.
         currency:
