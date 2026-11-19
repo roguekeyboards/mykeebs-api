@@ -154,6 +154,17 @@ type ECPartPurchaseInput struct {
 	Quantity     *int     `json:"quantity,omitempty" jsonschema:"how many were bought"`
 }
 
+// DeleteECPartInput is the delete_ec_part tool's input.
+type DeleteECPartInput struct {
+	ECPartID string `json:"ec_part_id" jsonschema:"the id of the EC part to delete"`
+	OnDelete string `json:"on_delete,omitempty" jsonschema:"how to handle an EC part still used by a build: block (default) or cascade"`
+}
+
+// DeleteECPartOutput is the delete_ec_part tool's output.
+type DeleteECPartOutput struct {
+	DeletedBuildIDs []string `json:"deleted_build_ids,omitempty" jsonschema:"ids of builds also deleted, when on_delete was cascade"`
+}
+
 // SetECPartImageInput is the set_ec_part_image tool's input. It doesn't
 // carry the image bytes themselves - see UploadURL on the output.
 type SetECPartImageInput struct {

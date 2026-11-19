@@ -315,3 +315,67 @@ func (s *HandleDeleteECPartImageSuite) TestNoImage_SucceedsWithoutDeleting() {
 
 	s.Require().NoError(err)
 }
+
+type HandleDeleteECPartSuite struct {
+	suite.Suite
+
+	mockRepo        *mocks.MockECPartRepository
+	mockBuilds      *mocks.MockBuildRepository
+	mockBuildImages *mocks.MockBuildImageStore
+	mockImages      *mocks.MockECPartImageStore
+}
+
+func TestHandleDeleteECPartSuite(t *testing.T) {
+	suite.Run(t, new(HandleDeleteECPartSuite))
+}
+
+func (s *HandleDeleteECPartSuite) SetupTest() {
+	s.mockRepo = mocks.NewMockECPartRepository(s.T())
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.mockBuildImages = mocks.NewMockBuildImageStore(s.T())
+	s.mockImages = mocks.NewMockECPartImageStore(s.T())
+}
+
+func (s *HandleDeleteECPartSuite) call(in schema.DeleteECPartInput) (schema.DeleteECPartOutput, error) {
+	_, out, err := handleDeleteECPart(s.mockRepo, s.mockBuilds, s.mockBuildImages, s.mockImages)(callerContext(s.T()), nil, in)
+	return out, err
+}
+
+func (s *HandleDeleteECPartSuite) TestDefaultBlock_Unreferenced_Deletes() {
+	s.mockBuilds.EXPECT().FindBuildsReferencingECPart(mock.Anything, callerID, "p1").Return(nil, nil)
+	s.mockRepo.EXPECT().Get(mock.Anything, callerID, "p1").Return(&repository.ECPart{ID: "p1"}, nil)
+	s.mockRepo.EXPECT().Delete(mock.Anything, "p1").Return(nil)
+
+	out, err := s.call(schema.DeleteECPartInput{ECPartID: "p1"})
+
+	s.Require().NoError(err)
+	s.Empty(out.DeletedBuildIDs)
+}
+
+func (s *HandleDeleteECPartSuite) TestBlocked_ReturnsErrorListingBuilds() {
+	s.mockBuilds.EXPECT().FindBuildsReferencingECPart(mock.Anything, callerID, "p1").Return([]string{"b1", "b2"}, nil)
+
+	_, err := s.call(schema.DeleteECPartInput{ECPartID: "p1", OnDelete: "block"})
+
+	s.EqualError(err, "EC part is still used by builds: b1, b2")
+}
+
+func (s *HandleDeleteECPartSuite) TestCascade_ReturnsDeletedBuildIDs() {
+	s.mockBuilds.EXPECT().FindBuildsReferencingECPart(mock.Anything, callerID, "p1").Return([]string{"b1"}, nil)
+	s.mockBuilds.EXPECT().Get(mock.Anything, callerID, "b1").Return(&repository.Build{ID: "b1"}, nil)
+	s.mockBuilds.EXPECT().Delete(mock.Anything, "b1").Return(nil)
+	s.mockRepo.EXPECT().Get(mock.Anything, callerID, "p1").Return(nil, repository.ErrNotFound)
+
+	out, err := s.call(schema.DeleteECPartInput{ECPartID: "p1", OnDelete: "cascade"})
+
+	s.Require().NoError(err)
+	s.Equal([]string{"b1"}, out.DeletedBuildIDs)
+}
+
+func (s *HandleDeleteECPartSuite) TestInvalidInputs_ReturnErrors() {
+	_, err := s.call(schema.DeleteECPartInput{ECPartID: " "})
+	s.Require().ErrorContains(err, "ec_part_id")
+
+	_, err = s.call(schema.DeleteECPartInput{ECPartID: "p1", OnDelete: "detach"})
+	s.ErrorContains(err, "on_delete")
+}

@@ -130,6 +130,8 @@ func New(
 		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.CreateECPart(ecPartRepo, er)))))
 	mux.Handle("PUT /v1/users/{userId}/ec-parts/{ecPartId}",
 		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.UpdateECPart(ecPartRepo, er)))))
+	mux.Handle("DELETE /v1/users/{userId}/ec-parts/{ecPartId}",
+		middleware.RequireAuthorizerIdentity(validate(handlers.DeleteECPart(ecPartRepo, buildRepo, buildImageStore, ecPartImageStore))))
 	mux.Handle("POST /v1/users/{userId}/ec-parts/{ecPartId}/image",
 		middleware.RequireAuthorizerIdentity(validate(handlers.SetECPartImage(ecPartRepo, ecPartImageStore, uploads))))
 	mux.Handle("DELETE /v1/users/{userId}/ec-parts/{ecPartId}/image",

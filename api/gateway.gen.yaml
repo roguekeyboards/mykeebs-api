@@ -220,6 +220,15 @@ paths:
       security:
         - OidcAuthorizer: []
   /v1/users/{userId}/ec-parts/{ecPartId}:
+    delete:
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        payloadFormatVersion: "2.0"
+        uri:
+          Fn::Sub: arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations
+      security:
+        - OidcAuthorizer: []
     get:
       x-amazon-apigateway-integration:
         type: aws_proxy
