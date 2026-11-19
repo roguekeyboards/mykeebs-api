@@ -15,9 +15,9 @@ import (
 )
 
 // Run executes the restore. A re-run resumes: it skips whatever id-map.json
-// records, re-uploads a single-slot image (switch, kit) the restored item is
-// missing, and writes the profile again. A crash between a create and its id-map save leaves one
-// duplicate item.
+// records, re-uploads a single-slot image (switch, EC part, kit) the restored
+// item is missing, and writes the profile again. A crash between a create and
+// its id-map save leaves one duplicate item.
 func (c *RestoreCmd) Run(ctx context.Context) error {
 	token, err := resolveToken(c.Token, c.Issuer)
 	if err != nil {
@@ -51,6 +51,9 @@ func (c *RestoreCmd) Run(ctx context.Context) error {
 		return err
 	}
 	if err := restoreSwitches(ctx, client, c.In, m); err != nil {
+		return err
+	}
+	if err := restoreECParts(ctx, client, c.In, m); err != nil {
 		return err
 	}
 	if err := restoreKeycapSets(ctx, client, c.In, m); err != nil {
@@ -239,7 +242,7 @@ func restoreSwitches(ctx context.Context, client *apiClient, dumpDir string, m *
 		itemDir := filepath.Join(dumpDir, "switches", oldID)
 		if mapped, done := m.Switches[oldID]; done {
 			skipResume("switches", i+1, total, oldID)
-			if err := finishSwitchImage(ctx, client, itemDir, mapped.NewID); err != nil {
+			if err := finishItemImage(ctx, client, itemDir, client.userPath("switches/"+mapped.NewID)); err != nil {
 				return fmt.Errorf("switch %s image: %w", mapped.NewID, err)
 			}
 			continue
@@ -277,8 +280,67 @@ func restoreSwitches(ctx context.Context, client *apiClient, dumpDir string, m *
 		}
 		progress("switches", i+1, total, oldID, created.Id)
 
-		if err := restoreSwitchImage(ctx, client, itemDir, created.Id); err != nil {
+		if err := restoreItemImage(ctx, client, itemDir, client.userPath("switches/"+created.Id)); err != nil {
 			return fmt.Errorf("switch %s image: %w", created.Id, err)
+		}
+	}
+	return nil
+}
+
+// ---- EC parts ----
+
+func restoreECParts(ctx context.Context, client *apiClient, dumpDir string, m *idMap) error {
+	oldIDs, err := itemDirs(dumpDir, "ec-parts")
+	if err != nil {
+		return err
+	}
+	total := len(oldIDs)
+	if total > 0 {
+		fmt.Printf("ec-parts (%d)...\n", total)
+	}
+	for i, oldID := range oldIDs {
+		itemDir := filepath.Join(dumpDir, "ec-parts", oldID)
+		if mapped, done := m.ECParts[oldID]; done {
+			skipResume("ec-parts", i+1, total, oldID)
+			if err := finishItemImage(ctx, client, itemDir, client.userPath("ec-parts/"+mapped.NewID)); err != nil {
+				return fmt.Errorf("EC part %s image: %w", mapped.NewID, err)
+			}
+			continue
+		}
+
+		var full api.ECPart
+		if err := readJSONFile(filepath.Join(itemDir, "item.json"), &full); err != nil {
+			return err
+		}
+		visibility, err := dumpedVisibility(full.Visibility)
+		if err != nil {
+			return fmt.Errorf("EC part %s: %w", oldID, err)
+		}
+		input := api.ECPartInput{
+			Brand:      full.Brand,
+			Domes:      full.Domes,
+			Housings:   full.Housings,
+			Name:       full.Name,
+			Notes:      full.Notes,
+			PartType:   full.PartType,
+			Purchase:   ecPartPurchaseInput(full.Purchase),
+			Rings:      full.Rings,
+			Sliders:    full.Sliders,
+			Springs:    full.Springs,
+			Visibility: visibility,
+		}
+		var created api.ECPart
+		if err := client.doJSON(ctx, http.MethodPost, client.userPath("ec-parts"), input, &created); err != nil {
+			return fmt.Errorf("creating EC part (was %s): %w", oldID, err)
+		}
+		m.ECParts[oldID] = &mappedEntity{NewID: created.Id}
+		if err := m.save(); err != nil {
+			return err
+		}
+		progress("ec-parts", i+1, total, oldID, created.Id)
+
+		if err := restoreItemImage(ctx, client, itemDir, client.userPath("ec-parts/"+created.Id)); err != nil {
+			return fmt.Errorf("EC part %s image: %w", created.Id, err)
 		}
 	}
 	return nil
@@ -472,6 +534,20 @@ func switchPurchaseInput(p *api.SwitchPurchase) *api.SwitchPurchaseInput {
 	}
 }
 
+func ecPartPurchaseInput(p *api.ECPartPurchase) *api.ECPartPurchaseInput {
+	if p == nil {
+		return nil
+	}
+	return &api.ECPartPurchaseInput{
+		Vendor:       p.Vendor,
+		Price:        p.Price,
+		OrderDate:    p.OrderDate,
+		DeliveryDate: p.DeliveryDate,
+		OrderStatus:  p.OrderStatus,
+		Quantity:     p.Quantity,
+	}
+}
+
 func stabsInput(s *api.BuildStabs) *api.BuildStabsInput {
 	if s == nil {
 		return nil
@@ -512,6 +588,7 @@ func buildInputFromResolved(full api.Build, m *idMap) (api.BuildInput, error) {
 
 	input := api.BuildInput{
 		BuildDate:     full.BuildDate,
+		BuildType:     full.BuildType,
 		CaseMountType: full.CaseMountType,
 		Foam:          full.Foam,
 		Keyboard:      kb.NewID,
@@ -545,6 +622,18 @@ func buildInputFromResolved(full api.Build, m *idMap) (api.BuildInput, error) {
 			entries = append(entries, api.BuildSwitchEntry{Switch: sw.NewID, Count: e.Count})
 		}
 		input.Switches = &entries
+	}
+
+	if full.EcParts != nil {
+		entries := make([]api.BuildECPartEntry, 0, len(*full.EcParts))
+		for _, e := range *full.EcParts {
+			part, ok := m.ECParts[e.EcPart.Id]
+			if !ok {
+				return api.BuildInput{}, fmt.Errorf("EC part %s is not in the id map; restore EC parts first", e.EcPart.Id)
+			}
+			entries = append(entries, api.BuildECPartEntry{EcPart: part.NewID, Count: e.Count})
+		}
+		input.EcParts = &entries
 	}
 
 	if full.KeycapSets != nil {
@@ -629,8 +718,8 @@ func loadSingleImageManifest(dir, name string) (entry imageManifestEntry, data [
 }
 
 // uploadSingleSlot POSTs an ImageUploadRequest to imagePath, expecting a
-// {upload_url} response (the shape switch/kit/avatar all share), then PUTs the
-// bytes.
+// {upload_url} response (the shape switch/EC part/kit/avatar all share), then
+// PUTs the bytes.
 func uploadSingleSlot(ctx context.Context, client *apiClient, imagePath string, entry imageManifestEntry, data []byte) error {
 	req := api.ImageUploadRequest{ContentType: entry.ContentType, SizeBytes: int64(len(data))}
 	var upload api.SwitchImageUpload
@@ -640,37 +729,38 @@ func uploadSingleSlot(ctx context.Context, client *apiClient, imagePath string, 
 	return uploadImage(ctx, upload.UploadUrl, entry.ContentType, data)
 }
 
-// restoreSwitchImage restores itemDir/image.<ext> onto the given switch.
-func restoreSwitchImage(ctx context.Context, client *apiClient, itemDir, switchID string) error {
+// restoreItemImage restores itemDir/image.<ext> onto the single-slot item at
+// itemPath.
+func restoreItemImage(ctx context.Context, client *apiClient, itemDir, itemPath string) error {
 	entry, data, found, err := loadSingleImageManifest(itemDir, "image")
 	if err != nil || !found {
 		return err
 	}
-	if err := uploadSingleSlot(ctx, client, client.userPath("switches/"+switchID+"/image"), entry, data); err != nil {
+	if err := uploadSingleSlot(ctx, client, itemPath+"/image", entry, data); err != nil {
 		return err
 	}
-	body, err := client.getRaw(ctx, client.userPath("switches/"+switchID))
+	body, err := client.getRaw(ctx, itemPath)
 	if err != nil {
-		return fmt.Errorf("re-fetching switch %s to verify image: %w", switchID, err)
+		return fmt.Errorf("re-fetching %s to verify image: %w", itemPath, err)
 	}
 	return verifyURLHash(ctx, topLevelImageURL(body), entry.SHA256)
 }
 
-// finishSwitchImage uploads an already-restored switch's image if the dump has
-// one and the switch doesn't: a failure between the create and the upload
-// leaves the switch mapped but imageless.
-func finishSwitchImage(ctx context.Context, client *apiClient, itemDir, switchID string) error {
+// finishItemImage uploads an already-restored single-slot item's image if the
+// dump has one and the item doesn't: a failure between the create and the
+// upload leaves the item mapped but imageless.
+func finishItemImage(ctx context.Context, client *apiClient, itemDir, itemPath string) error {
 	if !hasSingleImage(itemDir, "image") {
 		return nil
 	}
-	body, err := client.getRaw(ctx, client.userPath("switches/"+switchID))
+	body, err := client.getRaw(ctx, itemPath)
 	if err != nil {
-		return fmt.Errorf("re-fetching switch %s to check its image: %w", switchID, err)
+		return fmt.Errorf("re-fetching %s to check its image: %w", itemPath, err)
 	}
 	if topLevelImageURL(body) != "" {
 		return nil
 	}
-	return restoreSwitchImage(ctx, client, itemDir, switchID)
+	return restoreItemImage(ctx, client, itemDir, itemPath)
 }
 
 // hasSingleImage reports whether dir holds a dumped single-slot image.

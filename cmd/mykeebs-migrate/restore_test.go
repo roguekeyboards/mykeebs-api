@@ -24,8 +24,6 @@ func TestRestoreSuite(t *testing.T) {
 	suite.Run(t, new(RestoreSuite))
 }
 
-// fullMap is an id map with one keyboard, one switch, and one keycap set (with
-// one kit) already restored.
 func (s *RestoreSuite) fullMap() *idMap {
 	return &idMap{
 		Keyboards: map[string]*mappedEntity{"kb-old": {
@@ -34,6 +32,7 @@ func (s *RestoreSuite) fullMap() *idMap {
 			PCBs:   map[string]string{"pcb-old": "pcb-new"},
 		}},
 		Switches: map[string]*mappedEntity{"sw-old": {NewID: "sw-new"}},
+		ECParts:  map[string]*mappedEntity{"ec-old": {NewID: "ec-new"}},
 		KeycapSets: map[string]*mappedKeycaps{
 			"set-old": {NewID: "set-new", Kits: map[string]string{"kit-old": "kit-new"}},
 		},
@@ -72,6 +71,93 @@ func (s *RestoreSuite) TestBuildInputFromResolved_RemapsEveryReference() {
 	s.Require().Len(*got.KeycapKits, 1)
 	s.Equal("set-new", (*got.KeycapKits)[0].KeycapSet)
 	s.Equal("kit-new", (*got.KeycapKits)[0].Kit)
+}
+
+func (s *RestoreSuite) TestBuildInputFromResolved_RemapsECParts() {
+	full := api.Build{
+		Keyboard:   api.BuildKeyboardRef{Id: "kb-old"},
+		BuildType:  "EC",
+		Visibility: new(api.Visibility("public")),
+		EcParts: &[]api.BuildECPartEntryResolved{
+			{Count: 87, EcPart: api.BuildECPartRef{Id: "ec-old", PartType: api.ECPartTypeDomes}},
+		},
+	}
+
+	got, err := buildInputFromResolved(full, s.fullMap())
+
+	s.Require().NoError(err)
+	s.Equal("EC", got.BuildType)
+	s.Equal(&[]api.BuildECPartEntry{{EcPart: "ec-new", Count: 87}}, got.EcParts)
+	s.Nil(got.Switches)
+}
+
+func (s *RestoreSuite) TestBuildInputFromResolved_UnmappedECPartIsError() {
+	full := api.Build{
+		Keyboard:   api.BuildKeyboardRef{Id: "kb-old"},
+		Visibility: new(api.Visibility("public")),
+		EcParts: &[]api.BuildECPartEntryResolved{
+			{Count: 1, EcPart: api.BuildECPartRef{Id: "ec-unknown"}},
+		},
+	}
+	_, err := buildInputFromResolved(full, s.fullMap())
+	s.Require().ErrorContains(err, "ec-unknown")
+}
+
+func (s *RestoreSuite) TestRestoreECParts_CreatesPartAndUploadsImage() {
+	dumpDir := s.T().TempDir()
+	itemDir := filepath.Join(dumpDir, "ec-parts", "ec-old")
+	s.Require().NoError(os.MkdirAll(itemDir, 0o750))
+	s.Require().NoError(os.WriteFile(filepath.Join(itemDir, "item.json"), []byte(
+		`{"id":"ec-old","brand":"DynaCap","name":"Medium Doems","part_type":"domes","visibility":"public",`+
+			`"domes":{"weight":45},"purchase":{"price":40,"quantity":110,"currency":"USD"},"image":{"url":"x"}}`,
+	), 0o600))
+	img := []byte("ec part image bytes")
+	s.Require().NoError(os.WriteFile(filepath.Join(itemDir, "image.webp"), img, 0o600))
+	manifest, err := json.Marshal(imageManifestEntry{
+		Filename: "image.webp", ContentType: "image/webp", Bytes: len(img), SHA256: sha256Hex(img),
+	})
+	s.Require().NoError(err)
+	s.Require().NoError(os.WriteFile(filepath.Join(itemDir, "image.manifest.json"), manifest, 0o600))
+
+	var calls []string
+	var created map[string]any
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/users/u-1/ec-parts":
+			_ = json.NewDecoder(r.Body).Decode(&created)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":"ec-new","brand":"DynaCap","name":"Medium Doems","part_type":"domes"}`))
+		case r.Method == http.MethodPost:
+			_, _ = fmt.Fprintf(w, `{"upload_url":%q}`, srv.URL+"/blob")
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/users/u-1/ec-parts/ec-new":
+			_, _ = fmt.Fprintf(w, `{"id":"ec-new","image":{"url":%q}}`, srv.URL+"/blob")
+		case r.Method == http.MethodGet && r.URL.Path == "/blob":
+			_, _ = w.Write(img)
+		}
+	}))
+	defer srv.Close()
+
+	client := &apiClient{baseURL: srv.URL, subject: "u-1", http: srv.Client()}
+	m := newIDMap(s.T().TempDir(), "u-1")
+
+	err = restoreECParts(context.Background(), client, dumpDir, m)
+
+	s.Require().NoError(err)
+	s.Equal("ec-new", m.ECParts["ec-old"].NewID)
+	s.Equal(map[string]any{
+		"brand": "DynaCap", "name": "Medium Doems", "part_type": "domes", "visibility": "public",
+		"domes":    map[string]any{"weight": float64(45)},
+		"purchase": map[string]any{"price": float64(40), "quantity": float64(110)},
+	}, created)
+	s.Equal([]string{
+		"POST /v1/users/u-1/ec-parts",
+		"POST /v1/users/u-1/ec-parts/ec-new/image",
+		"PUT /blob",
+		"GET /v1/users/u-1/ec-parts/ec-new",
+		"GET /blob",
+	}, calls)
 }
 
 func (s *RestoreSuite) TestBuildInputFromResolved_UnmappedKeyboardIsError() {

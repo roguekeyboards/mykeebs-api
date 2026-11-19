@@ -22,7 +22,7 @@ type dumpManifest struct {
 // JSON array of these; for single-slot entities it holds one object.
 type imageManifestEntry struct {
 	// ImageID is the server-generated id, present only for array-image
-	// entities. Empty for single-slot images (switch/kit/avatar).
+	// entities. Empty for single-slot images (switch/EC part/kit/avatar).
 	ImageID     string `json:"image_id,omitempty"`
 	Filename    string `json:"filename"`
 	ContentType string `json:"content_type"`
@@ -37,6 +37,7 @@ type idMap struct {
 	RestoredAt    time.Time                 `json:"restored_at"`
 	Keyboards     map[string]*mappedEntity  `json:"keyboards"`
 	Switches      map[string]*mappedEntity  `json:"switches"`
+	ECParts       map[string]*mappedEntity  `json:"ec_parts"`
 	KeycapSets    map[string]*mappedKeycaps `json:"keycap_sets"`
 	Builds        map[string]*mappedEntity  `json:"builds"`
 
@@ -67,6 +68,7 @@ func newIDMap(dir, targetSubject string) *idMap {
 		RestoredAt:    time.Now(),
 		Keyboards:     map[string]*mappedEntity{},
 		Switches:      map[string]*mappedEntity{},
+		ECParts:       map[string]*mappedEntity{},
 		KeycapSets:    map[string]*mappedKeycaps{},
 		Builds:        map[string]*mappedEntity{},
 		path:          filepath.Join(dir, "id-map.json"),
@@ -105,6 +107,9 @@ func (m *idMap) ensureMaps() {
 	}
 	if m.Switches == nil {
 		m.Switches = map[string]*mappedEntity{}
+	}
+	if m.ECParts == nil {
+		m.ECParts = map[string]*mappedEntity{}
 	}
 	if m.KeycapSets == nil {
 		m.KeycapSets = map[string]*mappedKeycaps{}

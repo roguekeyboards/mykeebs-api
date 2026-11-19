@@ -1,7 +1,7 @@
 // Command mykeebs-migrate dumps a user's profile and every entity they own
-// (keyboards, switches, keycap sets, builds), with every associated S3 image,
-// to a local directory, and restores such a dump into another environment
-// through the same public REST API.
+// (keyboards, switches, EC parts, keycap sets, builds), with every associated
+// S3 image, to a local directory, and restores such a dump into another
+// environment through the same public REST API.
 //
 // It exists to take a complete, verifiable offline copy before a
 // backwards-incompatible data-model change, and doubles as a way to move a

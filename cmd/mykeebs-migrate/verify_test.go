@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/suite"
+
+	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 )
 
 type VerifySuite struct {
@@ -71,4 +73,55 @@ func (s *VerifySuite) TestComparePartRef() {
 	s.NotEmpty(comparePartRef("plate", new("p-old"), new("other"), ids))
 	s.NotEmpty(comparePartRef("plate", new("p-old"), nil, ids))
 	s.NotEmpty(comparePartRef("plate", nil, new("p-new"), ids))
+}
+
+func (s *VerifySuite) ecBuildMap() *idMap {
+	return &idMap{
+		Keyboards: map[string]*mappedEntity{"kb-old": {NewID: "kb-new"}},
+		ECParts:   map[string]*mappedEntity{"ec-old": {NewID: "ec-new"}},
+	}
+}
+
+func (s *VerifySuite) TestCompareBuildRefs_ECPartsRemapped_Matches() {
+	dump := api.Build{
+		BuildType: "EC",
+		Keyboard:  api.BuildKeyboardRef{Id: "kb-old"},
+		EcParts:   &[]api.BuildECPartEntryResolved{{Count: 87, EcPart: api.BuildECPartRef{Id: "ec-old"}}},
+	}
+	live := api.Build{
+		BuildType: "EC",
+		Keyboard:  api.BuildKeyboardRef{Id: "kb-new"},
+		EcParts:   &[]api.BuildECPartEntryResolved{{Count: 87, EcPart: api.BuildECPartRef{Id: "ec-new"}}},
+	}
+
+	s.Empty(compareBuildRefs(dump, live, s.ecBuildMap()))
+}
+
+func (s *VerifySuite) TestCompareBuildRefs_ECPartCountDiffers_Mismatch() {
+	dump := api.Build{
+		BuildType: "EC",
+		Keyboard:  api.BuildKeyboardRef{Id: "kb-old"},
+		EcParts:   &[]api.BuildECPartEntryResolved{{Count: 87, EcPart: api.BuildECPartRef{Id: "ec-old"}}},
+	}
+	live := api.Build{
+		BuildType: "EC",
+		Keyboard:  api.BuildKeyboardRef{Id: "kb-new"},
+		EcParts:   &[]api.BuildECPartEntryResolved{{Count: 60, EcPart: api.BuildECPartRef{Id: "ec-new"}}},
+	}
+
+	s.Contains(compareBuildRefs(dump, live, s.ecBuildMap()), "ec_part[0] count")
+}
+
+func (s *VerifySuite) TestCompareBuildRefs_DumpPredatesBuildType_MatchesMX() {
+	dump := api.Build{Keyboard: api.BuildKeyboardRef{Id: "kb-old"}}
+	live := api.Build{BuildType: "MX", Keyboard: api.BuildKeyboardRef{Id: "kb-new"}}
+
+	s.Empty(compareBuildRefs(dump, live, s.ecBuildMap()))
+}
+
+func (s *VerifySuite) TestCompareBuildRefs_BuildTypeDiffers_Mismatch() {
+	dump := api.Build{BuildType: "EC", Keyboard: api.BuildKeyboardRef{Id: "kb-old"}}
+	live := api.Build{BuildType: "MX", Keyboard: api.BuildKeyboardRef{Id: "kb-new"}}
+
+	s.Contains(compareBuildRefs(dump, live, s.ecBuildMap()), "build_type")
 }

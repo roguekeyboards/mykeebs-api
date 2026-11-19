@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -18,8 +19,8 @@ type imageRef struct {
 }
 
 // entitySpec describes one simple dumpable collection (one whose GET body maps
-// straight to a dump directory: keyboards, switches, builds). Keycap sets and
-// the profile (profile.go) need bespoke handling and don't use this.
+// straight to a dump directory: keyboards, switches, EC parts, builds). Keycap
+// sets and the profile (profile.go) need bespoke handling and don't use this.
 type entitySpec struct {
 	// name is both the dump subdirectory and the /v1/users/{sub}/ suffix.
 	name string
@@ -32,6 +33,7 @@ type entitySpec struct {
 var (
 	keyboardsSpec = entitySpec{name: "keyboards", arrayImages: true, imageRefs: arrayImageRefs}
 	switchesSpec  = entitySpec{name: "switches", arrayImages: false, imageRefs: singleImageRef}
+	ecPartsSpec   = entitySpec{name: "ec-parts", arrayImages: false, imageRefs: singleImageRef}
 	buildsSpec    = entitySpec{name: "builds", arrayImages: true, imageRefs: arrayImageRefs}
 )
 
@@ -105,12 +107,12 @@ func (c *DumpCmd) Run(ctx context.Context) error {
 	// is captured after everything it points at (not strictly required, since
 	// the resolved GET body is stored verbatim, but it keeps the tree tidy).
 	conv := &imageConverter{}
-	for _, spec := range []entitySpec{keyboardsSpec, switchesSpec} {
+	for _, spec := range []entitySpec{keyboardsSpec, switchesSpec, ecPartsSpec} {
 		n, imgs, err := dumpSimpleCollection(ctx, client, c.Out, spec, conv)
 		if err != nil {
 			return err
 		}
-		counts[spec.name] = n
+		counts[strings.ReplaceAll(spec.name, "-", "_")] = n
 		totalImages += imgs
 	}
 
@@ -157,12 +159,13 @@ func (c *DumpCmd) Run(ctx context.Context) error {
 	fmt.Printf("\ndump complete\n")
 	fmt.Printf("  source:  %s (subject %s)\n", client.baseURL, client.subject)
 	fmt.Printf("  output:  %s\n\n", c.Out)
-	for _, k := range []string{"profile", "keyboards", "switches", "keycap_sets", "builds", "images", "images_converted"} {
+	for _, k := range []string{"profile", "keyboards", "switches", "ec_parts", "keycap_sets", "builds", "images", "images_converted"} {
 		fmt.Printf("  %-16s %d\n", k, counts[k])
 	}
 	fmt.Printf("\nEach collection count above equals the number the API's list endpoint\n")
 	fmt.Printf("returned; cross-check against list_keyboards / list_switches /\n")
-	fmt.Printf("list_keycap_sets / list_builds if you want independent confirmation.\n")
+	fmt.Printf("list_ec_parts / list_keycap_sets / list_builds if you want independent\n")
+	fmt.Printf("confirmation.\n")
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -66,4 +67,16 @@ func (s *ManifestSuite) TestWriteAndReadJSONFile_RoundTrips() {
 	s.Require().NoError(readJSONFile(path, &out))
 	s.Equal("test", out.ToolVersion)
 	s.Equal(3, out.Counts["keyboards"])
+}
+
+func (s *ManifestSuite) TestLoadOrNewIDMap_MapWithoutECParts_Loads() {
+	dir := s.T().TempDir()
+	s.Require().NoError(os.WriteFile(filepath.Join(dir, "id-map.json"),
+		[]byte(`{"target_subject":"user_x","switches":{"sw-old":{"new_id":"sw-new"}}}`), 0o600))
+
+	m, err := loadOrNewIDMap(dir, "user_x")
+
+	s.Require().NoError(err)
+	s.NotNil(m.ECParts)
+	s.Equal("sw-new", m.Switches["sw-old"].NewID)
 }

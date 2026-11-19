@@ -51,12 +51,14 @@ func checkImageLimits(dumpDir string) error {
 
 	type singleSlot struct{ dir, name string }
 	singleSlots := []singleSlot{{filepath.Join(dumpDir, profileDir), "avatar"}}
-	switchIDs, err := itemDirs(dumpDir, "switches")
-	if err != nil {
-		return err
-	}
-	for _, id := range switchIDs {
-		singleSlots = append(singleSlots, singleSlot{filepath.Join(dumpDir, "switches", id), "image"})
+	for _, sub := range []string{"switches", "ec-parts"} {
+		ids, err := itemDirs(dumpDir, sub)
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			singleSlots = append(singleSlots, singleSlot{filepath.Join(dumpDir, sub, id), "image"})
+		}
 	}
 	setIDs, err := itemDirs(dumpDir, "keycap-sets")
 	if err != nil {

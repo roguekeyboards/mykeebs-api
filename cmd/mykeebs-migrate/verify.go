@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
+	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
 
 // verifyStatus is the per-item outcome.
@@ -58,7 +59,12 @@ func (c *VerifyCmd) Run(ctx context.Context) error {
 	}{
 		{"profile", func() []verifyResult { return verifyProfile(ctx, client, c.In) }},
 		{"keyboards", func() []verifyResult { return verifyKeyboards(ctx, client, c.In, &m) }},
-		{"switches", func() []verifyResult { return verifySwitches(ctx, client, c.In, &m) }},
+		{"switches", func() []verifyResult {
+			return verifySingleImageItems(ctx, client, c.In, "switches", "switch", m.Switches)
+		}},
+		{"ec-parts", func() []verifyResult {
+			return verifySingleImageItems(ctx, client, c.In, "ec-parts", "ec_part", m.ECParts)
+		}},
 		{"keycap-sets", func() []verifyResult { return verifyKeycapSets(ctx, client, c.In, &m) }},
 		{"builds", func() []verifyResult { return verifyBuilds(ctx, client, c.In, &m) }},
 	} {
@@ -200,18 +206,20 @@ func verifyKeyboards(ctx context.Context, client *apiClient, dumpDir string, m *
 	return out
 }
 
-func verifySwitches(ctx context.Context, client *apiClient, dumpDir string, m *idMap) []verifyResult {
+// verifySingleImageItems verifies the collection dumped under sub, whose items
+// have a single image slot.
+func verifySingleImageItems(ctx context.Context, client *apiClient, dumpDir, sub, entity string, ids map[string]*mappedEntity) []verifyResult {
 	var out []verifyResult
-	for oldID, mapped := range m.Switches {
-		r := verifyResult{entity: "switch", oldID: oldID, newID: mapped.NewID}
-		itemDir := filepath.Join(dumpDir, "switches", oldID)
+	for oldID, mapped := range ids {
+		r := verifyResult{entity: entity, oldID: oldID, newID: mapped.NewID}
+		itemDir := filepath.Join(dumpDir, sub, oldID)
 		dumpBody, err := os.ReadFile(filepath.Join(itemDir, "item.json")) //nolint:gosec // dump dir.
 		if err != nil {
 			r.status, r.detail = statusMissing, "dump item.json unreadable: "+err.Error()
 			out = append(out, r)
 			continue
 		}
-		liveBody, err := client.getRaw(ctx, client.userPath("switches/"+mapped.NewID))
+		liveBody, err := client.getRaw(ctx, client.userPath(sub+"/"+mapped.NewID))
 		if err != nil {
 			r.status, r.detail = statusMissing, err.Error()
 			out = append(out, r)
@@ -310,6 +318,14 @@ func verifyBuilds(ctx context.Context, client *apiClient, dumpDir string, m *idM
 // compareBuildRefs checks that the live build's remapped references match what
 // the id map says they should be. Returns "" on match.
 func compareBuildRefs(dump, live api.Build, m *idMap) string {
+	dumpType := dump.BuildType
+	if dumpType == "" {
+		dumpType = repository.BuildTypeMX
+	}
+	if live.BuildType != dumpType {
+		return fmt.Sprintf("build_type: dump %s, live %s", dumpType, live.BuildType)
+	}
+
 	kb, ok := m.Keyboards[dump.Keyboard.Id]
 	if !ok || live.Keyboard.Id != kb.NewID {
 		want := ""
@@ -359,6 +375,25 @@ func compareBuildRefs(dump, live api.Build, m *idMap) string {
 		}
 	}
 
+	dumpECParts := derefECParts(dump.EcParts)
+	liveECParts := derefECParts(live.EcParts)
+	if len(dumpECParts) != len(liveECParts) {
+		return fmt.Sprintf("EC part entry count: dump %d, live %d", len(dumpECParts), len(liveECParts))
+	}
+	for i := range dumpECParts {
+		want := ""
+		if part, ok := m.ECParts[dumpECParts[i].EcPart.Id]; ok {
+			want = part.NewID
+		}
+		got := liveECParts[i].EcPart.Id
+		if want == "" || got != want {
+			return fmt.Sprintf("ec_part[%d] ref: want %s, live has %s", i, want, got)
+		}
+		if dumpECParts[i].Count != liveECParts[i].Count {
+			return fmt.Sprintf("ec_part[%d] count: dump %d, live %d", i, dumpECParts[i].Count, liveECParts[i].Count)
+		}
+	}
+
 	dumpKits := flattenKits(dump.KeycapSets)
 	liveKits := flattenKits(live.KeycapSets)
 	if len(dumpKits) != len(liveKits) {
@@ -394,6 +429,13 @@ func comparePartRef(field string, dump, live *string, ids map[string]string) str
 }
 
 func derefSwitches(p *[]api.BuildSwitchEntryResolved) []api.BuildSwitchEntryResolved {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func derefECParts(p *[]api.BuildECPartEntryResolved) []api.BuildECPartEntryResolved {
 	if p == nil {
 		return nil
 	}
@@ -492,7 +534,7 @@ func verifyKitImages(ctx context.Context, setDir string, liveBody []byte, mapped
 	return statusOK, ""
 }
 
-// verifySingleImage checks a single-slot image (switch/profile) against
+// verifySingleImage checks a single-slot image (switch/EC part/profile) against
 // liveURL. name is "image" or "avatar".
 func verifySingleImage(ctx context.Context, dir, name, liveURL string) (verifyStatus, string) {
 	manifestPath := filepath.Join(dir, name+".manifest.json")

@@ -46,7 +46,7 @@ Most iteration just needs `mise run func-test` again — Go code and test change
 
 ## Backing up / moving a user's data (`mykeebs-migrate`)
 
-`cmd/mykeebs-migrate` is a standalone CLI that dumps a user's profile and every entity they own (keyboards, switches, keycap sets, builds) plus every S3 image to a local directory, and restores such a dump into another environment through the same public REST API. Use it to take a verifiable backup before a data-model change, to move a user's data between environments, or to export someone's account for a data request (see [Exporting another user's account](#exporting-another-users-account)). It uses **no AWS credentials** — image bytes move over the URLs the API signs — and never touches lookups (they're a static catalog built into the API; the dump captures `lookups/lookups.json` for diffing only).
+`cmd/mykeebs-migrate` is a standalone CLI that dumps a user's profile and every entity they own (keyboards, switches, EC parts, keycap sets, builds) plus every S3 image to a local directory, and restores such a dump into another environment through the same public REST API. Use it to take a verifiable backup before a data-model change, to move a user's data between environments, or to export someone's account for a data request (see [Exporting another user's account](#exporting-another-users-account)). It uses **no AWS credentials** — image bytes move over the URLs the API signs — and never touches lookups (they're a static catalog built into the API; the dump captures `lookups/lookups.json` for diffing only).
 
 ```sh
 mise run migrate-build          # -> bin/mykeebs-migrate
@@ -71,7 +71,7 @@ bin/mykeebs-migrate verify --issuer <target issuer> --base-url <target base url>
 
 `dump` converts JPEG and PNG images to WebP and scales any image over 2560px down, the way mykeebs-web prepares an upload (lossy quality 82, EXIF orientation applied), so whatever an environment holds, a restore leaves only WebP behind. WebPs within 2560px are kept as they are. Any image the API would refuse on restore (another format such as GIF, an animated image, or one still over the API's size cap after conversion) fails the dump rather than leaving a dump that can't be restored.
 
-Restore always **creates new** items (new server-generated IDs), recording an old→new `id-map.json` in the dump directory; builds are restored last with their keyboard/switch/keycap-kit references remapped through that map, and a re-run resumes from wherever a failure stopped.
+Restore always **creates new** items (new server-generated IDs), recording an old→new `id-map.json` in the dump directory; builds are restored last with their keyboard/switch/EC-part/keycap-kit references remapped through that map, and a re-run resumes from wherever a failure stopped.
 
 The **profile** is restored first. If the target account has no profile, restore creates one with the dumped username, and stops before writing anything if another account already has that username. If the target already has a profile, restore replaces its fields, and its avatar if the dump has one, but keeps its username. `verify` compares everything but the username.
 
