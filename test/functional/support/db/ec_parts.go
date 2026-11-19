@@ -37,3 +37,18 @@ func DeleteECPart(ctx context.Context, ownerID, id string) error {
 	table := NewDynamoTable(ctx, support.ECPartTableName())
 	return table.DeleteItem(ctx, map[string]string{"user_id": ownerID, "id": id})
 }
+
+// ECPartImage is an EC part's stored image slot and its moderation status.
+type ECPartImage struct {
+	Path   string `dynamodbav:"image_path"`
+	Status string `dynamodbav:"image_status"`
+}
+
+// GetECPartImage reads an EC part's image slot straight from DynamoDB, for
+// specs waiting on the moderation function.
+func GetECPartImage(ctx context.Context, ownerID, id string) (ECPartImage, error) {
+	var img ECPartImage
+	_, err := NewDynamoTable(ctx, support.ECPartTableName()).
+		GetItem(ctx, map[string]string{"user_id": ownerID, "id": id}, &img)
+	return img, err
+}

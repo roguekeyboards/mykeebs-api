@@ -25,6 +25,7 @@ type ECPartSummary struct {
 	Price       *float64 `json:"price,omitempty" jsonschema:"purchase price; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
 	Currency    *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
 	Visibility  *string  `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
+	HasImage    bool     `json:"has_image" jsonschema:"whether this part has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
 }
 
 // GetECPartInput is the get_ec_part tool arguments.
@@ -77,8 +78,10 @@ type ECPartInput struct {
 	Visibility string               `json:"visibility" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\""`
 }
 
-// ECPart is one EC part. Optional fields are pointers so a recorded zero
-// stays distinguishable from an unset field, which is omitted entirely.
+// ECPart is one EC part. It reports HasImage rather than the image itself;
+// manage the image with set_ec_part_image/delete_ec_part_image. Optional
+// fields are pointers so a recorded zero stays distinguishable from an
+// unset field, which is omitted entirely.
 type ECPart struct {
 	ID         string          `json:"id" jsonschema:"the EC part's unique id"`
 	Brand      string          `json:"brand" jsonschema:"the part's brand"`
@@ -92,6 +95,10 @@ type ECPart struct {
 	Purchase   *ECPartPurchase `json:"purchase,omitempty" jsonschema:"where it was bought and the order's status"`
 	Notes      *string         `json:"notes,omitempty" jsonschema:"free-form notes"`
 	Visibility *string         `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
+	HasImage   bool            `json:"has_image" jsonschema:"whether this part has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
+
+	ImageStatus          *string `json:"image_status,omitempty" jsonschema:"the image's moderation status: pending until it's checked, then approved or rejected; only ever present for the part's owner"`
+	ImageRejectionReason *string `json:"image_rejection_reason,omitempty" jsonschema:"why a rejected image was rejected: the moderation label; not_webp when the file isn't a WebP; too_large when its longest side is over 2560px; or unprocessable when the file couldn't be checked; only ever present for the part's owner"`
 }
 
 // ECDomes is the domes-specific detail of an EC part.
@@ -146,3 +153,25 @@ type ECPartPurchaseInput struct {
 	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands; must be an approved order_status lookup value"`
 	Quantity     *int     `json:"quantity,omitempty" jsonschema:"how many were bought"`
 }
+
+// SetECPartImageInput is the set_ec_part_image tool's input. It doesn't
+// carry the image bytes themselves - see UploadURL on the output.
+type SetECPartImageInput struct {
+	ECPartID    string `json:"ec_part_id" jsonschema:"the id of the EC part to set the image on"`
+	ContentType string `json:"content_type" jsonschema:"the image's MIME type; must be image/webp, the only approved image_content_type lookup value"`
+	SizeBytes   int64  `json:"size_bytes" jsonschema:"the image's exact size in bytes, at most 1572864 (1.5 MB). The upload must send exactly this many bytes"`
+}
+
+// SetECPartImageOutput is the set_ec_part_image tool's output.
+type SetECPartImageOutput struct {
+	UploadURL string `json:"upload_url" jsonschema:"a freshly-minted, short-lived presigned URL to PUT the image bytes to directly, using the requested content_type as the Content-Type header, an If-None-Match: * header, and a body of exactly size_bytes; single-use, so do not cache or persist it, and it expires within minutes"`
+}
+
+// DeleteECPartImageInput is the delete_ec_part_image tool's input.
+type DeleteECPartImageInput struct {
+	ECPartID string `json:"ec_part_id" jsonschema:"the id of the EC part to remove the image from"`
+}
+
+// DeleteECPartImageOutput is the delete_ec_part_image tool's output.
+// Deleting is idempotent, so there is no payload.
+type DeleteECPartImageOutput struct{}

@@ -31,6 +31,10 @@ type ecPart struct {
 		Vendor *string  `json:"vendor"`
 		Price  *float64 `json:"price"`
 	} `json:"purchase"`
+	Image *struct {
+		URL    *string `json:"url"`
+		Status *string `json:"status"`
+	} `json:"image"`
 }
 
 func decodePart(r *http.Response) ecPart {

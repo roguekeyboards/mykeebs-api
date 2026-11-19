@@ -1,14 +1,17 @@
 package repoapi
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
+	"github.com/roguekeyboards/mykeebs-api/internal/repository/mocks"
 )
 
 type ECPartSuite struct {
@@ -31,7 +34,7 @@ func (s *ECPartSuite) TestToAPI_MapsSubObjectAndPurchase() {
 		Visibility: repository.VisibilityPublic,
 	}
 
-	out, err := ECPart{}.ToAPI(p, true, repository.ProfilePreferences{Currency: "USD"})
+	out, err := ECPart{}.ToAPI(s.T().Context(), p, true, repository.ProfilePreferences{Currency: "USD"})
 
 	s.Require().NoError(err)
 	s.Equal(api.ECPart{
@@ -49,7 +52,7 @@ func (s *ECPartSuite) TestToAPI_MapsSubObjectAndPurchase() {
 }
 
 func (s *ECPartSuite) TestToAPI_EmptyPurchase_Omitted() {
-	out, err := ECPart{}.ToAPI(repository.ECPart{ID: "p1", PartType: repository.ECPartTypeDomes}, true, repository.ProfilePreferences{})
+	out, err := ECPart{}.ToAPI(s.T().Context(), repository.ECPart{ID: "p1", PartType: repository.ECPartTypeDomes}, true, repository.ProfilePreferences{})
 
 	s.Require().NoError(err)
 	s.Nil(out.Purchase)
@@ -59,20 +62,20 @@ func (s *ECPartSuite) TestToAPI_EmptyPurchase_Omitted() {
 func (s *ECPartSuite) TestToAPI_NonOwner_HidesVisibilityAndPriceUnlessShared() {
 	p := repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, Purchase: repository.ECPartPurchase{Price: new(36.0)}}
 
-	hidden, err := ECPart{}.ToAPI(p, false, repository.ProfilePreferences{})
+	hidden, err := ECPart{}.ToAPI(s.T().Context(), p, false, repository.ProfilePreferences{})
 	s.Require().NoError(err)
 	s.Nil(hidden.Visibility)
 	s.Require().NotNil(hidden.Purchase)
 	s.Nil(hidden.Purchase.Price)
 
-	shown, err := ECPart{}.ToAPI(p, false, repository.ProfilePreferences{ShowPriceToOthers: true, Currency: "USD"})
+	shown, err := ECPart{}.ToAPI(s.T().Context(), p, false, repository.ProfilePreferences{ShowPriceToOthers: true, Currency: "USD"})
 	s.Require().NoError(err)
 	s.Require().NotNil(shown.Purchase)
 	s.Equal(new(36.0), shown.Purchase.Price)
 }
 
 func (s *ECPartSuite) TestToAPI_MalformedStoredDate_ReturnsError() {
-	_, err := ECPart{}.ToAPI(repository.ECPart{Purchase: repository.ECPartPurchase{OrderDate: new("not-a-date")}}, true, repository.ProfilePreferences{})
+	_, err := ECPart{}.ToAPI(s.T().Context(), repository.ECPart{Purchase: repository.ECPartPurchase{OrderDate: new("not-a-date")}}, true, repository.ProfilePreferences{})
 
 	s.Error(err)
 }
@@ -131,4 +134,27 @@ func (s *ECPartSuite) TestStripPrices_KeepsRestOfPurchase() {
 	ECPart{}.StripPrices(&out)
 
 	s.Equal(&api.ECPartPurchase{Vendor: new("Omnitype")}, out.Purchase)
+}
+
+func (s *ECPartSuite) TestToAPI_RejectedImage_OwnerSeesReasonWithoutURL() {
+	key := repository.ECPartImageKey("ec-parts/alice/p1/image/u1")
+	p := repository.ECPart{ID: "p1", ImagePath: &key, ImageStatus: repository.ImageStatusRejected, ImageRejectionReason: new("Explicit")}
+
+	owner, err := ECPart{}.ToAPI(s.T().Context(), p, true, repository.ProfilePreferences{})
+	s.Require().NoError(err)
+	s.Equal(&api.ECPartImage{Status: new(api.ImageStatusRejected), RejectionReason: new("Explicit")}, owner.Image)
+
+	other, err := ECPart{}.ToAPI(s.T().Context(), p, false, repository.ProfilePreferences{})
+	s.Require().NoError(err)
+	s.Nil(other.Image)
+}
+
+func (s *ECPartSuite) TestToAPI_SignFails_ReturnsError() {
+	key := repository.ECPartImageKey("ec-parts/alice/p1/image/u1")
+	images := mocks.NewMockECPartImageStore(s.T())
+	images.EXPECT().SignGet(mock.Anything, key).Return("", errors.New("no key"))
+
+	_, err := ECPart{Images: images}.ToAPI(s.T().Context(), repository.ECPart{ImagePath: &key, ImageStatus: repository.ImageStatusApproved}, false, repository.ProfilePreferences{})
+
+	s.Error(err)
 }

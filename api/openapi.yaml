@@ -783,6 +783,64 @@ paths:
         default:
           $ref: "#/components/responses/ProblemResponse"
 
+  /v1/users/{userId}/ec-parts/{ecPartId}/image:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+      - $ref: "#/components/parameters/ECPartId"
+    post:
+      tags: [ec-parts]
+      summary: Set (or replace) an EC part's image
+      operationId: setECPartImage
+      description: >
+        userId must be the caller's own subject; setting an EC part's image
+        on another user's part always returns 404. An EC part has at most
+        one image — calling this again replaces it, no need to delete
+        first. Does not upload the image itself: the response is a
+        presigned S3 PUT URL the client uploads the actual image bytes to
+        directly. The presigned URL requires the exact content_type given
+        here on the upload.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageUploadRequest"
+      responses:
+        "201":
+          description: >
+            An image slot has been allocated; upload the image bytes to
+            upload_url (HTTP PUT, with a Content-Type header matching the
+            content_type, an If-None-Match: * header, and a body of exactly
+            size_bytes given in the request) to complete it. upload_url is
+            for one upload: another PUT to it fails with 412 Precondition
+            Failed while that image is stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ECPartImageUpload"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "429":
+          $ref: "#/components/responses/UploadsUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    delete:
+      tags: [ec-parts]
+      summary: Remove an EC part's image
+      operationId: deleteECPartImage
+      description: >
+        userId must be the caller's own subject; removing an EC part's image
+        on another user's part always returns 404.
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+
   /v1/profile/{identifier}:
     parameters:
       - $ref: "#/components/parameters/ProfileIdentifier"
@@ -2007,7 +2065,7 @@ components:
     ImageUploadRequest:
       type: object
       description: >
-        Request body for every image-upload endpoint (keyboard, switch,
+        Request body for every image-upload endpoint (keyboard, switch, EC part,
         profile avatar, keycap kit, build). The upload is two-step: this
         call allocates a slot and returns a presigned S3 PUT URL, then the
         client PUTs the bytes to that URL with a matching Content-Type and
@@ -2559,6 +2617,41 @@ components:
         visibility:
           $ref: "#/components/schemas/Visibility"
 
+    ECPartImage:
+      type: object
+      description: >
+        An EC part has at most one image — see POST/DELETE
+        .../ec-parts/{ecPartId}/image. Its owner sees it whatever its
+        status; anyone else sees it only once approved.
+      properties:
+        url:
+          type: string
+          format: uri
+          description: >
+            A signed URL for the image, valid for 12 to 24 hours and
+            unchanged for up to 12. Don't persist it; fetch the item again
+            for a new one once it expires. Absent when the image was
+            rejected.
+        status:
+          $ref: "#/components/schemas/ImageStatus"
+        rejection_reason:
+          type: string
+          description: >
+            Only on a rejected image, and only for its owner: the moderation
+            label that rejected it; `not_webp` when the file isn't a WebP;
+            `too_large` when its longest side is over 2560px; or
+            `unprocessable` when the file couldn't be checked at all.
+
+    ECPartImageUpload:
+      type: object
+      required: [upload_url]
+      properties:
+        upload_url:
+          type: string
+          format: uri
+          description: >
+            Presigned S3 PUT URL. Short-lived — upload promptly.
+
     ECPart:
       type: object
       required: [id, brand, name, part_type]
@@ -2590,6 +2683,11 @@ components:
           description: >
             Who can read this EC part. Only ever present for the part's
             owner - no preference can expose it to another caller.
+        image:
+          $ref: "#/components/schemas/ECPartImage"
+          description: >
+            Managed via the dedicated image endpoint, not via PUT on the
+            part itself — see POST/DELETE .../ec-parts/{ecPartId}/image.
 
     ECPartListPage:
       type: object
