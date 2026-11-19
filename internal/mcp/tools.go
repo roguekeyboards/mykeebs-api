@@ -47,6 +47,7 @@ func registerTools(
 	sdkmcp.AddTool(s, getECPartTool, handleGetECPart(ecPartRepo, profileRepo))
 	sdkmcp.AddTool(s, createECPartTool, handleCreateECPart(ecPartRepo, profileRepo))
 	sdkmcp.AddTool(s, updateECPartTool, handleUpdateECPart(ecPartRepo, profileRepo))
+	sdkmcp.AddTool(s, deleteECPartTool, handleDeleteECPart(ecPartRepo, buildRepo, buildImageStore, ecPartImageStore))
 	sdkmcp.AddTool(s, setECPartImageTool, handleSetECPartImage(ecPartRepo, ecPartImageStore, uploads))
 	sdkmcp.AddTool(s, deleteECPartImageTool, handleDeleteECPartImage(ecPartRepo, ecPartImageStore))
 	sdkmcp.AddTool(s, listKeyboardsTool, handleListKeyboards(keyboardRepo, profileRepo))

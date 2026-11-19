@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/authz"
+	"github.com/roguekeyboards/mykeebs-api/internal/cascadedelete"
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
@@ -340,6 +341,51 @@ func DeleteECPartImage(repo repository.ECPartRepository, images repository.ECPar
 
 		_, err = repo.ClearImagePath(r.Context(), id)
 		if handleClearImageError(w, r, err, log.ECPartID, id) {
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// DeleteECPart returns 404 for another user's part and applies the
+// on_delete query param (default block) per [cascadedelete.DeleteECPart].
+func DeleteECPart(
+	ecPartRepo repository.ECPartRepository,
+	buildRepo repository.BuildRepository,
+	buildImages repository.BuildImageStore,
+	ecPartImages repository.ECPartImageStore,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := r.PathValue("userId")
+		id := r.PathValue("ecPartId")
+
+		if !authz.IsOwner(r.Context(), ownerID) {
+			problem.NotFound(w, "resource not found")
+			return
+		}
+
+		onDelete, ok := cascadedelete.ParseOnDelete(r.URL.Query().Get("on_delete"))
+		if !ok {
+			problem.BadRequest(w, "on_delete must be block or cascade")
+			return
+		}
+
+		result, err := cascadedelete.DeleteECPart(r.Context(), ecPartRepo, buildRepo, buildImages, ecPartImages, ownerID, id, onDelete)
+		if blocked, ok := errors.AsType[*cascadedelete.BlockedError](err); ok {
+			problem.StillReferenced(w, "EC part is still used by one or more builds", blocked.BuildIDs)
+			return
+		}
+		if err != nil {
+			log.FromContext(r.Context()).Error("deleting EC part", log.Error, err, log.ECPartID, id)
+			problem.Internal(w, "failed to delete EC part")
+			return
+		}
+
+		if onDelete == cascadedelete.OnDeleteCascade {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.CascadeDeleteResult{DeletedBuildIds: result.DeletedBuildIDs})
 			return
 		}
 

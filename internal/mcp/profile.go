@@ -42,7 +42,7 @@ var updateProfileTool = &mcp.Tool{
 
 var deleteProfileTool = &mcp.Tool{
 	Name:        "delete_profile",
-	Description: "Deletes your whole account: your profile, avatar and username, and every build, keyboard, switch and keycap set you own, with all their images. This can't be undone. Safe to retry: if it fails partway, calling it again deletes the rest. Succeeds when there's nothing left to delete.",
+	Description: "Deletes your whole account: your profile, avatar and username, and every build, keyboard, switch, EC part and keycap set you own, with all their images. This can't be undone. Safe to retry: if it fails partway, calling it again deletes the rest. Succeeds when there's nothing left to delete.",
 }
 
 var listProfilesTool = &mcp.Tool{

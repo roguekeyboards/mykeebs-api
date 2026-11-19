@@ -58,3 +58,13 @@ func (c *ECPartsClient) SetImage(ctx context.Context, ownerID, id, token, body s
 func (c *ECPartsClient) DeleteImage(ctx context.Context, ownerID, id, token string) (*http.Response, error) {
 	return c.client.Do(ctx, http.MethodDelete, "/v1/users/"+ownerID+"/ec-parts/"+id+"/image", token, nil)
 }
+
+// Delete calls DELETE /v1/users/{ownerID}/ec-parts/{id}, with on_delete
+// when non-empty. The caller owns closing resp.Body.
+func (c *ECPartsClient) Delete(ctx context.Context, ownerID, id, token, onDelete string) (*http.Response, error) {
+	path := "/v1/users/" + ownerID + "/ec-parts/" + id
+	if onDelete != "" {
+		path += "?" + url.Values{"on_delete": []string{onDelete}}.Encode()
+	}
+	return c.client.Do(ctx, http.MethodDelete, path, token, nil)
+}

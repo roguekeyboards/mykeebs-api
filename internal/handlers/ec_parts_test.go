@@ -526,3 +526,77 @@ func (s *DeleteECPartImageSuite) TestObjectDeleteFails_Returns500AndKeepsPath() 
 func (s *DeleteECPartImageSuite) TestNotOwner_Returns404() {
 	s.Equal(http.StatusNotFound, s.del(apictx.WithUserID(s.T().Context(), "bob")).Code)
 }
+
+type DeleteECPartSuite struct {
+	suite.Suite
+
+	mockRepo        *mocks.MockECPartRepository
+	mockBuilds      *mocks.MockBuildRepository
+	mockBuildImages *mocks.MockBuildImageStore
+	mockImages      *mocks.MockECPartImageStore
+	handler         http.HandlerFunc
+}
+
+func TestDeleteECPartSuite(t *testing.T) {
+	suite.Run(t, new(DeleteECPartSuite))
+}
+
+func (s *DeleteECPartSuite) SetupTest() {
+	s.mockRepo = mocks.NewMockECPartRepository(s.T())
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.mockBuildImages = mocks.NewMockBuildImageStore(s.T())
+	s.mockImages = mocks.NewMockECPartImageStore(s.T())
+	s.handler = DeleteECPart(s.mockRepo, s.mockBuilds, s.mockBuildImages, s.mockImages)
+}
+
+func (s *DeleteECPartSuite) del(ctx context.Context, query string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	s.handler(rec, newECPartRequest(ctx, ecPartRequest{method: http.MethodDelete, pathID: "p1", query: query}))
+	return rec
+}
+
+func (s *DeleteECPartSuite) TestUnreferenced_Returns204() {
+	s.mockBuilds.EXPECT().FindBuildsReferencingECPart(mock.Anything, "alice", "p1").Return(nil, nil)
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1"}, nil)
+	s.mockRepo.EXPECT().Delete(mock.Anything, "p1").Return(nil)
+
+	s.Equal(http.StatusNoContent, s.del(apictx.WithUserID(s.T().Context(), "alice"), "on_delete=block").Code)
+}
+
+func (s *DeleteECPartSuite) TestBlocked_Returns409WithBuildIDs() {
+	s.mockBuilds.EXPECT().FindBuildsReferencingECPart(mock.Anything, "alice", "p1").Return([]string{"b1"}, nil)
+
+	rec := s.del(apictx.WithUserID(s.T().Context(), "alice"), "on_delete=block")
+
+	s.Equal(http.StatusConflict, rec.Code)
+	s.Contains(rec.Body.String(), "b1")
+}
+
+func (s *DeleteECPartSuite) TestCascade_Returns200WithDeletedBuildIDs() {
+	s.mockBuilds.EXPECT().FindBuildsReferencingECPart(mock.Anything, "alice", "p1").Return([]string{"b1"}, nil)
+	s.mockBuilds.EXPECT().Get(mock.Anything, "alice", "b1").Return(&repository.Build{ID: "b1"}, nil)
+	s.mockBuilds.EXPECT().Delete(mock.Anything, "b1").Return(nil)
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1"}, nil)
+	s.mockRepo.EXPECT().Delete(mock.Anything, "p1").Return(nil)
+
+	rec := s.del(apictx.WithUserID(s.T().Context(), "alice"), "on_delete=cascade")
+
+	s.Equal(http.StatusOK, rec.Code)
+	var got api.CascadeDeleteResult
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Equal([]string{"b1"}, got.DeletedBuildIds)
+}
+
+func (s *DeleteECPartSuite) TestInvalidOnDelete_Returns400() {
+	s.Equal(http.StatusBadRequest, s.del(apictx.WithUserID(s.T().Context(), "alice"), "on_delete=detach").Code)
+}
+
+func (s *DeleteECPartSuite) TestNotOwner_Returns404() {
+	s.Equal(http.StatusNotFound, s.del(apictx.WithUserID(s.T().Context(), "bob"), "on_delete=block").Code)
+}
+
+func (s *DeleteECPartSuite) TestRepositoryError_Returns500() {
+	s.mockBuilds.EXPECT().FindBuildsReferencingECPart(mock.Anything, "alice", "p1").Return(nil, errors.New("dynamodb down"))
+
+	s.Equal(http.StatusInternalServerError, s.del(apictx.WithUserID(s.T().Context(), "alice"), "on_delete=block").Code)
+}

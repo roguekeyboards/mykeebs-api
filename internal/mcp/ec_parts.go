@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/authz"
+	"github.com/roguekeyboards/mykeebs-api/internal/cascadedelete"
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
@@ -40,6 +41,11 @@ var createECPartTool = &mcp.Tool{
 var updateECPartTool = &mcp.Tool{
 	Name:        "update_ec_part",
 	Description: "Replaces an EC part in your own collection. Every field is replaced, so omitting an optional field clears it; send the full part, not just the fields you want to change.",
+}
+
+var deleteECPartTool = &mcp.Tool{
+	Name:        "delete_ec_part",
+	Description: "Removes an EC part from your own collection. Idempotent: deleting a part that isn't there succeeds. on_delete controls what happens if a build still uses this part: \"block\" (default) fails and lists the blocking build ids; \"cascade\" deletes the part and every build using it.",
 }
 
 var setECPartImageTool = &mcp.Tool{
@@ -306,5 +312,39 @@ func handleDeleteECPartImage(
 		}
 
 		return nil, schema.DeleteECPartImageOutput{}, nil
+	}
+}
+
+func handleDeleteECPart(
+	ecPartRepo repository.ECPartRepository,
+	buildRepo repository.BuildRepository,
+	buildImages repository.BuildImageStore,
+	ecPartImages repository.ECPartImageStore,
+) mcp.ToolHandlerFor[schema.DeleteECPartInput, schema.DeleteECPartOutput] {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteECPartInput) (*mcp.CallToolResult, schema.DeleteECPartOutput, error) {
+		if strings.TrimSpace(in.ECPartID) == "" {
+			return nil, schema.DeleteECPartOutput{}, errors.New("ec_part_id must not be blank")
+		}
+
+		onDelete, ok := cascadedelete.ParseOnDelete(in.OnDelete)
+		if !ok {
+			return nil, schema.DeleteECPartOutput{}, errors.New("on_delete must be block or cascade")
+		}
+
+		ownerID, err := resolveOwnerID(ctx, "")
+		if err != nil {
+			return nil, schema.DeleteECPartOutput{}, err
+		}
+
+		result, err := cascadedelete.DeleteECPart(ctx, ecPartRepo, buildRepo, buildImages, ecPartImages, ownerID, in.ECPartID, onDelete)
+		if blocked, ok := errors.AsType[*cascadedelete.BlockedError](err); ok {
+			return nil, schema.DeleteECPartOutput{}, fmt.Errorf("EC part is still used by builds: %s", strings.Join(blocked.BuildIDs, ", "))
+		}
+		if err != nil {
+			log.FromContext(ctx).Error("deleting EC part", log.ECPartID, in.ECPartID, log.Error, err)
+			return nil, schema.DeleteECPartOutput{}, errors.New("failed to delete EC part")
+		}
+
+		return nil, schema.DeleteECPartOutput{DeletedBuildIDs: result.DeletedBuildIDs}, nil
 	}
 }

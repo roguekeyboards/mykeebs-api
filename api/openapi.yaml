@@ -782,6 +782,44 @@ paths:
           $ref: "#/components/responses/NotFoundResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
+    delete:
+      tags: [ec-parts]
+      summary: Delete an EC part
+      operationId: deleteECPart
+      description: >
+        userId must be the caller's own subject; deleting another user's EC part always returns 404.
+        on_delete controls what happens if the part is still used by a build: "block" (the
+        default) fails with 409 and lists the blocking build ids; "cascade" deletes the part and
+        every build that uses it, returning their ids.
+      parameters:
+        - name: on_delete
+          in: query
+          schema:
+            type: string
+            enum: [block, cascade]
+            default: block
+          description: How to handle an EC part still used by one or more builds.
+      responses:
+        "200":
+          description: Deleted via cascade; lists the builds that were also deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CascadeDeleteResult"
+        "204":
+          description: Deleted (no builds used it).
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          description: Blocked by one or more builds using it (on_delete=block, the default).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
 
   /v1/users/{userId}/ec-parts/{ecPartId}/image:
     parameters:
@@ -961,8 +999,8 @@ paths:
       operationId: deleteProfile
       description: >
         Deletes the caller's whole account: the profile, its avatar and
-        username, and every build, keyboard, switch and keycap set the
-        caller owns, with all their images. This can't be undone.
+        username, and every build, keyboard, switch, EC part and keycap set
+        the caller owns, with all their images. This can't be undone.
         identifier must be the caller's own IdP subject (not a username) —
         deleting for anyone else always returns 404. Safe to retry: a call
         that fails partway leaves the rest for the next call, and when
