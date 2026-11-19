@@ -55,8 +55,10 @@ type buildToAPIDeps struct {
 	kitImages      *mocks.MockKeycapKitImageStore
 	keyboardImages *mocks.MockKeyboardImageStore
 	switchImages   *mocks.MockSwitchImageStore
+	ecPartImages   *mocks.MockECPartImageStore
 	keyboardRepo   *mocks.MockKeyboardRepository
 	switchRepo     *mocks.MockSwitchRepository
+	ecPartRepo     *mocks.MockECPartRepository
 	keycapSetRepo  *mocks.MockKeycapSetRepository
 }
 
@@ -69,8 +71,10 @@ func newBuildToAPIDeps(t interface {
 		kitImages:      mocks.NewMockKeycapKitImageStore(t),
 		keyboardImages: mocks.NewMockKeyboardImageStore(t),
 		switchImages:   mocks.NewMockSwitchImageStore(t),
+		ecPartImages:   mocks.NewMockECPartImageStore(t),
 		keyboardRepo:   mocks.NewMockKeyboardRepository(t),
 		switchRepo:     mocks.NewMockSwitchRepository(t),
+		ecPartRepo:     mocks.NewMockECPartRepository(t),
 		keycapSetRepo:  mocks.NewMockKeycapSetRepository(t),
 	}
 	return d
@@ -86,8 +90,10 @@ func (d buildToAPIDeps) mapper() Build {
 		KitImages:      d.kitImages,
 		KeyboardImages: d.keyboardImages,
 		SwitchImages:   d.switchImages,
+		ECPartImages:   d.ecPartImages,
 		KeyboardRepo:   d.keyboardRepo,
 		SwitchRepo:     d.switchRepo,
+		ECPartRepo:     d.ecPartRepo,
 		KeycapSetRepo:  d.keycapSetRepo,
 	}
 }
@@ -922,4 +928,59 @@ func (s *BuildToAPISuite) TestStripPrices_StabsOnlyPriced_DropsStabs() {
 	Build{}.StripPrices(&out)
 
 	s.Nil(out.Stabs)
+}
+
+func (s *BuildToAPISuite) TestStoredWithoutBuildType_ReadsAsMX() {
+	b := fullRepoBuild()
+	b.BuildType = ""
+
+	d := newBuildToAPIDeps(s.T())
+	d.expectFullyResolvable()
+
+	out, err := d.call(context.Background(), b)
+	s.Require().NoError(err)
+	s.Equal("MX", out.BuildType)
+}
+
+func (s *BuildToAPISuite) TestECBuild_ResolvesPartsSignsImagesAndPricesThem() {
+	b := repository.Build{
+		UserID: "alice", ID: "b1", Keyboard: "kb1", BuildType: "EC",
+		ECParts: []repository.BuildECPartEntry{{ECPart: "domes", Count: 60}, {ECPart: "sliders", Count: 60}},
+	}
+	domesImage := repository.ECPartImageKey("ec-parts/alice/domes/image/u1")
+
+	d := newBuildToAPIDeps(s.T())
+	d.keyboardRepo.EXPECT().Get(mock.Anything, "alice", "kb1").
+		Return(&repository.Keyboard{UserID: "alice", ID: "kb1", Purchase: repository.KeyboardPurchase{Price: floatPtr(300)}}, nil)
+	d.ecPartRepo.EXPECT().Get(mock.Anything, "alice", "domes").
+		Return(&repository.ECPart{
+			ID: "domes", Brand: "DynaCap", Name: "Heavy", PartType: repository.ECPartTypeDomes,
+			ImagePath: &domesImage, ImageStatus: repository.ImageStatusApproved,
+			Purchase: repository.ECPartPurchase{Price: floatPtr(36), Quantity: intPtr(72)},
+		}, nil)
+	d.ecPartRepo.EXPECT().Get(mock.Anything, "alice", "sliders").
+		Return(&repository.ECPart{ID: "sliders", Brand: "DynaCap", Name: "Sliders", PartType: repository.ECPartTypeSliders}, nil)
+	d.ecPartImages.EXPECT().SignGet(mock.Anything, domesImage).Return("https://example.com/domes", nil)
+
+	out, err := d.call(context.Background(), b)
+	s.Require().NoError(err)
+
+	s.Equal("EC", out.BuildType)
+	s.Nil(out.Switches)
+	s.Equal(&[]api.BuildECPartEntryResolved{
+		{Count: 60, EcPart: api.BuildECPartRef{Id: "domes", Brand: "DynaCap", Name: "Heavy", PartType: api.ECPartTypeDomes, ImageUrl: strPtr("https://example.com/domes")}},
+		{Count: 60, EcPart: api.BuildECPartRef{Id: "sliders", Brand: "DynaCap", Name: "Sliders", PartType: api.ECPartTypeSliders}},
+	}, out.EcParts)
+	s.Require().NotNil(out.TotalCost)
+	s.InDelta(300+30, *out.TotalCost, 0.0001)
+}
+
+func (s *BuildToAPISuite) TestECPartNotFound_ReturnsError() {
+	d := newBuildToAPIDeps(s.T())
+	d.keyboardRepo.EXPECT().Get(mock.Anything, "alice", "kb1").Return(&repository.Keyboard{UserID: "alice", ID: "kb1"}, nil)
+	d.ecPartRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(nil, repository.ErrNotFound)
+
+	_, err := d.call(context.Background(), repository.Build{UserID: "alice", ID: "b1", Keyboard: "kb1", BuildType: "EC", ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 1}}})
+
+	s.Error(err)
 }

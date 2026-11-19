@@ -18,6 +18,7 @@ type ValidateReferencesSuite struct {
 
 	mockKeyboards *mocks.MockKeyboardRepository
 	mockSwitches  *mocks.MockSwitchRepository
+	mockECParts   *mocks.MockECPartRepository
 	mockKeycaps   *mocks.MockKeycapSetRepository
 }
 
@@ -28,12 +29,13 @@ func TestValidateReferencesSuite(t *testing.T) {
 func (s *ValidateReferencesSuite) SetupTest() {
 	s.mockKeyboards = mocks.NewMockKeyboardRepository(s.T())
 	s.mockSwitches = mocks.NewMockSwitchRepository(s.T())
+	s.mockECParts = mocks.NewMockECPartRepository(s.T())
 	s.mockKeycaps = mocks.NewMockKeycapSetRepository(s.T())
 }
 
 func (s *ValidateReferencesSuite) validate(b repository.Build) ([]buildrefs.FieldError, error) {
 	return buildrefs.ValidateReferences(context.Background(), "alice", b,
-		s.mockKeyboards, s.mockSwitches, s.mockKeycaps)
+		s.mockKeyboards, s.mockSwitches, s.mockECParts, s.mockKeycaps)
 }
 
 func (s *ValidateReferencesSuite) TestNoReferences_NoChecksPerformed() {
@@ -274,4 +276,24 @@ func (s *ValidateReferencesSuite) TestMultipleInvalidReferences_ReturnsAll() {
 
 	s.Require().NoError(err)
 	s.Require().Len(fieldErrs, 2)
+}
+
+func (s *ValidateReferencesSuite) TestECParts_MissingOneReported() {
+	s.mockECParts.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1"}, nil)
+	s.mockECParts.EXPECT().Get(mock.Anything, "alice", "p2").Return(nil, repository.ErrNotFound)
+
+	fieldErrs, err := s.validate(repository.Build{ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 1}, {ECPart: "p2", Count: 1}}})
+
+	s.Require().NoError(err)
+	s.Equal([]buildrefs.FieldError{
+		{Field: "ec_parts[1].ec_part", Value: "p2", Reason: "does not reference an EC part in your collection"},
+	}, fieldErrs)
+}
+
+func (s *ValidateReferencesSuite) TestECPartRepositoryError_ReturnsError() {
+	s.mockECParts.EXPECT().Get(mock.Anything, "alice", "p1").Return(nil, errors.New("dynamo unavailable"))
+
+	_, err := s.validate(repository.Build{ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 1}}})
+
+	s.Error(err)
 }

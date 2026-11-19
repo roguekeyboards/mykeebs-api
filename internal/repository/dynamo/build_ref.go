@@ -3,6 +3,8 @@ package dynamo
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
@@ -43,11 +45,12 @@ func (m refMarker) sortKey() string {
 const refMarkerPrefix = "zREF#"
 
 // deriveRefMarkers computes the full set of refMarkers for b's current
-// Keyboard/Switches/KeycapKits. A KeycapKit's refID is the composite
+// Keyboard/Switches/ECParts/KeycapKits. A KeycapKit's refID is the composite
 // "<KeycapSetID>#<KitID>", so a whole-KeycapSet delete can find every
 // referencing build via a begins_with(ref_id, "<SetID>#") query without a
 // separate set-level marker - a Build never references a bare KeycapSet
-// without a specific kit.
+// without a specific kit. Duplicate markers are collapsed, since one
+// transaction can't write the same item twice.
 func deriveRefMarkers(ownerID string, b repository.Build) []refMarker {
 	var markers []refMarker
 
@@ -59,12 +62,17 @@ func deriveRefMarkers(ownerID string, b repository.Build) []refMarker {
 		markers = append(markers, refMarker{ownerID: ownerID, refType: repository.RefTypeSwitch, refID: entry.Switch, buildID: b.ID})
 	}
 
+	for _, entry := range b.ECParts {
+		markers = append(markers, refMarker{ownerID: ownerID, refType: repository.RefTypeECPart, refID: entry.ECPart, buildID: b.ID})
+	}
+
 	for _, entry := range b.KeycapKits {
 		refID := fmt.Sprintf("%s#%s", entry.KeycapSet, entry.Kit)
 		markers = append(markers, refMarker{ownerID: ownerID, refType: repository.RefTypeKeycapKit, refID: refID, buildID: b.ID})
 	}
 
-	return markers
+	slices.SortFunc(markers, func(a, b refMarker) int { return strings.Compare(a.sortKey(), b.sortKey()) })
+	return slices.Compact(markers)
 }
 
 // diffRefMarkers returns the markers present in newMarkers but not
@@ -136,6 +144,11 @@ func (r *BuildRepository) FindBuildsReferencingKeyboard(ctx context.Context, own
 // FindBuildsReferencingSwitch implements repository.BuildRepository.
 func (r *BuildRepository) FindBuildsReferencingSwitch(ctx context.Context, ownerID, switchID string) ([]string, error) {
 	return r.findReferencingBuilds(ctx, ownerID, repository.RefTypeSwitch, switchID)
+}
+
+// FindBuildsReferencingECPart implements repository.BuildRepository.
+func (r *BuildRepository) FindBuildsReferencingECPart(ctx context.Context, ownerID, ecPartID string) ([]string, error) {
+	return r.findReferencingBuilds(ctx, ownerID, repository.RefTypeECPart, ecPartID)
 }
 
 // FindBuildsReferencingKeycapKit implements repository.BuildRepository. The

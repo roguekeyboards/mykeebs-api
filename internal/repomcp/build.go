@@ -12,6 +12,7 @@ import (
 type Build struct {
 	KeyboardRepo  repository.KeyboardRepository
 	SwitchRepo    repository.SwitchRepository
+	ECPartRepo    repository.ECPartRepository
 	KeycapSetRepo repository.KeycapSetRepository
 }
 
@@ -24,12 +25,14 @@ func (b Build) ToMCP(build repository.Build, isOwner bool, ownerPrefs repository
 	return schema.Build{
 		ID:            build.ID,
 		Keyboard:      build.Keyboard,
+		BuildType:     build.EffectiveBuildType(),
 		Plate:         build.Plate,
 		PCB:           build.PCB,
 		CaseMountType: b.caseMountTypeToMCP(build.CaseMountType),
 		Stabs:         b.stabsToMCP(build.Stabs, isOwner, ownerPrefs),
 		Foam:          build.Foam,
 		Switches:      b.switchEntriesToMCP(build.Switches),
+		ECParts:       b.ecPartEntriesToMCP(build.ECParts),
 		KeycapKits:    b.keycapKitEntriesToMCP(build.KeycapKits),
 		BuildDate:     build.BuildDate,
 		Notes:         build.Notes,
@@ -81,12 +84,14 @@ func (b Build) ToMCPResolved(
 func (b Build) FromMCP(in schema.BuildInput) repository.Build {
 	return repository.Build{
 		Keyboard:      in.Keyboard,
+		BuildType:     in.BuildType,
 		Plate:         in.Plate,
 		PCB:           in.PCB,
 		CaseMountType: b.caseMountTypeFromMCP(in.CaseMountType),
 		Stabs:         b.stabsFromMCP(in.Stabs),
 		Foam:          in.Foam,
 		Switches:      b.switchEntriesFromMCP(in.Switches),
+		ECParts:       b.ecPartEntriesFromMCP(in.ECParts),
 		KeycapKits:    b.keycapKitEntriesFromMCP(in.KeycapKits),
 		BuildDate:     in.BuildDate,
 		Notes:         in.Notes,
@@ -96,7 +101,7 @@ func (b Build) FromMCP(in schema.BuildInput) repository.Build {
 
 // ToMCPSummary denormalizes the keyboard via KeyboardRepo.Get and reports
 // HasImage rather than a signed URL. Unlike [Build.ToMCP], the owner
-// isn't unconditionally shown price here. Switches and keycap kits are only
+// isn't unconditionally shown price here. Switches, EC parts and keycap kits are only
 // fetched when TotalCost will be shown, since cost is all this uses them
 // for.
 func (b Build) ToMCPSummary(
@@ -105,6 +110,7 @@ func (b Build) ToMCPSummary(
 	summary := schema.BuildSummary{
 		ID:         build.ID,
 		KeyboardID: build.Keyboard,
+		BuildType:  build.EffectiveBuildType(),
 		BuildDate:  build.BuildDate,
 		HasImage:   anyVisible(build.Images, func(e repository.BuildImageEntry) repository.ImageStatus { return e.Status }, isOwner),
 	}
@@ -125,6 +131,11 @@ func (b Build) ToMCPSummary(
 			return schema.BuildSummary{}, err
 		}
 
+		ecPartsCost, err := b.ecPartsCost(ctx, build.UserID, build.ECParts)
+		if err != nil {
+			return schema.BuildSummary{}, err
+		}
+
 		keycapKitsCost, err := b.keycapKitsCost(ctx, build.UserID, build.KeycapKits)
 		if err != nil {
 			return schema.BuildSummary{}, err
@@ -136,7 +147,7 @@ func (b Build) ToMCPSummary(
 		}
 		summary.TotalCost = roundCents(sumKnownCosts(
 			kb.Purchase.Price, kb.Plate(build.Plate).Price(), kb.PCB(build.PCB).Price(),
-			switchesCost, keycapKitsCost, stabsPrice))
+			switchesCost, ecPartsCost, keycapKitsCost, stabsPrice))
 	}
 	summary.Currency = ownerPrefs.CurrencyFor(summary.TotalCost)
 
@@ -160,6 +171,26 @@ func (b Build) switchesCost(ctx context.Context, ownerID string, entries []repos
 
 		if sw.Purchase.Price != nil && sw.Purchase.Quantity != nil && *sw.Purchase.Quantity != 0 {
 			entryCost := *sw.Purchase.Price / float64(*sw.Purchase.Quantity) * float64(e.Count)
+			costs = append(costs, &entryCost)
+		}
+	}
+
+	return sumKnownCosts(costs...), nil
+}
+
+// ecPartsCost prices each entry at (Price/Quantity)*Count, leaving out
+// entries where either is unknown.
+func (b Build) ecPartsCost(ctx context.Context, ownerID string, entries []repository.BuildECPartEntry) (*float64, error) {
+	costs := make([]*float64, 0, len(entries))
+
+	for _, e := range entries {
+		p, err := b.ECPartRepo.Get(ctx, ownerID, e.ECPart)
+		if err != nil {
+			return nil, fmt.Errorf("getting EC part %q: %w", e.ECPart, err)
+		}
+
+		if p.Purchase.Price != nil && p.Purchase.Quantity != nil && *p.Purchase.Quantity != 0 {
+			entryCost := *p.Purchase.Price / float64(*p.Purchase.Quantity) * float64(e.Count)
 			costs = append(costs, &entryCost)
 		}
 	}
@@ -298,6 +329,32 @@ func (b Build) keycapKitEntriesFromMCP(entries []schema.BuildKeycapKitEntry) []r
 	out := make([]repository.BuildKeycapKitEntry, len(entries))
 	for i, e := range entries {
 		out[i] = repository.BuildKeycapKitEntry{KeycapSet: e.KeycapSet, Kit: e.Kit}
+	}
+
+	return out
+}
+
+func (b Build) ecPartEntriesToMCP(entries []repository.BuildECPartEntry) []schema.BuildECPartEntry {
+	if entries == nil {
+		return nil
+	}
+
+	out := make([]schema.BuildECPartEntry, len(entries))
+	for i, e := range entries {
+		out[i] = schema.BuildECPartEntry{ECPart: e.ECPart, Count: e.Count}
+	}
+
+	return out
+}
+
+func (b Build) ecPartEntriesFromMCP(entries []schema.BuildECPartEntry) []repository.BuildECPartEntry {
+	if entries == nil {
+		return nil
+	}
+
+	out := make([]repository.BuildECPartEntry, len(entries))
+	for i, e := range entries {
+		out[i] = repository.BuildECPartEntry{ECPart: e.ECPart, Count: e.Count}
 	}
 
 	return out

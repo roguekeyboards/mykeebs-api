@@ -528,3 +528,43 @@ func (s *BuildToMCPSuite) TestNonOwnerShowPriceToOthersFalse_PriceOnlyStabs_Omit
 
 	s.Nil(out.Stabs)
 }
+
+func (s *BuildToMCPSuite) TestECBuild_MapsTypeAndPartsBothWays() {
+	in := schema.BuildInput{Keyboard: "kb-1", BuildType: "EC", ECParts: []schema.BuildECPartEntry{{ECPart: "p-1", Count: 60}}, Visibility: "private"}
+
+	b := Build{}.FromMCP(in)
+	s.Equal("EC", b.BuildType)
+	s.Equal([]repository.BuildECPartEntry{{ECPart: "p-1", Count: 60}}, b.ECParts)
+
+	out := Build{}.ToMCP(b, true, repository.ProfilePreferences{})
+	s.Equal("EC", out.BuildType)
+	s.Equal([]schema.BuildECPartEntry{{ECPart: "p-1", Count: 60}}, out.ECParts)
+}
+
+func (s *BuildToMCPSuite) TestStoredWithoutBuildType_ReadsAsMX() {
+	s.Equal("MX", Build{}.ToMCP(repository.Build{ID: "b-1"}, true, repository.ProfilePreferences{}).BuildType)
+}
+
+func (s *BuildToMCPSummarySuite) TestPriceShown_IncludesECParts() {
+	b := repository.Build{
+		UserID: "alice", ID: "build-1", Keyboard: "kb-1", BuildType: "EC",
+		ECParts: []repository.BuildECPartEntry{{ECPart: "p-1", Count: 60}, {ECPart: "p-2", Count: 60}},
+	}
+
+	keyboards := mocks.NewMockKeyboardRepository(s.T())
+	keyboards.EXPECT().Get(mock.Anything, "alice", "kb-1").
+		Return(&repository.Keyboard{UserID: "alice", ID: "kb-1", Purchase: repository.KeyboardPurchase{Price: floatPtr(300)}}, nil)
+	parts := mocks.NewMockECPartRepository(s.T())
+	parts.EXPECT().Get(mock.Anything, "alice", "p-1").
+		Return(&repository.ECPart{ID: "p-1", Purchase: repository.ECPartPurchase{Price: floatPtr(36), Quantity: new(72)}}, nil)
+	parts.EXPECT().Get(mock.Anything, "alice", "p-2").
+		Return(&repository.ECPart{ID: "p-2", Purchase: repository.ECPartPurchase{Price: floatPtr(20)}}, nil)
+
+	out, err := Build{KeyboardRepo: keyboards, ECPartRepo: parts}.ToMCPSummary(
+		context.Background(), b, true, repository.ProfilePreferences{ShowPriceToMe: true})
+	s.Require().NoError(err)
+
+	s.Equal("EC", out.BuildType)
+	s.Require().NotNil(out.TotalCost)
+	s.InDelta(300+30, *out.TotalCost, 0.001, "a part without a quantity is left out")
+}

@@ -321,7 +321,7 @@ func (s *BuildRepositorySuite) TestCreate_Succeeds() {
 	b, err := s.repo.Create(ctx, repository.Build{ID: "b1", Keyboard: "kb1"})
 
 	s.Require().NoError(err)
-	s.Equal(&repository.Build{UserID: "alice", ID: "b1", Keyboard: "kb1"}, b)
+	s.Equal(&repository.Build{UserID: "alice", ID: "b1", Keyboard: "kb1", BuildType: repository.BuildTypeMX}, b)
 }
 
 func (s *BuildRepositorySuite) TestCreate_NoReferences_WritesOnlyBaseItem() {

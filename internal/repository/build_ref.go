@@ -12,6 +12,8 @@ const (
 	RefTypeKeyboard RefType = "keyboard"
 	// RefTypeSwitch marks a marker for one of a Build's Switches[] entries.
 	RefTypeSwitch RefType = "switch"
+	// RefTypeECPart marks a marker for one of a Build's ECParts[] entries.
+	RefTypeECPart RefType = "ec_part"
 	// RefTypeKeycapKit marks a marker for one of a Build's KeycapKits[]
 	// entries.
 	RefTypeKeycapKit RefType = "keycap_kit"

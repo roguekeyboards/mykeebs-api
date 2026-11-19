@@ -14,6 +14,19 @@ type BuildSwitchEntry struct {
 	Count  int    `dynamodbav:"count" json:"count"`
 }
 
+// BuildECPartEntry is one entry in Build.ECParts.
+type BuildECPartEntry struct {
+	ECPart string `dynamodbav:"ec_part" json:"ec_part"`
+	Count  int    `dynamodbav:"count" json:"count"`
+}
+
+// Build types with special handling: an EC build lists ECParts, any other
+// lists Switches.
+const (
+	BuildTypeMX = "MX"
+	BuildTypeEC = "EC"
+)
+
 // BuildKeycapKitEntry references one kit by KeycapKit.KitID.
 type BuildKeycapKitEntry struct {
 	KeycapSet string `dynamodbav:"keycap_set" json:"keycap_set"`
@@ -102,15 +115,19 @@ func BuildImagesMap(images []BuildImage) map[string]BuildImageEntry {
 // Plate and PCB are ids of Keyboard's plates and PCBs; reads treat one the
 // keyboard no longer has as absent.
 type Build struct {
-	UserID        string                `dynamodbav:"user_id" json:"-"`
-	ID            string                `dynamodbav:"id" json:"id"`
-	Keyboard      string                `dynamodbav:"keyboard" json:"keyboard"`
+	UserID   string `dynamodbav:"user_id" json:"-"`
+	ID       string `dynamodbav:"id" json:"id"`
+	Keyboard string `dynamodbav:"keyboard" json:"keyboard"`
+	// BuildType is empty on builds stored before it existed; see
+	// EffectiveBuildType.
+	BuildType     string                `dynamodbav:"build_type,omitempty" json:"build_type,omitempty"`
 	Plate         *string               `dynamodbav:"plate,omitempty" json:"plate,omitempty"`
 	PCB           *string               `dynamodbav:"pcb,omitempty" json:"pcb,omitempty"`
 	CaseMountType *BuildCaseMountType   `dynamodbav:"case_mount_type,omitempty" json:"case_mount_type,omitempty"`
 	Stabs         *BuildStabs           `dynamodbav:"stabs,omitempty" json:"stabs,omitempty"`
 	Foam          *bool                 `dynamodbav:"foam,omitempty" json:"foam,omitempty"`
 	Switches      []BuildSwitchEntry    `dynamodbav:"switches,omitempty" json:"switches,omitempty"`
+	ECParts       []BuildECPartEntry    `dynamodbav:"ec_parts,omitempty" json:"ec_parts,omitempty"`
 	KeycapKits    []BuildKeycapKitEntry `dynamodbav:"keycap_kits,omitempty" json:"keycap_kits,omitempty"`
 	BuildDate     *string               `dynamodbav:"build_date,omitempty" json:"build_date,omitempty"`
 	Notes         *string               `dynamodbav:"notes,omitempty" json:"notes,omitempty"`
@@ -119,6 +136,15 @@ type Build struct {
 	// entry in place (images.<id>); the API/MCP layers project it to an
 	// ordered list via SortedBuildImages, sorting on each entry's Seq.
 	Images map[string]BuildImageEntry `dynamodbav:"images,omitempty" json:"-"`
+}
+
+// EffectiveBuildType is BuildType, or BuildTypeMX for a build stored
+// before build types existed.
+func (b Build) EffectiveBuildType() string {
+	if b.BuildType == "" {
+		return BuildTypeMX
+	}
+	return b.BuildType
 }
 
 // BuildRepository provides access to builds.
@@ -184,6 +210,10 @@ type BuildRepository interface {
 	// SwitchRepository Delete to block/cascade a delete that's still
 	// referenced.
 	FindBuildsReferencingSwitch(ctx context.Context, ownerID, switchID string) ([]string, error)
+
+	// FindBuildsReferencingECPart returns the ids of every build owned by
+	// ownerID with an ec_parts[] entry referencing ecPartID.
+	FindBuildsReferencingECPart(ctx context.Context, ownerID, ecPartID string) ([]string, error)
 
 	// FindBuildsReferencingKeycapKit returns the ids of every build owned
 	// by ownerID with a keycap_kits[] entry referencing the (keycapSetID,

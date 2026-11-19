@@ -153,6 +153,7 @@ func (r *BuildRepository) Create(ctx context.Context, b repository.Build) (*repo
 		return nil, fmt.Errorf("creating build %q: %w", b.ID, repository.ErrNoUserID)
 	}
 	b.UserID = ownerID
+	b.BuildType = b.EffectiveBuildType()
 
 	item, err := attributevalue.MarshalMap(b)
 	if err != nil {
@@ -233,7 +234,7 @@ func buildKey(ownerID, buildID string) map[string]types.AttributeValue {
 
 // Update rewrites the caller's build from the request body and re-diffs its
 // ref-markers, in one TransactWriteItems: an Update action on the build item
-// (SET body fields + Switches/KeycapKits, images/next unnamed so they carry
+// (SET body fields + Switches/ECParts/KeycapKits, images/next unnamed so they carry
 // forward, cond attribute_exists(id)) plus a marker Put/Delete per
 // reference delta. The pre-Get is for the old marker set, not carry-forward.
 // A cancellation is classified: build-item ConditionalCheckFailed means the
@@ -247,6 +248,8 @@ func (r *BuildRepository) Update(ctx context.Context, b repository.Build) (*repo
 	update := expression.
 		Set(expression.Name("keyboard"), expression.Value(b.Keyboard)).
 		Set(expression.Name("switches"), expression.Value(b.Switches)).
+		Set(expression.Name("ec_parts"), expression.Value(b.ECParts)).
+		Set(expression.Name("build_type"), expression.Value(b.EffectiveBuildType())).
 		Set(expression.Name("keycap_kits"), expression.Value(b.KeycapKits)).
 		Set(expression.Name("visibility"), expression.Value(b.Visibility))
 	update = setOrRemovePtr(update, "plate", b.Plate)

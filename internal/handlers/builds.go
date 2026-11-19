@@ -27,9 +27,10 @@ func validateBuildReferences(
 	ctx context.Context, w http.ResponseWriter, ownerID string, b repository.Build,
 	keyboardRepo repository.KeyboardRepository,
 	switchRepo repository.SwitchRepository,
+	ecPartRepo repository.ECPartRepository,
 	keycapSetRepo repository.KeycapSetRepository,
 ) (ok bool) {
-	fieldErrs, err := buildrefs.ValidateReferences(ctx, ownerID, b, keyboardRepo, switchRepo, keycapSetRepo)
+	fieldErrs, err := buildrefs.ValidateReferences(ctx, ownerID, b, keyboardRepo, switchRepo, ecPartRepo, keycapSetRepo)
 	if err != nil {
 		log.FromContext(ctx).Error("validating build references", log.Error, err)
 		problem.Internal(w, "failed to validate build")
@@ -180,6 +181,7 @@ func CreateBuild(
 	br repoapi.Build,
 	keyboardRepo repository.KeyboardRepository,
 	switchRepo repository.SwitchRepository,
+	ecPartRepo repository.ECPartRepository,
 	keycapSetRepo repository.KeycapSetRepository,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +204,7 @@ func CreateBuild(
 			return
 		}
 
-		if !validateBuildReferences(r.Context(), w, ownerID, b, keyboardRepo, switchRepo, keycapSetRepo) {
+		if !validateBuildReferences(r.Context(), w, ownerID, b, keyboardRepo, switchRepo, ecPartRepo, keycapSetRepo) {
 			return
 		}
 
@@ -257,6 +259,7 @@ func UpdateBuild(
 	br repoapi.Build,
 	keyboardRepo repository.KeyboardRepository,
 	switchRepo repository.SwitchRepository,
+	ecPartRepo repository.ECPartRepository,
 	keycapSetRepo repository.KeycapSetRepository,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -280,7 +283,7 @@ func UpdateBuild(
 			return
 		}
 
-		if !validateBuildReferences(r.Context(), w, ownerID, b, keyboardRepo, switchRepo, keycapSetRepo) {
+		if !validateBuildReferences(r.Context(), w, ownerID, b, keyboardRepo, switchRepo, ecPartRepo, keycapSetRepo) {
 			return
 		}
 
