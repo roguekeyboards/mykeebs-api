@@ -35,3 +35,12 @@ func imageStatusToMCP(hasImage bool, status repository.ImageStatus, reason *stri
 
 	return &out, reason
 }
+
+// convertPtr converts a pointer to one string type into a pointer to
+// another, keeping nil.
+func convertPtr[To, From ~string](v *From) *To {
+	if v == nil {
+		return nil
+	}
+	return new(To(*v))
+}

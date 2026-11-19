@@ -54,10 +54,10 @@ func (s *ImageModerationSuite) TestKeyboard_Owner_SeesEveryImageWithStatus_NoURL
 
 	s.Require().NotNil(out.Images)
 	s.Equal([]api.KeyboardImage{
-		{ImageId: "legacy", Url: strPtr("https://example.com/" + legacyKey), Status: statusPtr(api.Approved)},
-		{ImageId: "pending", Url: strPtr("https://example.com/" + pendingKey), Status: statusPtr(api.Pending)},
-		{ImageId: "approved", Url: strPtr("https://example.com/" + approvedKey), Status: statusPtr(api.Approved)},
-		{ImageId: "rejected", Status: statusPtr(api.Rejected), RejectionReason: strPtr("Explicit")},
+		{ImageId: "legacy", Url: strPtr("https://example.com/" + legacyKey), Status: statusPtr(api.ImageStatusApproved)},
+		{ImageId: "pending", Url: strPtr("https://example.com/" + pendingKey), Status: statusPtr(api.ImageStatusPending)},
+		{ImageId: "approved", Url: strPtr("https://example.com/" + approvedKey), Status: statusPtr(api.ImageStatusApproved)},
+		{ImageId: "rejected", Status: statusPtr(api.ImageStatusRejected), RejectionReason: strPtr("Explicit")},
 	}, *out.Images)
 }
 
@@ -107,9 +107,9 @@ func (s *ImageModerationSuite) TestBuild_Owner_SeesEveryImageWithStatus() {
 	s.Require().NoError(err)
 
 	s.Equal([]api.BuildImage{
-		{ImageId: "pending", Url: strPtr("https://example.com/" + pendingKey), Status: statusPtr(api.Pending)},
-		{ImageId: "approved", Url: strPtr("https://example.com/" + approvedKey), Status: statusPtr(api.Approved)},
-		{ImageId: "rejected", Status: statusPtr(api.Rejected), RejectionReason: strPtr("unprocessable")},
+		{ImageId: "pending", Url: strPtr("https://example.com/" + pendingKey), Status: statusPtr(api.ImageStatusPending)},
+		{ImageId: "approved", Url: strPtr("https://example.com/" + approvedKey), Status: statusPtr(api.ImageStatusApproved)},
+		{ImageId: "rejected", Status: statusPtr(api.ImageStatusRejected), RejectionReason: strPtr("unprocessable")},
 	}, *out)
 }
 
@@ -172,13 +172,13 @@ func (s *ImageModerationSuite) switchWith(key string, status repository.ImageSta
 func (s *ImageModerationSuite) TestSwitch_Owner_Pending_URLAndStatus() {
 	out, err := s.switchMapper(pendingKey).ToAPI(s.T().Context(), s.switchWith(pendingKey, repository.ImageStatusPending, nil), true, repository.ProfilePreferences{})
 	s.Require().NoError(err)
-	s.Equal(&api.SwitchImage{Url: strPtr("https://example.com/" + pendingKey), Status: statusPtr(api.Pending)}, out.Image)
+	s.Equal(&api.SwitchImage{Url: strPtr("https://example.com/" + pendingKey), Status: statusPtr(api.ImageStatusPending)}, out.Image)
 }
 
 func (s *ImageModerationSuite) TestSwitch_Owner_Rejected_ReasonNoURL() {
 	out, err := s.switchMapper().ToAPI(s.T().Context(), s.switchWith(rejectedKey, repository.ImageStatusRejected, strPtr("Violence")), true, repository.ProfilePreferences{})
 	s.Require().NoError(err)
-	s.Equal(&api.SwitchImage{Status: statusPtr(api.Rejected), RejectionReason: strPtr("Violence")}, out.Image)
+	s.Equal(&api.SwitchImage{Status: statusPtr(api.ImageStatusRejected), RejectionReason: strPtr("Violence")}, out.Image)
 }
 
 func (s *ImageModerationSuite) TestSwitch_NonOwner_Pending_NoImage() {
@@ -202,7 +202,7 @@ func (s *ImageModerationSuite) TestKit_Owner_Rejected_ReasonNoURL() {
 	ks := KeycapSet{Images: mocks.NewMockKeycapKitImageStore(s.T())}
 	out, err := ks.KitToAPI(s.T().Context(), s.kitWith(rejectedKey, repository.ImageStatusRejected, strPtr("Hate Symbols")), true, repository.ProfilePreferences{})
 	s.Require().NoError(err)
-	s.Equal(&api.KeycapKitImage{Status: statusPtr(api.Rejected), RejectionReason: strPtr("Hate Symbols")}, out.Image)
+	s.Equal(&api.KeycapKitImage{Status: statusPtr(api.ImageStatusRejected), RejectionReason: strPtr("Hate Symbols")}, out.Image)
 }
 
 func (s *ImageModerationSuite) TestKit_NonOwner_Rejected_NoImage() {
@@ -221,7 +221,7 @@ func (s *ImageModerationSuite) TestProfile_Owner_Rejected_ReasonNoURL() {
 	p := Profile{Images: mocks.NewMockProfileImageStore(s.T())}
 	out, err := p.ToAPI(s.T().Context(), s.profileWith(rejectedKey, repository.ImageStatusRejected, strPtr("unprocessable")), true)
 	s.Require().NoError(err)
-	s.Equal(&api.ProfileImage{Status: statusPtr(api.Rejected), RejectionReason: strPtr("unprocessable")}, out.Avatar)
+	s.Equal(&api.ProfileImage{Status: statusPtr(api.ImageStatusRejected), RejectionReason: strPtr("unprocessable")}, out.Avatar)
 }
 
 func (s *ImageModerationSuite) TestProfile_NonOwner_Pending_NoAvatar() {

@@ -14,6 +14,7 @@ func registerTools(
 	s *sdkmcp.Server,
 	switchRepo repository.SwitchRepository,
 	switchImageStore repository.SwitchImageStore,
+	ecPartRepo repository.ECPartRepository,
 	keyboardRepo repository.KeyboardRepository,
 	keyboardImageStore repository.KeyboardImageStore,
 	keycapSetRepo repository.KeycapSetRepository,
@@ -41,6 +42,10 @@ func registerTools(
 	sdkmcp.AddTool(s, deleteSwitchTool, handleDeleteSwitch(switchRepo, buildRepo, buildImageStore, switchImageStore))
 	sdkmcp.AddTool(s, setSwitchImageTool, handleSetSwitchImage(switchRepo, switchImageStore, uploads))
 	sdkmcp.AddTool(s, deleteSwitchImageTool, handleDeleteSwitchImage(switchRepo, switchImageStore))
+	sdkmcp.AddTool(s, listECPartsTool, handleListECParts(ecPartRepo, profileRepo))
+	sdkmcp.AddTool(s, getECPartTool, handleGetECPart(ecPartRepo, profileRepo))
+	sdkmcp.AddTool(s, createECPartTool, handleCreateECPart(ecPartRepo, profileRepo))
+	sdkmcp.AddTool(s, updateECPartTool, handleUpdateECPart(ecPartRepo, profileRepo))
 	sdkmcp.AddTool(s, listKeyboardsTool, handleListKeyboards(keyboardRepo, profileRepo))
 	sdkmcp.AddTool(s, getKeyboardTool, handleGetKeyboard(keyboardRepo, profileRepo))
 	sdkmcp.AddTool(s, listKeyboardImagesTool, handleListKeyboardImages(keyboardRepo))

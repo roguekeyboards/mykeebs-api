@@ -44,12 +44,19 @@ func ValidateECPart(ctx context.Context, p repository.ECPart) []FieldError {
 	return append(errs, validateFields(ctx, checks)...)
 }
 
+// ValidateECPartType returns a FieldError if t isn't one of
+// repository.ECPartTypes.
+func ValidateECPartType(t repository.ECPartType) []FieldError {
+	if t.Valid() {
+		return nil
+	}
+	return []FieldError{{Field: "part_type", Value: string(t), Reason: oneOf(repository.ECPartTypes)}}
+}
+
 func validateECPartStructure(p repository.ECPart) []FieldError {
 	var errs []FieldError
 
-	if !p.PartType.Valid() {
-		errs = append(errs, FieldError{Field: "part_type", Value: string(p.PartType), Reason: oneOf(repository.ECPartTypes)})
-	}
+	errs = append(errs, ValidateECPartType(p.PartType)...)
 
 	for _, sub := range []struct {
 		partType repository.ECPartType

@@ -114,6 +114,7 @@ var _ = Describe("Deleting a profile over MCP", func() {
 				for tool, args := range map[string]map[string]any{
 					"get_keyboard":   {"keyboard_id": items.KeyboardID},
 					"get_switch":     {"switch_id": items.SwitchID},
+					"get_ec_part":    {"ec_part_id": items.ECPartID},
 					"get_keycap_set": {"keycap_set_id": items.KeycapSetID},
 					"get_build":      {"build_id": items.BuildID},
 				} {

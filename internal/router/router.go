@@ -56,6 +56,7 @@ func New(
 	validate := restOpenAPIValidator()
 
 	sr := repoapi.Switch{Images: switchImageStore}
+	er := repoapi.ECPart{}
 	kr := repoapi.Keyboard{Images: keyboardImageStore}
 	kcr := repoapi.KeycapSet{Images: imageStore}
 	br := repoapi.Build{
@@ -115,6 +116,17 @@ func New(
 		middleware.RequireAuthorizerIdentity(validate(handlers.SetSwitchImage(switchRepo, switchImageStore, uploads))))
 	mux.Handle("DELETE /v1/users/{userId}/switches/{switchId}/image",
 		middleware.RequireAuthorizerIdentity(validate(handlers.DeleteSwitchImage(switchRepo, switchImageStore))))
+
+	// security: [{}, BearerAuth] in api/openapi.yaml - anonymous callers see
+	// only public EC parts.
+	mux.Handle("GET /v1/users/{userId}/ec-parts",
+		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.ListECParts(ecPartRepo, er)))))
+	mux.Handle("GET /v1/users/{userId}/ec-parts/{ecPartId}",
+		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.GetECPart(ecPartRepo, er)))))
+	mux.Handle("POST /v1/users/{userId}/ec-parts",
+		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.CreateECPart(ecPartRepo, er)))))
+	mux.Handle("PUT /v1/users/{userId}/ec-parts/{ecPartId}",
+		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.UpdateECPart(ecPartRepo, er)))))
 
 	// security: [{}, BearerAuth] in api/openapi.yaml - anonymous callers see
 	// only public keyboards (see [github.com/roguekeyboards/mykeebs-api/internal/authz.ReadableVisibilities]).
@@ -225,7 +237,7 @@ func New(
 	// response can't carry). internal/gatewayroutes gives /mcp no gateway
 	// authorizer accordingly. Not wrapped in validate: api/openapi.yaml only covers
 	// the REST surface.
-	mcpHandlers := mcp.New(switchRepo, switchImageStore, keyboardRepo, keyboardImageStore, keycapSetRepo, imageStore, buildRepo, buildImageStore, profileRepo, profileImageStore, account, uploads, verifier, issuerURL, version)
+	mcpHandlers := mcp.New(switchRepo, switchImageStore, ecPartRepo, keyboardRepo, keyboardImageStore, keycapSetRepo, imageStore, buildRepo, buildImageStore, profileRepo, profileImageStore, account, uploads, verifier, issuerURL, version)
 	mux.Handle("/mcp", mcpHandlers.Streamable)
 	mux.Handle(mcpHandlers.MetadataPath, mcpHandlers.Metadata)
 	mux.Handle(mcpHandlers.RootMetadataPath, mcpHandlers.Metadata)

@@ -14,6 +14,7 @@ const (
 	KeyboardPlate  = "keyboard_plate_id"
 	KeyboardPCB    = "keyboard_pcb_id"
 	SwitchID       = "switch_id"
+	ECPartID       = "ec_part_id"
 	KeycapSetID    = "keycap_set_id"
 	KeycapKitID    = "keycap_kit_id"
 	KeycapKitImage = "keycap_kit_image"

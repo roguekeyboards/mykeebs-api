@@ -1158,7 +1158,7 @@ func (s *GetBuildSuite) TestGetBuild_Owner_AlwaysIncludesStabsPriceAndCurrency()
 	s.Require().NotNil(got.Stabs.Price)
 	s.InDelta(12.5, *got.Stabs.Price, 0.0001)
 	s.Require().NotNil(got.Visibility)
-	s.Equal(api.Private, *got.Visibility)
+	s.Equal(api.VisibilityPrivate, *got.Visibility)
 	s.Require().NotNil(got.Stabs.Currency)
 	s.Equal("EUR", *got.Stabs.Currency)
 }

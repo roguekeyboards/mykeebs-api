@@ -66,6 +66,7 @@ const (
 func New(
 	switchRepo repository.SwitchRepository,
 	switchImageStore repository.SwitchImageStore,
+	ecPartRepo repository.ECPartRepository,
 	keyboardRepo repository.KeyboardRepository,
 	keyboardImageStore repository.KeyboardImageStore,
 	keycapSetRepo repository.KeycapSetRepository,
@@ -88,7 +89,7 @@ func New(
 	})
 	mcpServer.AddReceivingMiddleware(identityMiddleware())
 
-	registerTools(mcpServer, switchRepo, switchImageStore, keyboardRepo, keyboardImageStore, keycapSetRepo, imageStore, buildRepo, buildImageStore, profileRepo, profileImageStore, account, uploads)
+	registerTools(mcpServer, switchRepo, switchImageStore, ecPartRepo, keyboardRepo, keyboardImageStore, keycapSetRepo, imageStore, buildRepo, buildImageStore, profileRepo, profileImageStore, account, uploads)
 
 	streamable := sdkmcp.NewStreamableHTTPHandler(
 		func(*http.Request) *sdkmcp.Server { return mcpServer },

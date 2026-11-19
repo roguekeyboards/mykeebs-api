@@ -84,3 +84,12 @@ func visibleImages[T any](images []T, statusOf func(T) repository.ImageStatus, i
 
 	return out
 }
+
+// convertPtr converts a pointer to one string type into a pointer to
+// another, keeping nil.
+func convertPtr[To, From ~string](v *From) *To {
+	if v == nil {
+		return nil
+	}
+	return new(To(*v))
+}

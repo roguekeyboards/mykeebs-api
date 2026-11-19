@@ -3,7 +3,7 @@ info:
   title: mykeebs-api API
   description: >
     API for tracking a personal mechanical keyboard collection: keyboards,
-    switches, keycap sets, and the builds that combine them. Routes are
+    switches, EC parts, keycap sets, and the builds that combine them. Routes are
     nested under /v1/users/{userId}/... for both the caller's own
     collection and other users' items the caller can read under each
     item's visibility — see the userId path parameter's description for
@@ -24,6 +24,11 @@ tags:
     description: Keyboards in a user's collection.
   - name: switches
     description: Switches in a user's collection.
+  - name: ec-parts
+    description: >
+      Electro-capacitive (Topre-style) building blocks in a user's collection:
+      domes, sliders, housings, springs and silencing rings, each bought on
+      its own.
   - name: keycap-sets
     description: Keycap sets (and their individual kits) in a user's collection.
   - name: builds
@@ -670,6 +675,109 @@ paths:
       responses:
         "204":
           description: Deleted.
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+
+  /v1/users/{userId}/ec-parts:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [ec-parts]
+      summary: List EC parts
+      operationId: listECParts
+      security:
+        - {}
+        - BearerAuth: []
+      description: >
+        Lists the EC parts in userId's collection that the caller can read: all of them for the owner, public and authenticated ones for any other signed-in caller, and only public ones for an anonymous caller (possibly empty).
+      parameters:
+        - $ref: "#/components/parameters/ECPartTypeFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of EC parts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ECPartListPage"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      tags: [ec-parts]
+      summary: Create an EC part
+      operationId: createECPart
+      description: >
+        userId must be the caller's own subject; creating in another user's collection always returns 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ECPartInput"
+      responses:
+        "201":
+          description: The created EC part.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ECPart"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+
+  /v1/users/{userId}/ec-parts/{ecPartId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+      - $ref: "#/components/parameters/ECPartId"
+    get:
+      tags: [ec-parts]
+      summary: Get an EC part
+      operationId: getECPart
+      security:
+        - {}
+        - BearerAuth: []
+      description: >
+        Returns the EC part if the caller can read it under its visibility. Returns 404 (not 403) if it doesn't exist or the caller can't read it, so an unreadable part's existence isn't revealed.
+      responses:
+        "200":
+          description: The requested EC part.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ECPart"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    put:
+      tags: [ec-parts]
+      summary: Update an EC part
+      operationId: updateECPart
+      description: >
+        userId must be the caller's own subject; updating another user's EC part always returns 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ECPartInput"
+      responses:
+        "200":
+          description: The updated EC part.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ECPart"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
         "404":
           $ref: "#/components/responses/NotFoundResponse"
         default:
@@ -1536,6 +1644,19 @@ components:
       schema:
         type: string
       description: Server-generated identifier for the switch.
+    ECPartId:
+      name: ecPartId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Server-generated identifier for the EC part.
+    ECPartTypeFilter:
+      name: part_type
+      in: query
+      schema:
+        $ref: "#/components/schemas/ECPartType"
+      description: If set, only return EC parts of this type.
     KeycapSetId:
       name: keycapSetId
       in: path
@@ -2265,6 +2386,218 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Switch"
+        next_cursor:
+          type: string
+          description: Pass as cursor to fetch the next page. Omitted on the last page.
+
+    ECPartType:
+      type: string
+      enum: [domes, sliders, housings, springs, rings]
+      description: >
+        Which building block an EC part is. Decides which one of domes,
+        sliders, housings, springs or rings the part may carry.
+
+    ECPartSize:
+      type: string
+      enum: [1U, 2U]
+      description: The key size a slider or housing fits.
+
+    ECSliderStem:
+      type: string
+      enum: [MX, OEM]
+      description: >
+        The keycap mount a slider takes: MX is the cross stem; OEM is the
+        round stem Topre-style keycaps fit.
+
+    ECDomes:
+      type: object
+      additionalProperties: false
+      properties:
+        weight:
+          type: number
+          format: double
+          minimum: 0
+          description: Nominal dome weight in grams.
+        material:
+          type: string
+          description: Open vocabulary — validated against the "ec_dome_material" lookup at request time.
+        color:
+          type: string
+
+    ECSliders:
+      type: object
+      additionalProperties: false
+      properties:
+        size:
+          $ref: "#/components/schemas/ECPartSize"
+        stem:
+          $ref: "#/components/schemas/ECSliderStem"
+        material:
+          type: string
+          description: Open vocabulary — validated against the "switch_material" lookup at request time.
+
+    ECHousings:
+      type: object
+      additionalProperties: false
+      properties:
+        size:
+          $ref: "#/components/schemas/ECPartSize"
+        material:
+          type: string
+          description: Open vocabulary — validated against the "switch_material" lookup at request time.
+
+    ECSprings:
+      type: object
+      additionalProperties: false
+      properties:
+        material:
+          type: string
+          description: Open vocabulary — validated against the "switch_spring_material" lookup at request time.
+
+    ECRings:
+      type: object
+      additionalProperties: false
+      properties:
+        material:
+          type: string
+          description: Open vocabulary — validated against the "ec_ring_material" lookup at request time.
+        thickness:
+          type: number
+          format: double
+          minimum: 0
+          description: Ring thickness in mm.
+
+    ECPartPurchaseInput:
+      type: object
+      description: >
+        Same purchase-lifecycle tracking as PurchaseInput, plus a quantity
+        field since EC parts are bought in packs.
+      additionalProperties: false
+      properties:
+        vendor:
+          type: string
+          description: Open vocabulary — validated against the "vendor" lookup at request time.
+        price:
+          $ref: "#/components/schemas/Money"
+          description: >
+            The total paid for quantity parts, not the per-part price.
+        order_date:
+          type: string
+          format: date
+        delivery_date:
+          type: string
+          format: date
+        order_status:
+          type: string
+          description: Open vocabulary — validated against the "order_status" lookup at request time.
+        quantity:
+          type: integer
+          minimum: 1
+          description: How many parts price paid for.
+
+    ECPartPurchase:
+      type: object
+      description: >
+        The read form of ECPartPurchaseInput.
+      properties:
+        vendor:
+          type: string
+        price:
+          $ref: "#/components/schemas/Money"
+          description: >
+            The total paid for quantity parts, not the per-part price.
+        currency:
+          $ref: "#/components/schemas/Currency"
+          description: >
+            The owner's display currency, for labelling price.
+            Present exactly when price is.
+        order_date:
+          type: string
+          format: date
+        delivery_date:
+          type: string
+          format: date
+        order_status:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          description: How many parts price paid for.
+
+    ECPartInput:
+      type: object
+      required: [brand, name, part_type, visibility]
+      additionalProperties: false
+      description: >
+        At most the one of domes, sliders, housings, springs or rings that
+        part_type names may be set; any other is rejected with 400.
+      properties:
+        brand:
+          type: string
+          minLength: 1
+          pattern: "\\S"
+        name:
+          type: string
+          minLength: 1
+          pattern: "\\S"
+        part_type:
+          $ref: "#/components/schemas/ECPartType"
+        domes:
+          $ref: "#/components/schemas/ECDomes"
+        sliders:
+          $ref: "#/components/schemas/ECSliders"
+        housings:
+          $ref: "#/components/schemas/ECHousings"
+        springs:
+          $ref: "#/components/schemas/ECSprings"
+        rings:
+          $ref: "#/components/schemas/ECRings"
+        purchase:
+          $ref: "#/components/schemas/ECPartPurchaseInput"
+        notes:
+          type: string
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+
+    ECPart:
+      type: object
+      required: [id, brand, name, part_type]
+      properties:
+        id:
+          type: string
+        brand:
+          type: string
+        name:
+          type: string
+        part_type:
+          $ref: "#/components/schemas/ECPartType"
+        domes:
+          $ref: "#/components/schemas/ECDomes"
+        sliders:
+          $ref: "#/components/schemas/ECSliders"
+        housings:
+          $ref: "#/components/schemas/ECHousings"
+        springs:
+          $ref: "#/components/schemas/ECSprings"
+        rings:
+          $ref: "#/components/schemas/ECRings"
+        purchase:
+          $ref: "#/components/schemas/ECPartPurchase"
+        notes:
+          type: string
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+          description: >
+            Who can read this EC part. Only ever present for the part's
+            owner - no preference can expose it to another caller.
+
+    ECPartListPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ECPart"
         next_cursor:
           type: string
           description: Pass as cursor to fetch the next page. Omitted on the last page.

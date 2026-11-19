@@ -1,0 +1,148 @@
+package schema
+
+// ListECPartsInput is the list_ec_parts tool arguments.
+type ListECPartsInput struct {
+	UserID   string `json:"user_id,omitempty" jsonschema:"whose collection to list; omit for your own"`
+	PartType string `json:"part_type,omitempty" jsonschema:"if set, only return parts of this type: domes, sliders, housings, springs or rings"`
+	Limit    int    `json:"limit,omitempty" jsonschema:"maximum number of EC parts to return (1-100, default 20)"`
+	Cursor   string `json:"cursor,omitempty" jsonschema:"resume from a previous call's next_cursor, with the same part_type"`
+}
+
+// ListECPartsOutput is the list_ec_parts tool result.
+type ListECPartsOutput struct {
+	ECParts    []ECPartSummary `json:"ec_parts" jsonschema:"the EC parts in this page"`
+	NextCursor string          `json:"next_cursor,omitempty" jsonschema:"pass as cursor to fetch the next page; empty when there are no more"`
+}
+
+// ECPartSummary is the abbreviated EC part shape returned by list_ec_parts.
+// Call get_ec_part for the remaining fields.
+type ECPartSummary struct {
+	ID          string   `json:"id" jsonschema:"the EC part's unique id"`
+	Brand       string   `json:"brand" jsonschema:"the part's brand"`
+	Name        string   `json:"name" jsonschema:"the part's name"`
+	PartType    string   `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings"`
+	OrderStatus *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Price       *float64 `json:"price,omitempty" jsonschema:"purchase price; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
+	Currency    *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
+	Visibility  *string  `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
+}
+
+// GetECPartInput is the get_ec_part tool arguments.
+type GetECPartInput struct {
+	ECPartID string `json:"ec_part_id" jsonschema:"the EC part's unique id"`
+	UserID   string `json:"user_id,omitempty" jsonschema:"whose collection to read from; omit for your own"`
+}
+
+// GetECPartOutput is the get_ec_part tool result.
+type GetECPartOutput struct {
+	ECPart ECPart `json:"ec_part" jsonschema:"the requested EC part"`
+}
+
+// CreateECPartInput is the create_ec_part tool arguments. Writes are
+// always self-scoped, so there is no user_id.
+type CreateECPartInput struct {
+	ECPartInput
+}
+
+// CreateECPartOutput is the create_ec_part tool result.
+type CreateECPartOutput struct {
+	ECPart ECPart `json:"ec_part" jsonschema:"the created EC part, including its server-generated id"`
+}
+
+// UpdateECPartInput is the update_ec_part tool arguments. Every field is
+// replaced, so omitting an optional field clears it, matching the REST PUT.
+type UpdateECPartInput struct {
+	ECPartID string `json:"ec_part_id" jsonschema:"the id of the EC part to replace"`
+	ECPartInput
+}
+
+// UpdateECPartOutput is the update_ec_part tool result.
+type UpdateECPartOutput struct {
+	ECPart ECPart `json:"ec_part" jsonschema:"the updated EC part"`
+}
+
+// ECPartInput is the writable half of an EC part, shared by create_ec_part
+// and update_ec_part.
+type ECPartInput struct {
+	Brand      string               `json:"brand" jsonschema:"the part's brand"`
+	Name       string               `json:"name" jsonschema:"the part's name"`
+	PartType   string               `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings; only the matching one of domes, sliders, housings, springs or rings may be set"`
+	Domes      *ECDomes             `json:"domes,omitempty" jsonschema:"dome details; only with part_type domes"`
+	Sliders    *ECSliders           `json:"sliders,omitempty" jsonschema:"slider details; only with part_type sliders"`
+	Housings   *ECHousings          `json:"housings,omitempty" jsonschema:"housing details; only with part_type housings"`
+	Springs    *ECSprings           `json:"springs,omitempty" jsonschema:"spring details; only with part_type springs"`
+	Rings      *ECRings             `json:"rings,omitempty" jsonschema:"silencing ring details; only with part_type rings"`
+	Purchase   *ECPartPurchaseInput `json:"purchase,omitempty" jsonschema:"where it was bought and the order's status"`
+	Notes      *string              `json:"notes,omitempty" jsonschema:"free-form notes"`
+	Visibility string               `json:"visibility" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\""`
+}
+
+// ECPart is one EC part. Optional fields are pointers so a recorded zero
+// stays distinguishable from an unset field, which is omitted entirely.
+type ECPart struct {
+	ID         string          `json:"id" jsonschema:"the EC part's unique id"`
+	Brand      string          `json:"brand" jsonschema:"the part's brand"`
+	Name       string          `json:"name" jsonschema:"the part's name"`
+	PartType   string          `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings"`
+	Domes      *ECDomes        `json:"domes,omitempty" jsonschema:"dome details"`
+	Sliders    *ECSliders      `json:"sliders,omitempty" jsonschema:"slider details"`
+	Housings   *ECHousings     `json:"housings,omitempty" jsonschema:"housing details"`
+	Springs    *ECSprings      `json:"springs,omitempty" jsonschema:"spring details"`
+	Rings      *ECRings        `json:"rings,omitempty" jsonschema:"silencing ring details"`
+	Purchase   *ECPartPurchase `json:"purchase,omitempty" jsonschema:"where it was bought and the order's status"`
+	Notes      *string         `json:"notes,omitempty" jsonschema:"free-form notes"`
+	Visibility *string         `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
+}
+
+// ECDomes is the domes-specific detail of an EC part.
+type ECDomes struct {
+	Weight   *float64 `json:"weight,omitempty" jsonschema:"nominal dome weight in grams"`
+	Material *string  `json:"material,omitempty" jsonschema:"dome material; must be an approved ec_dome_material lookup value"`
+	Color    *string  `json:"color,omitempty" jsonschema:"dome color"`
+}
+
+// ECSliders is the sliders-specific detail of an EC part.
+type ECSliders struct {
+	Size     *string `json:"size,omitempty" jsonschema:"the key size it fits: 1U or 2U"`
+	Stem     *string `json:"stem,omitempty" jsonschema:"the keycap mount: MX (cross stem) or OEM (round, Topre-style)"`
+	Material *string `json:"material,omitempty" jsonschema:"slider material; must be an approved switch_material lookup value"`
+}
+
+// ECHousings is the housings-specific detail of an EC part.
+type ECHousings struct {
+	Size     *string `json:"size,omitempty" jsonschema:"the key size it fits: 1U or 2U"`
+	Material *string `json:"material,omitempty" jsonschema:"housing material; must be an approved switch_material lookup value"`
+}
+
+// ECSprings is the springs-specific detail of an EC part.
+type ECSprings struct {
+	Material *string `json:"material,omitempty" jsonschema:"spring material; must be an approved switch_spring_material lookup value"`
+}
+
+// ECRings is the silencing-rings-specific detail of an EC part.
+type ECRings struct {
+	Material  *string  `json:"material,omitempty" jsonschema:"ring material; must be an approved ec_ring_material lookup value"`
+	Thickness *float64 `json:"thickness,omitempty" jsonschema:"ring thickness in mm"`
+}
+
+// ECPartPurchase is an EC part's purchase and order lifecycle, plus how
+// many were bought.
+type ECPartPurchase struct {
+	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the parts were bought"`
+	Price        *float64 `json:"price,omitempty" jsonschema:"the total paid for quantity parts"`
+	Currency     *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
+	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
+	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Quantity     *int     `json:"quantity,omitempty" jsonschema:"how many were bought"`
+}
+
+// ECPartPurchaseInput is the writable form of ECPartPurchase.
+type ECPartPurchaseInput struct {
+	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the parts were bought; must be an approved vendor lookup value"`
+	Price        *float64 `json:"price,omitempty" jsonschema:"the total paid for quantity parts"`
+	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
+	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands; must be an approved order_status lookup value"`
+	Quantity     *int     `json:"quantity,omitempty" jsonschema:"how many were bought"`
+}

@@ -1,0 +1,85 @@
+package repomcp
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/suite"
+
+	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
+	"github.com/roguekeyboards/mykeebs-api/internal/repository"
+)
+
+type ECPartSuite struct {
+	suite.Suite
+}
+
+func TestECPartSuite(t *testing.T) {
+	suite.Run(t, new(ECPartSuite))
+}
+
+func (s *ECPartSuite) TestToMCP_MapsSubObjectAndPurchase() {
+	p := repository.ECPart{
+		ID: "p1", Brand: "DynaCap", Name: "Housings", PartType: repository.ECPartTypeHousings,
+		Housings:   &repository.ECHousings{Size: new(repository.ECPartSize1U), Material: new("POM")},
+		Purchase:   repository.ECPartPurchase{Vendor: new("Omnitype"), Price: new(10.0), Quantity: new(72), OrderDate: new("2026-09-21")},
+		Visibility: repository.VisibilityPrivate,
+	}
+
+	s.Equal(schema.ECPart{
+		ID: "p1", Brand: "DynaCap", Name: "Housings", PartType: "housings",
+		Housings:   &schema.ECHousings{Size: new("1U"), Material: new("POM")},
+		Purchase:   &schema.ECPartPurchase{Vendor: new("Omnitype"), Price: new(10.0), Currency: new("USD"), Quantity: new(72), OrderDate: new("2026-09-21")},
+		Visibility: new("private"),
+	}, ECPart{}.ToMCP(p, true, repository.ProfilePreferences{Currency: "USD"}))
+}
+
+func (s *ECPartSuite) TestToMCP_NonOwner_HidesVisibilityAndUnsharedPrice() {
+	p := repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, Purchase: repository.ECPartPurchase{Price: new(36.0)}}
+
+	out := ECPart{}.ToMCP(p, false, repository.ProfilePreferences{})
+
+	s.Nil(out.Visibility)
+	s.Require().NotNil(out.Purchase)
+	s.Nil(out.Purchase.Price)
+}
+
+func (s *ECPartSuite) TestToMCPSummary_LiftsOrderStatusAndFollowsSummaryPricePreference() {
+	p := repository.ECPart{
+		ID: "p1", Brand: "DynaCap", Name: "Heavy", PartType: repository.ECPartTypeDomes,
+		Purchase:   repository.ECPartPurchase{Price: new(36.0), OrderStatus: new("Delivered")},
+		Visibility: repository.VisibilityPublic,
+	}
+
+	hidden := ECPart{}.ToMCPSummary(p, true, repository.ProfilePreferences{})
+	shown := ECPart{}.ToMCPSummary(p, true, repository.ProfilePreferences{ShowPriceToMe: true, Currency: "USD"})
+
+	s.Equal(schema.ECPartSummary{ID: "p1", Brand: "DynaCap", Name: "Heavy", PartType: "domes", OrderStatus: new("Delivered"), Visibility: new("public")}, hidden)
+	s.Equal(new(36.0), shown.Price)
+	s.Equal(new("USD"), shown.Currency)
+}
+
+func (s *ECPartSuite) TestFromMCP_MapsEveryField() {
+	in := schema.ECPartInput{
+		Brand: "DynaCap", Name: "Sliders", PartType: "sliders",
+		Domes:      &schema.ECDomes{Weight: new(45.0)},
+		Sliders:    &schema.ECSliders{Size: new("2U"), Stem: new("OEM"), Material: new("POM")},
+		Housings:   &schema.ECHousings{Size: new("1U")},
+		Springs:    &schema.ECSprings{Material: new("Nickel-Plated")},
+		Rings:      &schema.ECRings{Thickness: new(0.5)},
+		Purchase:   &schema.ECPartPurchaseInput{Vendor: new("Omnitype"), DeliveryDate: new("2026-09-25")},
+		Notes:      new("n"),
+		Visibility: "public",
+	}
+
+	s.Equal(repository.ECPart{
+		Brand: "DynaCap", Name: "Sliders", PartType: repository.ECPartTypeSliders,
+		Domes:      &repository.ECDomes{Weight: new(45.0)},
+		Sliders:    &repository.ECSliders{Size: new(repository.ECPartSize2U), Stem: new(repository.ECSliderStemOEM), Material: new("POM")},
+		Housings:   &repository.ECHousings{Size: new(repository.ECPartSize1U)},
+		Springs:    &repository.ECSprings{Material: new("Nickel-Plated")},
+		Rings:      &repository.ECRings{Thickness: new(0.5)},
+		Purchase:   repository.ECPartPurchase{Vendor: new("Omnitype"), DeliveryDate: new("2026-09-25")},
+		Notes:      new("n"),
+		Visibility: repository.VisibilityPublic,
+	}, ECPart{}.FromMCP(in))
+}
