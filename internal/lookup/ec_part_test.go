@@ -145,3 +145,10 @@ func (s *ValidateECPartSuite) TestStructure_Reasons_ListTheAllowedValues() {
 		{Field: "part_type", Value: "keycaps", Reason: "must be one of: domes, sliders, housings, springs, rings"},
 	}, lookup.ValidateECPart(s.T().Context(), repository.ECPart{PartType: "keycaps"}))
 }
+
+func (s *ValidateECPartSuite) TestValidateECPartType() {
+	s.Empty(lookup.ValidateECPartType(repository.ECPartTypeRings))
+	s.Equal([]lookup.FieldError{
+		{Field: "part_type", Value: "keycaps", Reason: "must be one of: domes, sliders, housings, springs, rings"},
+	}, lookup.ValidateECPartType("keycaps"))
+}

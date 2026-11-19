@@ -291,7 +291,7 @@ func (s *SwitchToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 			Quantity:     intPtr(90),
 		},
 		Notes:      strPtr("smooth"),
-		Visibility: api.Private,
+		Visibility: api.VisibilityPrivate,
 	}
 
 	sw := Switch{}.ToRepo(in)
@@ -326,7 +326,7 @@ func (s *SwitchToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 }
 
 func (s *SwitchToRepoSuite) TestNilSubStructs_ProduceZeroValueStructs() {
-	in := api.SwitchInput{Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: api.Private}
+	in := api.SwitchInput{Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: api.VisibilityPrivate}
 
 	sw := Switch{}.ToRepo(in)
 

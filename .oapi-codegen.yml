@@ -5,3 +5,5 @@ generate:
   embedded-spec: true
 output-options:
   skip-prune: false
+compatibility:
+  always-prefix-enum-values: true

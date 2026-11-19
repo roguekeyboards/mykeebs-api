@@ -316,7 +316,7 @@ func (s *KeyboardToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 			OrderStatus:  strPtr("Delivered"),
 		},
 		Notes:      strPtr("stock lubed"),
-		Visibility: api.Private,
+		Visibility: api.VisibilityPrivate,
 	}
 
 	kb := Keyboard{}.ToRepo(in)
@@ -366,7 +366,7 @@ func (s *KeyboardToRepoSuite) TestPCBToRepo_MapsAllFields() {
 }
 
 func (s *KeyboardToRepoSuite) TestNilSubStructs_ProduceZeroValueStructs() {
-	in := api.KeyboardInput{Brand: "Keychron", Name: "Q1", Visibility: api.Private}
+	in := api.KeyboardInput{Brand: "Keychron", Name: "Q1", Visibility: api.VisibilityPrivate}
 
 	kb := Keyboard{}.ToRepo(in)
 

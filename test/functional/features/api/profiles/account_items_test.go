@@ -21,6 +21,11 @@ func expectItemsGone(ctx context.Context, items account.Items, ownerID, token st
 	defer func() { _ = sw.Body.Close() }()
 	Expect(sw.StatusCode).To(Equal(http.StatusNotFound), "switch")
 
+	part, err := api.NewECPartsClient().Get(ctx, ownerID, items.ECPartID, token)
+	Expect(err).NotTo(HaveOccurred())
+	defer func() { _ = part.Body.Close() }()
+	Expect(part.StatusCode).To(Equal(http.StatusNotFound), "EC part")
+
 	set, err := api.NewKeycapSetsClient().Get(ctx, ownerID, items.KeycapSetID, token)
 	Expect(err).NotTo(HaveOccurred())
 	defer func() { _ = set.Body.Close() }()

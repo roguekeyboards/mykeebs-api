@@ -21,30 +21,34 @@ import (
 
 // Items is what Seed created.
 type Items struct {
-	KeyboardID, SwitchID, KeycapSetID, BuildID string
+	KeyboardID, SwitchID, ECPartID, KeycapSetID, BuildID string
 
 	// StrayImageKeys are objects under the owner's prefixes that no record
 	// points to, so the moderation function skips them.
 	StrayImageKeys []string
 }
 
-// Seed creates a keyboard and a switch with images, a keycap set with a
-// kit, a build referencing the keyboard, and two stray image objects.
+// Seed creates a keyboard and a switch with images, an EC part, a keycap
+// set with a kit, a build referencing the keyboard, and three stray image
+// objects.
 func Seed(ctx context.Context, ownerID string) (Items, error) {
 	items := Items{
 		KeyboardID:  uuid.NewString(),
 		SwitchID:    uuid.NewString(),
+		ECPartID:    uuid.NewString(),
 		KeycapSetID: uuid.NewString(),
 		BuildID:     uuid.NewString(),
 	}
 	items.StrayImageKeys = []string{
 		"keyboards/" + ownerID + "/" + items.KeyboardID + "/images/" + uuid.NewString(),
 		"profiles/" + ownerID + "/avatar/" + uuid.NewString(),
+		"ec-parts/" + ownerID + "/" + items.ECPartID + "/image/" + uuid.NewString(),
 	}
 
 	err := errors.Join(
 		db.SeedKeyboardWithImage(ctx, ownerID, items.KeyboardID, uuid.NewString(), "private"),
 		db.SeedSwitchWithImage(ctx, ownerID, items.SwitchID, "public"),
+		db.SeedECPart(ctx, ownerID, items.ECPartID, "public"),
 		db.SeedKeycapSetWithKit(ctx, ownerID, items.KeycapSetID, uuid.NewString(), "private"),
 		db.SeedBuild(ctx, ownerID, items.BuildID, items.KeyboardID, "public"),
 	)
@@ -74,6 +78,7 @@ func (i Items) CleanUp(ctx context.Context, ownerID string) {
 	_ = db.DeleteBuild(ctx, ownerID, i.BuildID, i.KeyboardID)
 	_ = db.DeleteKeyboard(ctx, ownerID, i.KeyboardID)
 	_ = db.DeleteSwitch(ctx, ownerID, i.SwitchID)
+	_ = db.DeleteECPart(ctx, ownerID, i.ECPartID)
 	_ = db.DeleteKeycapSet(ctx, ownerID, i.KeycapSetID)
 	if client, err := s3Client(ctx); err == nil {
 		for _, key := range i.StrayImageKeys {

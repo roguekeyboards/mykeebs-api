@@ -67,7 +67,7 @@ func (s *ListSwitchesSuite) TestListSwitches_Owner_RequestsAllVisibilities() {
 
 	var got api.SwitchListPage
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
-	visibility := api.Private
+	visibility := api.VisibilityPrivate
 	s.Equal(&[]api.Switch{{Id: "sw1", Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: &visibility}}, got.Items)
 	s.Nil(got.NextCursor)
 }

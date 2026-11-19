@@ -70,7 +70,7 @@ func (s *ListKeyboardsSuite) TestListKeyboards_Owner_RequestsAllVisibilities() {
 
 	var got api.KeyboardListPage
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
-	visibility := api.Private
+	visibility := api.VisibilityPrivate
 	s.Equal(&[]api.Keyboard{{Id: "kb1", Brand: "Keychron", Name: "Q1", Visibility: &visibility}}, got.Items)
 	s.Nil(got.NextCursor)
 }

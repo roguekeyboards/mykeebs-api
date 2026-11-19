@@ -67,7 +67,7 @@ func (s *ListKeycapSetsSuite) TestListKeycapSets_Owner_RequestsAllVisibilities()
 
 	var got api.KeycapSetListPage
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
-	visibility := api.Private
+	visibility := api.VisibilityPrivate
 	s.Equal(&[]api.KeycapSet{{Id: "ks1", Brand: "GMK", Name: "Laser", Visibility: &visibility}}, got.Items)
 	s.Nil(got.NextCursor)
 }
