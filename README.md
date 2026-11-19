@@ -1,6 +1,6 @@
 # mykeebs-api
 
-mykeebs-api is a keyboard collection database — keyboards, switches, keycap sets, and the builds assembled from them. It's multi-user: each item has a visibility of private (owner only), authenticated (any signed-in user), or public (no auth needed), set per item by its owner.
+mykeebs-api is a keyboard collection database — keyboards, switches, electro-capacitive (Topre-style) parts, keycap sets, and the builds assembled from them. It's multi-user: each item has a visibility of private (owner only), authenticated (any signed-in user), or public (no auth needed), set per item by its owner.
 
 It exposes two first-class APIs — REST and an MCP server, so you can manage your collection from an AI chat client — backed by the same service/repository layer, so they never drift out of sync with each other.
 
@@ -14,7 +14,7 @@ It exposes two first-class APIs — REST and an MCP server, so you can manage yo
 
 **Auth is defense-in-depth.** API Gateway's native JWT authorizer rejects invalid tokens before the Lambda even runs. The application then independently verifies every token itself rather than trusting injected claims implicitly — the same verification path both REST and MCP tool calls go through, since MCP clients don't all reach the server via API Gateway's authorizer the same way.
 
-**DynamoDB gives every query a predictable, flat-rate cost.** Every real access pattern — list/get a user's own items, hydrate a build from its linked keyboard/switch/keycap set — is a shallow lookup scoped to a known `user_id`, so there's nothing here a secondary index or a relational query planner would improve on.
+**DynamoDB gives every query a predictable, flat-rate cost.** Every real access pattern — list/get a user's own items, hydrate a build from its linked keyboard/switch/EC part/keycap set — is a shallow lookup scoped to a known `user_id`, so there's nothing here a secondary index or a relational query planner would improve on.
 
 **Multi-tenancy and per-item visibility are load-bearing from the schema up.** Every entity table is partitioned by `user_id` (the IdP's immutable subject claim, never the mutable email), and each item carries its own visibility — private, authenticated, or public — enforced independently of that partitioning.
 

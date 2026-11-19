@@ -71,6 +71,7 @@ func (s *PrecheckSuite) TestWithinLimits_Passes() {
 	s.arrayItem("keyboards", "kb1", 100, repository.MaxImageSizeBytes)
 	s.arrayItem("builds", "b1", sizes(repository.MaxImagesPerItem, 100)...)
 	s.singleSlot(filepath.Join(s.dumpDir, "switches", "sw1"), 100)
+	s.singleSlot(filepath.Join(s.dumpDir, "ec-parts", "ec1"), 100)
 	s.singleSlot(filepath.Join(s.dumpDir, "keycap-sets", "ks1", "kits", "kit1"), 100)
 	s.Require().NoError(os.MkdirAll(filepath.Join(s.dumpDir, "keyboards", "no-images"), 0o750))
 
@@ -85,6 +86,7 @@ func (s *PrecheckSuite) TestReportsEveryProblem() {
 	s.arrayItem("keyboards", "kb1", repository.MaxImageSizeBytes+1)
 	s.arrayItem("builds", "b1", sizes(repository.MaxImagesPerItem+1, 100)...)
 	s.singleSlot(filepath.Join(s.dumpDir, "switches", "sw1"), 0)
+	s.singleSlot(filepath.Join(s.dumpDir, "ec-parts", "ec1"), repository.MaxImageSizeBytes+1)
 	s.singleSlot(filepath.Join(s.dumpDir, "keycap-sets", "ks1", "kits", "kit1"), repository.MaxImageSizeBytes+1)
 	avatarDir := filepath.Join(s.dumpDir, profileDir)
 	s.writeJSON(filepath.Join(avatarDir, "avatar.manifest.json"), s.writeImage(avatarDir, "avatar.webp", 0))
@@ -95,6 +97,7 @@ func (s *PrecheckSuite) TestReportsEveryProblem() {
 	s.Require().ErrorContains(err, filepath.Join("keyboards", "kb1", "images", "img0.webp"))
 	s.Require().ErrorContains(err, "builds/b1 has 11 images")
 	s.Require().ErrorContains(err, filepath.Join("switches", "sw1", "image.webp"))
+	s.Require().ErrorContains(err, filepath.Join("ec-parts", "ec1", "image.webp"))
 	s.Require().ErrorContains(err, filepath.Join("kits", "kit1", "image.webp"))
 }
 
