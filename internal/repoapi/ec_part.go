@@ -1,6 +1,7 @@
 package repoapi
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
@@ -8,16 +9,31 @@ import (
 )
 
 // ECPart maps repository.ECPart to and from its wire representations.
-type ECPart struct{}
+type ECPart struct {
+	Images repository.ECPartImageStore
+}
 
 // ToAPI maps a repository.ECPart to its wire representation. The owner
 // always sees their own purchase.price; a non-owner sees it only if
 // ownerPrefs.ShowPriceToOthers. Returns an error if a stored Purchase date
-// doesn't match dateLayout.
-func (e ECPart) ToAPI(p repository.ECPart, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.ECPart, error) {
+// doesn't match dateLayout, or the image fails to sign.
+func (e ECPart) ToAPI(ctx context.Context, p repository.ECPart, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.ECPart, error) {
 	purchase, err := e.purchaseToAPI(p.Purchase, isOwner, ownerPrefs)
 	if err != nil {
 		return api.ECPart{}, err
+	}
+
+	var image *api.ECPartImage
+	if p.ImagePath != nil && p.ImageStatus.VisibleTo(isOwner) {
+		image = &api.ECPartImage{}
+		image.Status, image.RejectionReason = imageStatusToAPI(p.ImageStatus, p.ImageRejectionReason, isOwner)
+		if p.ImageStatus.Downloadable() {
+			url, err := e.Images.SignGet(ctx, *p.ImagePath)
+			if err != nil {
+				return api.ECPart{}, fmt.Errorf("signing EC part image: %w", err)
+			}
+			image.Url = &url
+		}
 	}
 
 	return api.ECPart{
@@ -33,6 +49,7 @@ func (e ECPart) ToAPI(p repository.ECPart, isOwner bool, ownerPrefs repository.P
 		Purchase:   purchase,
 		Notes:      p.Notes,
 		Visibility: ownerVisibility(p.Visibility, isOwner),
+		Image:      image,
 	}, nil
 }
 

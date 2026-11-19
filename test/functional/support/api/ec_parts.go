@@ -46,3 +46,15 @@ func (c *ECPartsClient) Create(ctx context.Context, ownerID, token, body string)
 func (c *ECPartsClient) Update(ctx context.Context, ownerID, id, token, body string) (*http.Response, error) {
 	return c.client.Do(ctx, http.MethodPut, "/v1/users/"+ownerID+"/ec-parts/"+id, token, bytes.NewBufferString(body))
 }
+
+// SetImage calls POST /v1/users/{ownerID}/ec-parts/{id}/image with body as
+// the raw JSON request body. The caller owns closing resp.Body.
+func (c *ECPartsClient) SetImage(ctx context.Context, ownerID, id, token, body string) (*http.Response, error) {
+	return c.client.Do(ctx, http.MethodPost, "/v1/users/"+ownerID+"/ec-parts/"+id+"/image", token, bytes.NewBufferString(body))
+}
+
+// DeleteImage calls DELETE /v1/users/{ownerID}/ec-parts/{id}/image. The
+// caller owns closing resp.Body.
+func (c *ECPartsClient) DeleteImage(ctx context.Context, ownerID, id, token string) (*http.Response, error) {
+	return c.client.Do(ctx, http.MethodDelete, "/v1/users/"+ownerID+"/ec-parts/"+id+"/image", token, nil)
+}

@@ -19,6 +19,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/repoapi"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository/mocks"
+	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
 )
 
 type ecPartRequest struct {
@@ -348,4 +349,180 @@ func (s *UpdateECPartSuite) TestRepositoryError_Returns500() {
 	rec := s.put(s.ownerCtx(), `{"brand":"DynaCap","name":"Springs","part_type":"springs","visibility":"public"}`)
 
 	s.Equal(http.StatusInternalServerError, rec.Code)
+}
+
+func (s *GetECPartSuite) TestApprovedImage_SignedURLIncluded() {
+	key := repository.ECPartImageKey("ec-parts/alice/p1/image/u1")
+	images := mocks.NewMockECPartImageStore(s.T())
+	images.EXPECT().SignGet(mock.Anything, key).Return("https://images.example/p1", nil)
+	s.handler = GetECPart(s.mockRepo, repoapi.ECPart{Images: images})
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").
+		Return(&repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, ImagePath: &key, ImageStatus: repository.ImageStatusApproved}, nil)
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, newECPartRequest(s.T().Context(), ecPartRequest{method: http.MethodGet, pathID: "p1"}))
+
+	s.Equal(http.StatusOK, rec.Code)
+	var got api.ECPart
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Equal(&api.ECPartImage{Url: new("https://images.example/p1")}, got.Image)
+}
+
+func (s *GetECPartSuite) TestPendingImage_HiddenFromOthers() {
+	key := repository.ECPartImageKey("ec-parts/alice/p1/image/u1")
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").
+		Return(&repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, ImagePath: &key, ImageStatus: repository.ImageStatusPending}, nil)
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, newECPartRequest(s.T().Context(), ecPartRequest{method: http.MethodGet, pathID: "p1"}))
+
+	var got api.ECPart
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Nil(got.Image)
+}
+
+type SetECPartImageSuite struct {
+	suite.Suite
+
+	mockRepo    *mocks.MockECPartRepository
+	mockImages  *mocks.MockECPartImageStore
+	mockUploads *mocks.MockUploadCounter
+	handler     http.HandlerFunc
+}
+
+func TestSetECPartImageSuite(t *testing.T) {
+	suite.Run(t, new(SetECPartImageSuite))
+}
+
+func (s *SetECPartImageSuite) SetupTest() {
+	s.mockRepo = mocks.NewMockECPartRepository(s.T())
+	s.mockImages = mocks.NewMockECPartImageStore(s.T())
+	s.mockUploads = mocks.NewMockUploadCounter(s.T())
+	s.handler = SetECPartImage(s.mockRepo, s.mockImages, uploadlimit.New(s.mockUploads, 500))
+}
+
+func (s *SetECPartImageSuite) post(ctx context.Context, body string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	s.handler(rec, newECPartRequest(ctx, ecPartRequest{method: http.MethodPost, pathID: "p1", body: body}))
+	return rec
+}
+
+const previousECPartImageKey = repository.ECPartImageKey("ec-parts/alice/p1/image/old-upload")
+
+func newECPartImageKey() any {
+	return mock.MatchedBy(func(k repository.ECPartImageKey) bool {
+		return strings.HasPrefix(string(k), "ec-parts/alice/p1/image/") && k != previousECPartImageKey
+	})
+}
+
+func (s *SetECPartImageSuite) TestReplacingImage_PresignsThenDeletesPreviousThenSetsPath() {
+	reserved := expectUploadReserved(s.mockUploads)
+	previous := previousECPartImageKey
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1", ImagePath: &previous}, nil)
+	presigned := s.mockImages.EXPECT().
+		PresignPut(mock.Anything, newECPartImageKey(), "image/webp", int64(524288)).
+		Return("https://example.com/put", nil).
+		NotBefore(reserved)
+	deleted := s.mockImages.EXPECT().Delete(mock.Anything, previousECPartImageKey).Return(nil).NotBefore(presigned)
+	s.mockRepo.EXPECT().SetImagePath(mock.Anything, "p1", newECPartImageKey()).Return(nil).NotBefore(deleted)
+
+	rec := s.post(apictx.WithUserID(s.T().Context(), "alice"), `{"content_type":"image/webp","size_bytes":524288}`)
+
+	s.Equal(http.StatusCreated, rec.Code)
+	var got api.ECPartImageUpload
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Equal("https://example.com/put", got.UploadUrl)
+}
+
+func (s *SetECPartImageSuite) TestNoPreviousImage_SetsPathWithoutDeleting() {
+	expectUploadReserved(s.mockUploads)
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1"}, nil)
+	s.mockImages.EXPECT().PresignPut(mock.Anything, newECPartImageKey(), "image/webp", int64(524288)).Return("https://example.com/put", nil)
+	s.mockRepo.EXPECT().SetImagePath(mock.Anything, "p1", newECPartImageKey()).Return(nil)
+
+	rec := s.post(apictx.WithUserID(s.T().Context(), "alice"), `{"content_type":"image/webp","size_bytes":524288}`)
+
+	s.Equal(http.StatusCreated, rec.Code)
+}
+
+func (s *SetECPartImageSuite) TestPresignFails_Returns500AndKeepsPreviousImage() {
+	expectUploadReserved(s.mockUploads)
+	previous := previousECPartImageKey
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1", ImagePath: &previous}, nil)
+	s.mockImages.EXPECT().PresignPut(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("", errors.New("presign failed"))
+
+	rec := s.post(apictx.WithUserID(s.T().Context(), "alice"), `{"content_type":"image/webp","size_bytes":524288}`)
+
+	s.Equal(http.StatusInternalServerError, rec.Code)
+}
+
+func (s *SetECPartImageSuite) TestUnapprovedContentType_Returns400() {
+	rec := s.post(apictx.WithUserID(s.T().Context(), "alice"), `{"content_type":"image/png","size_bytes":10}`)
+
+	s.Equal(http.StatusBadRequest, rec.Code)
+}
+
+func (s *SetECPartImageSuite) TestNotOwner_Returns404() {
+	rec := s.post(apictx.WithUserID(s.T().Context(), "bob"), `{"content_type":"image/webp","size_bytes":10}`)
+
+	s.Equal(http.StatusNotFound, rec.Code)
+}
+
+func (s *SetECPartImageSuite) TestPartNotFound_Returns404() {
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(nil, repository.ErrNotFound)
+
+	rec := s.post(apictx.WithUserID(s.T().Context(), "alice"), `{"content_type":"image/webp","size_bytes":10}`)
+
+	s.Equal(http.StatusNotFound, rec.Code)
+}
+
+type DeleteECPartImageSuite struct {
+	suite.Suite
+
+	mockRepo   *mocks.MockECPartRepository
+	mockImages *mocks.MockECPartImageStore
+	handler    http.HandlerFunc
+}
+
+func TestDeleteECPartImageSuite(t *testing.T) {
+	suite.Run(t, new(DeleteECPartImageSuite))
+}
+
+func (s *DeleteECPartImageSuite) SetupTest() {
+	s.mockRepo = mocks.NewMockECPartRepository(s.T())
+	s.mockImages = mocks.NewMockECPartImageStore(s.T())
+	s.handler = DeleteECPartImage(s.mockRepo, s.mockImages)
+}
+
+func (s *DeleteECPartImageSuite) del(ctx context.Context) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	s.handler(rec, newECPartRequest(ctx, ecPartRequest{method: http.MethodDelete, pathID: "p1"}))
+	return rec
+}
+
+func (s *DeleteECPartImageSuite) TestDeletesObjectThenClearsPath() {
+	key := previousECPartImageKey
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1", ImagePath: &key}, nil)
+	deleted := s.mockImages.EXPECT().Delete(mock.Anything, key).Return(nil).Call
+	s.mockRepo.EXPECT().ClearImagePath(mock.Anything, "p1").Return(&key, nil).NotBefore(deleted)
+
+	s.Equal(http.StatusNoContent, s.del(apictx.WithUserID(s.T().Context(), "alice")).Code)
+}
+
+func (s *DeleteECPartImageSuite) TestNoImage_Returns204WithoutDeleting() {
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1"}, nil)
+
+	s.Equal(http.StatusNoContent, s.del(apictx.WithUserID(s.T().Context(), "alice")).Code)
+}
+
+func (s *DeleteECPartImageSuite) TestObjectDeleteFails_Returns500AndKeepsPath() {
+	key := previousECPartImageKey
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1", ImagePath: &key}, nil)
+	s.mockImages.EXPECT().Delete(mock.Anything, key).Return(errors.New("s3 down"))
+
+	s.Equal(http.StatusInternalServerError, s.del(apictx.WithUserID(s.T().Context(), "alice")).Code)
+}
+
+func (s *DeleteECPartImageSuite) TestNotOwner_Returns404() {
+	s.Equal(http.StatusNotFound, s.del(apictx.WithUserID(s.T().Context(), "bob")).Code)
 }

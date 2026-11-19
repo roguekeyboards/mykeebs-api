@@ -3,7 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/problem"
 	"github.com/roguekeyboards/mykeebs-api/internal/repoapi"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
+	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
 )
 
 // ListECParts reads the {userId} path value and lists that owner's EC
@@ -47,20 +50,31 @@ func ListECParts(repo repository.ECPartRepository, er repoapi.ECPart) http.Handl
 			return
 		}
 
-		isOwner := authz.IsOwner(r.Context(), ownerID)
+		ctx := r.Context()
+		isOwner := authz.IsOwner(ctx, ownerID)
 		showPrice := ownerPrefs.ShowPriceSummary(isOwner)
 		items := make([]api.ECPart, len(parts))
+		errs := make([]error, len(parts))
+		var wg sync.WaitGroup
 		for i, p := range parts {
-			item, err := er.ToAPI(p, isOwner, ownerPrefs)
-			if err != nil {
-				log.FromContext(r.Context()).Error("mapping EC part to API", log.Error, err, log.ECPartID, p.ID)
-				problem.Internal(w, "failed to list EC parts")
-				return
-			}
-			if !showPrice {
-				er.StripPrices(&item)
-			}
-			items[i] = item
+			wg.Go(func() {
+				item, err := er.ToAPI(ctx, p, isOwner, ownerPrefs)
+				if err != nil {
+					errs[i] = fmt.Errorf("mapping EC part %q to API: %w", p.ID, err)
+					return
+				}
+				if !showPrice {
+					er.StripPrices(&item)
+				}
+				items[i] = item
+			})
+		}
+		wg.Wait()
+
+		if err := errors.Join(errs...); err != nil {
+			log.FromContext(ctx).Error("mapping EC parts to API", log.Error, err)
+			problem.Internal(w, "failed to list EC parts")
+			return
 		}
 
 		page := api.ECPartListPage{Items: &items}
@@ -106,7 +120,7 @@ func GetECPart(repo repository.ECPartRepository, er repoapi.ECPart) http.Handler
 			return
 		}
 
-		out, err := er.ToAPI(*p, authz.IsOwner(r.Context(), ownerID), ownerPrefs)
+		out, err := er.ToAPI(r.Context(), *p, authz.IsOwner(r.Context(), ownerID), ownerPrefs)
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping EC part to API", log.Error, err, log.ECPartID, id)
 			problem.Internal(w, "failed to get EC part")
@@ -168,7 +182,7 @@ func CreateECPart(repo repository.ECPartRepository, er repoapi.ECPart) http.Hand
 			return
 		}
 
-		out, err := er.ToAPI(*created, true, ownerPrefs)
+		out, err := er.ToAPI(r.Context(), *created, true, ownerPrefs)
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping EC part to API", log.Error, err, log.ECPartID, created.ID)
 			problem.Internal(w, "failed to create EC part")
@@ -212,7 +226,7 @@ func UpdateECPart(repo repository.ECPartRepository, er repoapi.ECPart) http.Hand
 			return
 		}
 
-		out, err := er.ToAPI(*updated, true, ownerPrefs)
+		out, err := er.ToAPI(r.Context(), *updated, true, ownerPrefs)
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping EC part to API", log.Error, err, log.ECPartID, id)
 			problem.Internal(w, "failed to update EC part")
@@ -222,5 +236,113 @@ func UpdateECPart(repo repository.ECPartRepository, er repoapi.ECPart) http.Hand
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(out)
+	}
+}
+
+// SetECPartImage reads the {userId} and {ecPartId} path values and requires
+// an authenticated caller. userId must be the caller's own subject;
+// setting the image on another user's part, or one that doesn't exist,
+// both return 404. The response is a presigned S3 PUT URL; presigning runs
+// before the repository write, and a previous image's object is deleted
+// before the pointer moves, as in [SetSwitchImage]. Each issued URL counts
+// against the daily upload limit.
+func SetECPartImage(repo repository.ECPartRepository, images repository.ECPartImageStore, uploads *uploadlimit.Limiter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := r.PathValue("userId")
+		id := r.PathValue("ecPartId")
+
+		if !authz.IsOwner(r.Context(), ownerID) {
+			problem.NotFound(w, "resource not found")
+			return
+		}
+
+		var in api.SetECPartImageJSONRequestBody
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			problem.BadRequest(w, "invalid request body")
+			return
+		}
+
+		if !writeLookupErrors(w, lookup.ValidateImageContentType(r.Context(), in.ContentType)) {
+			return
+		}
+
+		p, err := repo.Get(r.Context(), ownerID, id)
+		if handleMutationError(w, r, err, log.ECPartID, id) {
+			return
+		}
+
+		if reserveUpload(w, r, uploads, log.ECPartID, id) {
+			return
+		}
+
+		key, err := repository.NewECPartImageKey(r.Context(), id, uuid.NewString())
+		if err != nil {
+			log.FromContext(r.Context()).Error("building EC part image key", log.Error, err, log.ECPartID, id)
+			problem.Internal(w, "failed to set EC part image")
+			return
+		}
+
+		uploadURL, err := images.PresignPut(r.Context(), key, in.ContentType, in.SizeBytes)
+		if err != nil {
+			log.FromContext(r.Context()).Error("presigning EC part image upload", log.Error, err, log.ECPartID, id)
+			problem.Internal(w, "failed to set EC part image")
+			return
+		}
+
+		if p.ImagePath != nil {
+			if err := images.Delete(r.Context(), *p.ImagePath); err != nil {
+				log.FromContext(r.Context()).Error("deleting previous EC part image object", log.Error, err, log.ECPartID, id)
+				problem.Internal(w, "failed to set EC part image")
+				return
+			}
+		}
+
+		err = repo.SetImagePath(r.Context(), id, key)
+		if handleMutationError(w, r, err, log.ECPartID, id) {
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(api.ECPartImageUpload{UploadUrl: uploadURL})
+	}
+}
+
+// DeleteECPartImage reads the {userId} and {ecPartId} path values and
+// requires an authenticated caller. userId must be the caller's own
+// subject; another user's part, or one that doesn't exist, both return
+// 404. Idempotent. Deletes the S3 object before the DB record.
+func DeleteECPartImage(repo repository.ECPartRepository, images repository.ECPartImageStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := r.PathValue("userId")
+		id := r.PathValue("ecPartId")
+
+		if !authz.IsOwner(r.Context(), ownerID) {
+			problem.NotFound(w, "resource not found")
+			return
+		}
+
+		p, err := repo.Get(r.Context(), ownerID, id)
+		if handleMutationError(w, r, err, log.ECPartID, id) {
+			return
+		}
+
+		if p.ImagePath == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		if err := images.Delete(r.Context(), *p.ImagePath); err != nil {
+			log.FromContext(r.Context()).Error("deleting EC part image object", log.Error, err, log.ECPartID, id)
+			problem.Internal(w, "failed to delete EC part image")
+			return
+		}
+
+		_, err = repo.ClearImagePath(r.Context(), id)
+		if handleClearImageError(w, r, err, log.ECPartID, id) {
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

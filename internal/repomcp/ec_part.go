@@ -12,7 +12,7 @@ type ECPart struct{}
 // sees their own purchase.price; a non-owner sees it only if
 // ownerPrefs.ShowPriceToOthers.
 func (e ECPart) ToMCP(p repository.ECPart, isOwner bool, ownerPrefs repository.ProfilePreferences) schema.ECPart {
-	return schema.ECPart{
+	out := schema.ECPart{
 		ID:         p.ID,
 		Brand:      p.Brand,
 		Name:       p.Name,
@@ -25,7 +25,11 @@ func (e ECPart) ToMCP(p repository.ECPart, isOwner bool, ownerPrefs repository.P
 		Purchase:   e.purchaseToMCP(p.Purchase, isOwner, ownerPrefs),
 		Notes:      p.Notes,
 		Visibility: ownerVisibility(p.Visibility, isOwner),
+		HasImage:   p.ImagePath != nil && p.ImageStatus.VisibleTo(isOwner),
 	}
+	out.ImageStatus, out.ImageRejectionReason = imageStatusToMCP(p.ImagePath != nil, p.ImageStatus, p.ImageRejectionReason, isOwner)
+
+	return out
 }
 
 // ToMCPSummary maps a repository.ECPart to the abbreviated shape
@@ -39,6 +43,7 @@ func (e ECPart) ToMCPSummary(p repository.ECPart, isOwner bool, ownerPrefs repos
 		PartType:    string(p.PartType),
 		OrderStatus: p.Purchase.OrderStatus,
 		Visibility:  ownerVisibility(p.Visibility, isOwner),
+		HasImage:    p.ImagePath != nil && p.ImageStatus.VisibleTo(isOwner),
 	}
 	if ownerPrefs.ShowPriceSummary(isOwner) {
 		summary.Price = p.Purchase.Price

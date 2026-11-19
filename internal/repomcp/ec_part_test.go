@@ -83,3 +83,18 @@ func (s *ECPartSuite) TestFromMCP_MapsEveryField() {
 		Visibility: repository.VisibilityPublic,
 	}, ECPart{}.FromMCP(in))
 }
+
+func (s *ECPartSuite) TestToMCP_Image_ReportsHasImageAndOwnerOnlyStatus() {
+	key := repository.ECPartImageKey("ec-parts/alice/p1/image/u1")
+	p := repository.ECPart{ID: "p1", ImagePath: &key, ImageStatus: repository.ImageStatusPending}
+
+	owner := ECPart{}.ToMCP(p, true, repository.ProfilePreferences{})
+	other := ECPart{}.ToMCP(p, false, repository.ProfilePreferences{})
+
+	s.True(owner.HasImage)
+	s.Equal(new("pending"), owner.ImageStatus)
+	s.False(other.HasImage)
+	s.Nil(other.ImageStatus)
+	s.False(ECPart{}.ToMCPSummary(p, false, repository.ProfilePreferences{}).HasImage)
+	s.True(ECPart{}.ToMCPSummary(p, true, repository.ProfilePreferences{}).HasImage)
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository/mocks"
+	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
 )
 
 type HandleListECPartsSuite struct {
@@ -222,4 +223,95 @@ func (s *HandleUpdateECPartSuite) TestNotFound_ReturnsMutationNotFound() {
 	_, _, err := handleUpdateECPart(s.mockRepo, s.mockPrefs)(callerContext(s.T()), nil, schema.UpdateECPartInput{ECPartID: "p1", ECPartInput: validECPartInput()})
 
 	s.ErrorIs(err, errMutationNotFound)
+}
+
+type HandleSetECPartImageSuite struct {
+	suite.Suite
+
+	mockRepo    *mocks.MockECPartRepository
+	mockImages  *mocks.MockECPartImageStore
+	mockUploads *mocks.MockUploadCounter
+}
+
+func TestHandleSetECPartImageSuite(t *testing.T) {
+	suite.Run(t, new(HandleSetECPartImageSuite))
+}
+
+func (s *HandleSetECPartImageSuite) SetupTest() {
+	s.mockRepo = mocks.NewMockECPartRepository(s.T())
+	s.mockImages = mocks.NewMockECPartImageStore(s.T())
+	s.mockUploads = mocks.NewMockUploadCounter(s.T())
+}
+
+func (s *HandleSetECPartImageSuite) call(in schema.SetECPartImageInput) (schema.SetECPartImageOutput, error) {
+	_, out, err := handleSetECPartImage(s.mockRepo, s.mockImages, uploadlimit.New(s.mockUploads, 500))(callerContext(s.T()), nil, in)
+	return out, err
+}
+
+func (s *HandleSetECPartImageSuite) TestReplacingImage_PresignsThenDeletesPreviousThenSetsPath() {
+	previous := repository.ECPartImageKey("ec-parts/" + callerID + "/p1/image/old")
+	reserved := expectUploadReserved(s.mockUploads)
+	s.mockRepo.EXPECT().Get(mock.Anything, callerID, "p1").Return(&repository.ECPart{ID: "p1", ImagePath: &previous}, nil)
+	presigned := s.mockImages.EXPECT().PresignPut(mock.Anything, mock.Anything, "image/webp", int64(1000)).Return("https://example.com/put", nil).NotBefore(reserved)
+	deleted := s.mockImages.EXPECT().Delete(mock.Anything, previous).Return(nil).NotBefore(presigned)
+	s.mockRepo.EXPECT().SetImagePath(mock.Anything, "p1", mock.MatchedBy(func(k repository.ECPartImageKey) bool { return k != previous })).Return(nil).NotBefore(deleted)
+
+	out, err := s.call(schema.SetECPartImageInput{ECPartID: "p1", ContentType: "image/webp", SizeBytes: 1000})
+
+	s.Require().NoError(err)
+	s.Equal("https://example.com/put", out.UploadURL)
+}
+
+func (s *HandleSetECPartImageSuite) TestInvalidInputs_ReturnErrors() {
+	for name, in := range map[string]schema.SetECPartImageInput{
+		"blank id":        {ContentType: "image/webp", SizeBytes: 1000},
+		"unapproved type": {ECPartID: "p1", ContentType: "image/png", SizeBytes: 1000},
+		"too large":       {ECPartID: "p1", ContentType: "image/webp", SizeBytes: 10 << 20},
+	} {
+		_, err := s.call(in)
+		s.Error(err, name)
+	}
+}
+
+func (s *HandleSetECPartImageSuite) TestPartNotFound_ReturnsMutationNotFound() {
+	s.mockRepo.EXPECT().Get(mock.Anything, callerID, "p1").Return(nil, repository.ErrNotFound)
+
+	_, err := s.call(schema.SetECPartImageInput{ECPartID: "p1", ContentType: "image/webp", SizeBytes: 1000})
+
+	s.ErrorIs(err, errMutationNotFound)
+}
+
+type HandleDeleteECPartImageSuite struct {
+	suite.Suite
+
+	mockRepo   *mocks.MockECPartRepository
+	mockImages *mocks.MockECPartImageStore
+}
+
+func TestHandleDeleteECPartImageSuite(t *testing.T) {
+	suite.Run(t, new(HandleDeleteECPartImageSuite))
+}
+
+func (s *HandleDeleteECPartImageSuite) SetupTest() {
+	s.mockRepo = mocks.NewMockECPartRepository(s.T())
+	s.mockImages = mocks.NewMockECPartImageStore(s.T())
+}
+
+func (s *HandleDeleteECPartImageSuite) TestDeletesObjectThenClearsPath() {
+	key := repository.ECPartImageKey("ec-parts/" + callerID + "/p1/image/u1")
+	s.mockRepo.EXPECT().Get(mock.Anything, callerID, "p1").Return(&repository.ECPart{ID: "p1", ImagePath: &key}, nil)
+	deleted := s.mockImages.EXPECT().Delete(mock.Anything, key).Return(nil).Call
+	s.mockRepo.EXPECT().ClearImagePath(mock.Anything, "p1").Return(&key, nil).NotBefore(deleted)
+
+	_, _, err := handleDeleteECPartImage(s.mockRepo, s.mockImages)(callerContext(s.T()), nil, schema.DeleteECPartImageInput{ECPartID: "p1"})
+
+	s.Require().NoError(err)
+}
+
+func (s *HandleDeleteECPartImageSuite) TestNoImage_SucceedsWithoutDeleting() {
+	s.mockRepo.EXPECT().Get(mock.Anything, callerID, "p1").Return(&repository.ECPart{ID: "p1"}, nil)
+
+	_, _, err := handleDeleteECPartImage(s.mockRepo, s.mockImages)(callerContext(s.T()), nil, schema.DeleteECPartImageInput{ECPartID: "p1"})
+
+	s.Require().NoError(err)
 }

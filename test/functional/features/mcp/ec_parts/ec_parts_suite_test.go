@@ -20,6 +20,7 @@ type ecPart struct {
 	Brand      string `json:"brand"`
 	PartType   string `json:"part_type"`
 	Visibility string `json:"visibility"`
+	HasImage   bool   `json:"has_image"`
 	Rings      *struct {
 		Material  *string  `json:"material"`
 		Thickness *float64 `json:"thickness"`

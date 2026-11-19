@@ -98,6 +98,7 @@ func main() {
 	buildImageStore := imagestore.NewBuildImageStore(s3Client, presignClient, cfg.ImagesBucketName, getSigner, cdn)
 	keyboardImageStore := imagestore.NewKeyboardImageStore(s3Client, presignClient, cfg.ImagesBucketName, getSigner, cdn)
 	switchImageStore := imagestore.NewSwitchImageStore(s3Client, presignClient, cfg.ImagesBucketName, getSigner, cdn)
+	ecPartImageStore := imagestore.NewECPartImageStore(s3Client, presignClient, cfg.ImagesBucketName, getSigner, cdn)
 	profileImageStore := imagestore.NewProfileImageStore(s3Client, presignClient, cfg.ImagesBucketName, getSigner, cdn)
 	ownerImageStore := imagestore.NewOwnerImageStore(s3Client, cfg.ImagesBucketName, cdn)
 
@@ -106,7 +107,7 @@ func main() {
 		deleteNotices = deletenotice.NewSNS(sns.NewFromConfig(awsCfg), cfg.AccountDeleteTopicARN)
 	}
 
-	handler := router.New(verifier, switchRepo, switchImageStore, ecPartRepo, keyboardRepo, keyboardImageStore, keycapSetRepo, keycapKitImageStore, buildRepo, buildImageStore, profileRepo, profileImageStore, ownerImageStore, deleteNotices, uploads, cfg.OIDCIssuerURL, cfg.IDPConsentPublicToken, Version)
+	handler := router.New(verifier, switchRepo, switchImageStore, ecPartRepo, ecPartImageStore, keyboardRepo, keyboardImageStore, keycapSetRepo, keycapKitImageStore, buildRepo, buildImageStore, profileRepo, profileImageStore, ownerImageStore, deleteNotices, uploads, cfg.OIDCIssuerURL, cfg.IDPConsentPublicToken, Version)
 
 	// ReadHeaderTimeout bounds a slow/malicious client independently of
 	// Lambda's own per-invocation timeout.

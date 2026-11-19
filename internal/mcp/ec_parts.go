@@ -15,6 +15,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
 	"github.com/roguekeyboards/mykeebs-api/internal/repomcp"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
+	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
 )
 
 var errECPartNotFound = errors.New("EC part not found")
@@ -39,6 +40,16 @@ var createECPartTool = &mcp.Tool{
 var updateECPartTool = &mcp.Tool{
 	Name:        "update_ec_part",
 	Description: "Replaces an EC part in your own collection. Every field is replaced, so omitting an optional field clears it; send the full part, not just the fields you want to change.",
+}
+
+var setECPartImageTool = &mcp.Tool{
+	Name:        "set_ec_part_image",
+	Description: "Mints a presigned URL to upload an EC part's image to. Doesn't upload the image itself - PUT the image bytes to the returned upload_url using the same content_type as the Content-Type header, an If-None-Match: * header, and a body of exactly size_bytes. The upload_url is for one upload: another PUT to it fails with 412 while that image is stored. The image must be a WebP, at most 2560px on its longest side and at most 1.5 MB: before calling this, check the image and convert it to WebP and resize it if it isn't, or tell the user it can't be uploaded. An upload that isn't really a WebP, or is over 2560px, is rejected. If image uploads aren't available at the moment, this fails without issuing a URL; try again later. A new image starts pending until it's checked, and only you can see it until it's approved. A rejected image is shown only to you, with the reason, until you replace or delete it.",
+}
+
+var deleteECPartImageTool = &mcp.Tool{
+	Name:        "delete_ec_part_image",
+	Description: "Removes an EC part's image. Idempotent: deleting an EC part's image when it doesn't have one succeeds.",
 }
 
 func handleListECParts(
@@ -199,4 +210,101 @@ func validatedECPart(ctx context.Context, in schema.ECPartInput) (repository.ECP
 	}
 
 	return p, nil
+}
+
+func handleSetECPartImage(
+	repo repository.ECPartRepository,
+	images repository.ECPartImageStore,
+	uploads *uploadlimit.Limiter,
+) mcp.ToolHandlerFor[schema.SetECPartImageInput, schema.SetECPartImageOutput] {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.SetECPartImageInput) (*mcp.CallToolResult, schema.SetECPartImageOutput, error) {
+		if strings.TrimSpace(in.ECPartID) == "" {
+			return nil, schema.SetECPartImageOutput{}, errors.New("ec_part_id must not be blank")
+		}
+
+		if err := lookupErrors(lookup.ValidateImageContentType(ctx, in.ContentType)); err != nil {
+			return nil, schema.SetECPartImageOutput{}, err
+		}
+
+		if err := validateImageSize(in.SizeBytes); err != nil {
+			return nil, schema.SetECPartImageOutput{}, err
+		}
+
+		ownerID, err := resolveOwnerID(ctx, "")
+		if err != nil {
+			return nil, schema.SetECPartImageOutput{}, err
+		}
+
+		p, err := repo.Get(ctx, ownerID, in.ECPartID)
+		if mutErr := handleMutationError(ctx, err, log.ECPartID, in.ECPartID); mutErr != nil {
+			return nil, schema.SetECPartImageOutput{}, mutErr
+		}
+
+		if err := reserveUpload(ctx, uploads, log.ECPartID, in.ECPartID); err != nil {
+			return nil, schema.SetECPartImageOutput{}, err
+		}
+
+		key, err := repository.NewECPartImageKey(ctx, in.ECPartID, uuid.NewString())
+		if err != nil {
+			log.FromContext(ctx).Error("building EC part image key", log.ECPartID, in.ECPartID, log.Error, err)
+			return nil, schema.SetECPartImageOutput{}, errors.New("failed to set EC part image")
+		}
+
+		uploadURL, err := images.PresignPut(ctx, key, in.ContentType, in.SizeBytes)
+		if err != nil {
+			log.FromContext(ctx).Error("presigning EC part image upload", log.ECPartID, in.ECPartID, log.Error, err)
+			return nil, schema.SetECPartImageOutput{}, errors.New("failed to set EC part image")
+		}
+
+		if p.ImagePath != nil {
+			if err := images.Delete(ctx, *p.ImagePath); err != nil {
+				log.FromContext(ctx).Error("deleting previous EC part image object", log.ECPartID, in.ECPartID, log.Error, err)
+				return nil, schema.SetECPartImageOutput{}, errors.New("failed to set EC part image")
+			}
+		}
+
+		err = repo.SetImagePath(ctx, in.ECPartID, key)
+		if mutErr := handleMutationError(ctx, err, log.ECPartID, in.ECPartID); mutErr != nil {
+			return nil, schema.SetECPartImageOutput{}, mutErr
+		}
+
+		return nil, schema.SetECPartImageOutput{UploadURL: uploadURL}, nil
+	}
+}
+
+func handleDeleteECPartImage(
+	repo repository.ECPartRepository,
+	images repository.ECPartImageStore,
+) mcp.ToolHandlerFor[schema.DeleteECPartImageInput, schema.DeleteECPartImageOutput] {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteECPartImageInput) (*mcp.CallToolResult, schema.DeleteECPartImageOutput, error) {
+		if strings.TrimSpace(in.ECPartID) == "" {
+			return nil, schema.DeleteECPartImageOutput{}, errors.New("ec_part_id must not be blank")
+		}
+
+		ownerID, err := resolveOwnerID(ctx, "")
+		if err != nil {
+			return nil, schema.DeleteECPartImageOutput{}, err
+		}
+
+		p, err := repo.Get(ctx, ownerID, in.ECPartID)
+		if mutErr := handleMutationError(ctx, err, log.ECPartID, in.ECPartID); mutErr != nil {
+			return nil, schema.DeleteECPartImageOutput{}, mutErr
+		}
+
+		if p.ImagePath == nil {
+			return nil, schema.DeleteECPartImageOutput{}, nil
+		}
+
+		if err := images.Delete(ctx, *p.ImagePath); err != nil {
+			log.FromContext(ctx).Error("deleting EC part image object", log.ECPartID, in.ECPartID, log.Error, err)
+			return nil, schema.DeleteECPartImageOutput{}, errors.New("failed to delete EC part image")
+		}
+
+		_, err = repo.ClearImagePath(ctx, in.ECPartID)
+		if mutErr := handleClearImageError(ctx, err, log.ECPartID, in.ECPartID); mutErr != nil {
+			return nil, schema.DeleteECPartImageOutput{}, mutErr
+		}
+
+		return nil, schema.DeleteECPartImageOutput{}, nil
+	}
 }
