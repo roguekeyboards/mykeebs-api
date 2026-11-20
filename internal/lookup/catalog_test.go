@@ -85,3 +85,10 @@ func (s *CatalogSuite) TestKeyboardLayout_IncludesNumpadRowLayouts() {
 		{Name: "6 Row", Sizes: []string{"Numpad"}},
 	})
 }
+
+func (s *CatalogSuite) TestSwitchType_ExcludesEC() {
+	l, ok := lookup.GetCategory(s.T().Context(), lookup.CategorySwitchType)
+	s.Require().True(ok)
+
+	s.NotContains(l.Strings(), "EC")
+}
