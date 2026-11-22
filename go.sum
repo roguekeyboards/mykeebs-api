@@ -198,8 +198,8 @@ github.com/onsi/gomega v1.44.0/go.mod h1:e/C2HwaZ1DhvjzXXuFhcR7hY7Sh9pl7MmoWKEjz
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWbZV6S5g=
 github.com/rogpeppe/go-internal v1.16.0/go.mod h1:DrUVZyrJU+txYW5/1kwtXQSMFio52ZOxX7yM1VHvnxs=
-github.com/roguekeyboards/mykeebs-consent v1.0.1 h1:W+YSoKT3QFJ46DIg/jfQNW0uuCDgTDyr4FzzW3PFvW8=
-github.com/roguekeyboards/mykeebs-consent v1.0.1/go.mod h1:Znz6Wo9QxDQaLz+dQIFIX5cl3ahnEYO81fZ9cgPtIto=
+github.com/roguekeyboards/mykeebs-consent v1.0.2 h1:2aaM5gF2Z7AchVDX9bqHoDqc4AH7ay/9jx7Ajmulk08=
+github.com/roguekeyboards/mykeebs-consent v1.0.2/go.mod h1:Znz6Wo9QxDQaLz+dQIFIX5cl3ahnEYO81fZ9cgPtIto=
 github.com/roguekeyboards/oidc-testkit v1.0.6 h1:8EI+J669szC3DiiWAvYi9xXfcwwBehN1zh/rKtyEqR4=
 github.com/roguekeyboards/oidc-testkit v1.0.6/go.mod h1:F1JeWlU8tg2im/nNpmnmIHTBI/U5+y2oybpOzqSbgE4=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 h1:1EYB5IzjZawrrnELUi78f9fPu57HuXjmddZPjrls/28=
