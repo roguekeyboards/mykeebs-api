@@ -75,9 +75,9 @@ var _ = Describe("Listing keyboards over MCP", func() {
 					result, err = client.CallTool(ctx, "list_keyboards", map[string]any{"limit": limit})
 					Expect(err).NotTo(HaveOccurred())
 
-					By("clamping rather than rejecting the call")
-					Expect(result.IsError).To(BeFalse())
-					Expect(idsOf(decodeListOutput(result))).To(ContainElement(keyboardID))
+					By("rejecting the call, as REST does")
+					Expect(result.IsError).To(BeTrue())
+					Expect(result.Content[0].(*sdkmcp.TextContent).Text).To(ContainSubstring("limit"))
 				},
 				Entry("below the minimum", 0),
 				Entry("above the maximum", 101),

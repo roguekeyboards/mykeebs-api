@@ -76,7 +76,7 @@ func handleListKeyboards(
 
 		visibilities := authz.ReadableVisibilities(ctx, ownerID)
 
-		keyboards, nextCursor, err := repo.List(ctx, ownerID, visibilities, clampListLimit(in.Limit), in.Cursor)
+		keyboards, nextCursor, err := repo.List(ctx, ownerID, visibilities, listLimit(in.Limit), in.Cursor)
 		if errors.Is(err, repository.ErrInvalidCursor) {
 			return nil, schema.ListKeyboardsOutput{}, errors.New("invalid cursor; restart from the first page")
 		}
@@ -106,10 +106,6 @@ func handleGetKeyboard(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.GetKeyboardInput, schema.GetKeyboardOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetKeyboardInput) (*mcp.CallToolResult, schema.GetKeyboardOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.GetKeyboardOutput{}, errors.New("keyboard_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, in.UserID)
 		if err != nil {
 			return nil, schema.GetKeyboardOutput{}, err
@@ -169,10 +165,6 @@ func handleUpdateKeyboard(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateKeyboardInput, schema.UpdateKeyboardOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateKeyboardInput) (*mcp.CallToolResult, schema.UpdateKeyboardOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.UpdateKeyboardOutput{}, errors.New("keyboard_id must not be blank")
-		}
-
 		kb, err := validatedKeyboard(ctx, in.KeyboardInput)
 		if err != nil {
 			return nil, schema.UpdateKeyboardOutput{}, err
@@ -203,14 +195,7 @@ func handleDeleteKeyboard(
 	keyboardImages repository.KeyboardImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteKeyboardInput, schema.DeleteKeyboardOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteKeyboardInput) (*mcp.CallToolResult, schema.DeleteKeyboardOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.DeleteKeyboardOutput{}, errors.New("keyboard_id must not be blank")
-		}
-
-		onDelete, ok := cascadedelete.ParseOnDelete(in.OnDelete)
-		if !ok {
-			return nil, schema.DeleteKeyboardOutput{}, errors.New("on_delete must be block or cascade")
-		}
+		onDelete, _ := cascadedelete.ParseOnDelete(in.OnDelete)
 
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
@@ -234,10 +219,6 @@ func handleListKeyboardImages(
 	repo repository.KeyboardRepository,
 ) mcp.ToolHandlerFor[schema.ListKeyboardImagesInput, schema.ListKeyboardImagesOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.ListKeyboardImagesInput) (*mcp.CallToolResult, schema.ListKeyboardImagesOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.ListKeyboardImagesOutput{}, errors.New("keyboard_id must not be blank")
-		}
-
 		kb, err := ownedReadable(ctx, repo.Get, func(k repository.Keyboard) repository.Visibility { return k.Visibility },
 			"keyboard", errKeyboardNotFound, log.KeyboardID, in.UserID, in.KeyboardID)
 		if err != nil {
@@ -256,15 +237,7 @@ func handleAddKeyboardImage(
 	uploads *uploadlimit.Limiter,
 ) mcp.ToolHandlerFor[schema.AddKeyboardImageInput, schema.AddKeyboardImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.AddKeyboardImageInput) (*mcp.CallToolResult, schema.AddKeyboardImageOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.AddKeyboardImageOutput{}, errors.New("keyboard_id must not be blank")
-		}
-
 		if err := lookupErrors(lookup.ValidateImageContentType(ctx, in.ContentType)); err != nil {
-			return nil, schema.AddKeyboardImageOutput{}, err
-		}
-
-		if err := validateImageSize(in.SizeBytes); err != nil {
 			return nil, schema.AddKeyboardImageOutput{}, err
 		}
 
@@ -300,13 +273,6 @@ func handleDeleteKeyboardImage(
 	images repository.KeyboardImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteKeyboardImageInput, schema.DeleteKeyboardImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteKeyboardImageInput) (*mcp.CallToolResult, schema.DeleteKeyboardImageOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.DeleteKeyboardImageOutput{}, errors.New("keyboard_id must not be blank")
-		}
-		if strings.TrimSpace(in.ImageID) == "" {
-			return nil, schema.DeleteKeyboardImageOutput{}, errors.New("image_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
 			return nil, schema.DeleteKeyboardImageOutput{}, err
@@ -340,25 +306,7 @@ func validatedKeyboard(
 	ctx context.Context,
 	in schema.KeyboardInput,
 ) (repository.Keyboard, error) {
-	if strings.TrimSpace(in.Brand) == "" {
-		return repository.Keyboard{}, errors.New("brand must not be blank")
-	}
-	if strings.TrimSpace(in.Name) == "" {
-		return repository.Keyboard{}, errors.New("name must not be blank")
-	}
-
-	if in.Purchase != nil {
-		if err := validatePurchaseDates(in.Purchase.OrderDate, in.Purchase.DeliveryDate); err != nil {
-			return repository.Keyboard{}, err
-		}
-	}
-
 	kb := repomcp.Keyboard{}.FromMCP(in)
-
-	if !kb.Visibility.Valid() {
-		return repository.Keyboard{}, fmt.Errorf(
-			"visibility %q must be one of: public, authenticated, private", in.Visibility)
-	}
 
 	if err := lookupErrors(lookup.ValidateKeyboard(ctx, kb)); err != nil {
 		return repository.Keyboard{}, err

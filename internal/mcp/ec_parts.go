@@ -11,6 +11,7 @@ import (
 
 	"github.com/roguekeyboards/mykeebs-api/internal/authz"
 	"github.com/roguekeyboards/mykeebs-api/internal/cascadedelete"
+	"github.com/roguekeyboards/mykeebs-api/internal/ecpartvalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
@@ -64,18 +65,13 @@ func handleListECParts(
 ) mcp.ToolHandlerFor[schema.ListECPartsInput, schema.ListECPartsOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.ListECPartsInput) (*mcp.CallToolResult, schema.ListECPartsOutput, error) {
 		partType := repository.ECPartType(in.PartType)
-		if partType != "" {
-			if err := lookupErrors(lookup.ValidateECPartType(partType)); err != nil {
-				return nil, schema.ListECPartsOutput{}, err
-			}
-		}
 
 		ownerID, err := resolveOwnerID(ctx, in.UserID)
 		if err != nil {
 			return nil, schema.ListECPartsOutput{}, err
 		}
 
-		parts, nextCursor, err := repo.List(ctx, ownerID, authz.ReadableVisibilities(ctx, ownerID), partType, clampListLimit(in.Limit), in.Cursor)
+		parts, nextCursor, err := repo.List(ctx, ownerID, authz.ReadableVisibilities(ctx, ownerID), partType, listLimit(in.Limit), in.Cursor)
 		if errors.Is(err, repository.ErrInvalidCursor) {
 			return nil, schema.ListECPartsOutput{}, errors.New("invalid cursor; restart from the first page")
 		}
@@ -105,10 +101,6 @@ func handleGetECPart(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.GetECPartInput, schema.GetECPartOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetECPartInput) (*mcp.CallToolResult, schema.GetECPartOutput, error) {
-		if strings.TrimSpace(in.ECPartID) == "" {
-			return nil, schema.GetECPartOutput{}, errors.New("ec_part_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, in.UserID)
 		if err != nil {
 			return nil, schema.GetECPartOutput{}, err
@@ -165,10 +157,6 @@ func handleUpdateECPart(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateECPartInput, schema.UpdateECPartOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateECPartInput) (*mcp.CallToolResult, schema.UpdateECPartOutput, error) {
-		if strings.TrimSpace(in.ECPartID) == "" {
-			return nil, schema.UpdateECPartOutput{}, errors.New("ec_part_id must not be blank")
-		}
-
 		p, err := validatedECPart(ctx, in.ECPartInput)
 		if err != nil {
 			return nil, schema.UpdateECPartOutput{}, err
@@ -191,28 +179,18 @@ func handleUpdateECPart(
 }
 
 func validatedECPart(ctx context.Context, in schema.ECPartInput) (repository.ECPart, error) {
-	if strings.TrimSpace(in.Brand) == "" {
-		return repository.ECPart{}, errors.New("brand must not be blank")
-	}
-	if strings.TrimSpace(in.Name) == "" {
-		return repository.ECPart{}, errors.New("name must not be blank")
-	}
-
-	if in.Purchase != nil {
-		if err := validatePurchaseDates(in.Purchase.OrderDate, in.Purchase.DeliveryDate); err != nil {
-			return repository.ECPart{}, err
-		}
-	}
-
 	p := repomcp.ECPart{}.FromMCP(in)
-
-	if !p.Visibility.Valid() {
-		return repository.ECPart{}, fmt.Errorf(
-			"visibility %q must be one of: public, authenticated, private", in.Visibility)
-	}
 
 	if err := lookupErrors(lookup.ValidateECPart(ctx, p)); err != nil {
 		return repository.ECPart{}, err
+	}
+
+	if fieldErrs := ecpartvalidate.Validate(p); len(fieldErrs) > 0 {
+		reasons := make([]string, len(fieldErrs))
+		for i, fe := range fieldErrs {
+			reasons[i] = fe.Field + ": " + fe.Reason
+		}
+		return repository.ECPart{}, errors.New(strings.Join(reasons, "; "))
 	}
 
 	return p, nil
@@ -224,15 +202,7 @@ func handleSetECPartImage(
 	uploads *uploadlimit.Limiter,
 ) mcp.ToolHandlerFor[schema.SetECPartImageInput, schema.SetECPartImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.SetECPartImageInput) (*mcp.CallToolResult, schema.SetECPartImageOutput, error) {
-		if strings.TrimSpace(in.ECPartID) == "" {
-			return nil, schema.SetECPartImageOutput{}, errors.New("ec_part_id must not be blank")
-		}
-
 		if err := lookupErrors(lookup.ValidateImageContentType(ctx, in.ContentType)); err != nil {
-			return nil, schema.SetECPartImageOutput{}, err
-		}
-
-		if err := validateImageSize(in.SizeBytes); err != nil {
 			return nil, schema.SetECPartImageOutput{}, err
 		}
 
@@ -283,10 +253,6 @@ func handleDeleteECPartImage(
 	images repository.ECPartImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteECPartImageInput, schema.DeleteECPartImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteECPartImageInput) (*mcp.CallToolResult, schema.DeleteECPartImageOutput, error) {
-		if strings.TrimSpace(in.ECPartID) == "" {
-			return nil, schema.DeleteECPartImageOutput{}, errors.New("ec_part_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
 			return nil, schema.DeleteECPartImageOutput{}, err
@@ -322,14 +288,7 @@ func handleDeleteECPart(
 	ecPartImages repository.ECPartImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteECPartInput, schema.DeleteECPartOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteECPartInput) (*mcp.CallToolResult, schema.DeleteECPartOutput, error) {
-		if strings.TrimSpace(in.ECPartID) == "" {
-			return nil, schema.DeleteECPartOutput{}, errors.New("ec_part_id must not be blank")
-		}
-
-		onDelete, ok := cascadedelete.ParseOnDelete(in.OnDelete)
-		if !ok {
-			return nil, schema.DeleteECPartOutput{}, errors.New("on_delete must be block or cascade")
-		}
+		onDelete, _ := cascadedelete.ParseOnDelete(in.OnDelete)
 
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {

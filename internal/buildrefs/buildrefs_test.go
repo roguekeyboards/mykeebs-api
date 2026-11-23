@@ -282,7 +282,7 @@ func (s *ValidateReferencesSuite) TestECParts_MissingOneReported() {
 	s.mockECParts.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1"}, nil)
 	s.mockECParts.EXPECT().Get(mock.Anything, "alice", "p2").Return(nil, repository.ErrNotFound)
 
-	fieldErrs, err := s.validate(repository.Build{ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 1}, {ECPart: "p2", Count: 1}}})
+	fieldErrs, err := s.validate(repository.Build{BuildType: repository.BuildTypeEC, ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 1}, {ECPart: "p2", Count: 1}}})
 
 	s.Require().NoError(err)
 	s.Equal([]buildrefs.FieldError{
@@ -293,7 +293,35 @@ func (s *ValidateReferencesSuite) TestECParts_MissingOneReported() {
 func (s *ValidateReferencesSuite) TestECPartRepositoryError_ReturnsError() {
 	s.mockECParts.EXPECT().Get(mock.Anything, "alice", "p1").Return(nil, errors.New("dynamo unavailable"))
 
-	_, err := s.validate(repository.Build{ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 1}}})
+	_, err := s.validate(repository.Build{BuildType: repository.BuildTypeEC, ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 1}}})
 
 	s.Error(err)
+}
+
+func (s *ValidateReferencesSuite) TestECBuildWithSwitches_ReportedWithoutFetchingThem() {
+	s.mockECParts.EXPECT().Get(mock.Anything, "alice", "p1").Return(&repository.ECPart{ID: "p1"}, nil)
+
+	fieldErrs, err := s.validate(repository.Build{
+		BuildType: repository.BuildTypeEC,
+		ECParts:   []repository.BuildECPartEntry{{ECPart: "p1", Count: 60}},
+		Switches:  []repository.BuildSwitchEntry{{Switch: "sw1", Count: 60}},
+	})
+
+	s.Require().NoError(err)
+	s.Equal([]buildrefs.FieldError{
+		{Field: "switches", Reason: "not allowed when build_type is EC; list ec_parts instead"},
+	}, fieldErrs)
+}
+
+func (s *ValidateReferencesSuite) TestNonECBuildWithECParts_ReportedWithoutFetchingThem() {
+	for _, buildType := range []string{"", "MX", "HE", "Alps"} {
+		fieldErrs, err := s.validate(repository.Build{
+			BuildType: buildType,
+			ECParts:   []repository.BuildECPartEntry{{ECPart: "p1", Count: 60}},
+		})
+
+		s.Require().NoError(err, buildType)
+		s.Require().Len(fieldErrs, 1, buildType)
+		s.Equal("ec_parts", fieldErrs[0].Field, buildType)
+	}
 }

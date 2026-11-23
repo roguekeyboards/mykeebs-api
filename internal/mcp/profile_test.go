@@ -31,13 +31,6 @@ func (s *HandleGetProfileSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockProfileRepository(s.T())
 }
 
-func (s *HandleGetProfileSuite) TestBlankIdentifier_Errors() {
-	handler := handleGetProfile(s.mockRepo)
-	_, _, err := handler(callerContext(s.T()), nil, schema.GetProfileInput{Identifier: "  "})
-
-	s.Require().Error(err)
-}
-
 func (s *HandleGetProfileSuite) TestDiscoverableByID_Returned() {
 	s.mockRepo.EXPECT().Get(mock.Anything, "user-alice").
 		Return(&repository.Profile{OwnerID: "user-alice", Username: "alice", Discoverable: true, Bio: sp("keebs")}, nil)
@@ -391,18 +384,12 @@ func (s *HandleListProfilesSuite) TestDiscordFilter_Forwarded() {
 	s.Require().NoError(err)
 }
 
-func (s *HandleListProfilesSuite) TestBothFilters_ErrorNoRepoCall() {
-	_, err := s.call(schema.ListProfilesInput{Username: "al", DiscordUsername: "cool"})
-
-	s.Require().Error(err)
-}
-
-func (s *HandleListProfilesSuite) TestClampsLimitAndPassesCursor() {
+func (s *HandleListProfilesSuite) TestPassesLimitAndCursor() {
 	s.mockRepo.EXPECT().
-		ListPublic(mock.Anything, "", "", maxListLimit, "page-2").
+		ListPublic(mock.Anything, "", "", 50, "page-2").
 		Return([]repository.Profile{}, "", nil)
 
-	_, err := s.call(schema.ListProfilesInput{Limit: 5000, Cursor: "page-2"})
+	_, err := s.call(schema.ListProfilesInput{Limit: new(50), Cursor: "page-2"})
 
 	s.Require().NoError(err)
 }
@@ -493,13 +480,6 @@ func (s *HandleSetProfileImageSuite) TestReplacingAvatar_DeletesPreviousObjectFi
 	_, err := s.call(schema.SetProfileImageInput{ContentType: "image/webp", SizeBytes: 524288})
 
 	s.Require().NoError(err)
-}
-
-func (s *HandleSetProfileImageSuite) TestSizeOverCap_ErrorNoRepoCall() {
-	_, err := s.call(schema.SetProfileImageInput{ContentType: "image/webp", SizeBytes: repository.MaxImageSizeBytes + 1})
-
-	s.Require().ErrorContains(err, "size_bytes")
-	s.mockRepo.AssertNotCalled(s.T(), "SetAvatarPath", mock.Anything, mock.Anything)
 }
 
 func (s *HandleSetProfileImageSuite) TestUnapprovedContentType_ErrorNoRepoCall() {

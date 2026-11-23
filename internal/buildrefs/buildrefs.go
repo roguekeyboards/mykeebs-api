@@ -20,7 +20,9 @@ type FieldError struct {
 }
 
 // ValidateReferences also checks that Plate and PCB are ids of the
-// referenced keyboard's plates and PCBs. It doesn't report an unset/empty Keyboard or
+// referenced keyboard's plates and PCBs, and that the build lists the part
+// kind its build type takes: ec_parts for EC, switches otherwise. A list of
+// the wrong kind is reported, not fetched. It doesn't report an unset/empty Keyboard or
 // empty Switches/ECParts/KeycapKits entry - required/minLength constraints
 // upstream already guard those.
 //
@@ -37,7 +39,7 @@ func ValidateReferences(
 	ecPartRepo repository.ECPartRepository,
 	keycapSetRepo repository.KeycapSetRepository,
 ) ([]FieldError, error) {
-	var fieldErrs []FieldError
+	fieldErrs, switches, ecParts := partKindErrors(b)
 
 	if b.Keyboard != "" {
 		kb, err := keyboardRepo.Get(ctx, ownerID, b.Keyboard)
@@ -65,7 +67,7 @@ func ValidateReferences(
 		}
 	}
 
-	for i, entry := range b.Switches {
+	for i, entry := range switches {
 		if entry.Switch == "" {
 			continue
 		}
@@ -82,7 +84,7 @@ func ValidateReferences(
 		}
 	}
 
-	for i, entry := range b.ECParts {
+	for i, entry := range ecParts {
 		if entry.ECPart == "" {
 			continue
 		}
@@ -146,4 +148,18 @@ func ValidateReferences(
 	}
 
 	return fieldErrs, nil
+}
+
+func partKindErrors(b repository.Build) ([]FieldError, []repository.BuildSwitchEntry, []repository.BuildECPartEntry) {
+	buildType := b.EffectiveBuildType()
+	if buildType == repository.BuildTypeEC {
+		if len(b.Switches) > 0 {
+			return []FieldError{{Field: "switches", Reason: "not allowed when build_type is EC; list ec_parts instead"}}, nil, b.ECParts
+		}
+		return nil, nil, b.ECParts
+	}
+	if len(b.ECParts) > 0 {
+		return []FieldError{{Field: "ec_parts", Reason: fmt.Sprintf("only allowed when build_type is EC, not %s; list switches instead", buildType)}}, b.Switches, nil
+	}
+	return nil, b.Switches, nil
 }

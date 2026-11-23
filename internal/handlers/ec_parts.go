@@ -11,6 +11,7 @@ import (
 
 	"github.com/roguekeyboards/mykeebs-api/internal/authz"
 	"github.com/roguekeyboards/mykeebs-api/internal/cascadedelete"
+	"github.com/roguekeyboards/mykeebs-api/internal/ecpartvalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
@@ -143,6 +144,15 @@ func decodeECPartInput(w http.ResponseWriter, r *http.Request) (repository.ECPar
 
 	p := repoapi.ECPart{}.ToRepo(in)
 	if !writeLookupErrors(w, lookup.ValidateECPart(r.Context(), p)) {
+		return repository.ECPart{}, false
+	}
+
+	if fieldErrs := ecpartvalidate.Validate(p); len(fieldErrs) > 0 {
+		invalidParams := make([]problem.InvalidParam, len(fieldErrs))
+		for i, fe := range fieldErrs {
+			invalidParams[i] = problem.InvalidParam{Name: fe.Field, Reason: fe.Reason}
+		}
+		problem.ValidationFailed(w, "one or more fields are invalid", invalidParams)
 		return repository.ECPart{}, false
 	}
 

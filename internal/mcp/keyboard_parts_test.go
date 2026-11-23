@@ -61,24 +61,6 @@ func (s *HandleKeyboardPlateSuite) TestCreate_UnapprovedMaterial_ReturnsError() 
 	s.Require().ErrorContains(err, "material")
 }
 
-func (s *HandleKeyboardPlateSuite) TestCreate_MalformedPurchaseDate_ReturnsError() {
-	bad := "01/15/2026"
-	_, _, err := handleCreateKeyboardPlate(s.mockKeyboards, s.mockPrefs)(callerContext(s.T()), nil, schema.CreateKeyboardPlateInput{
-		KeyboardID:         "kb-1",
-		KeyboardPlateInput: schema.KeyboardPlateInput{Material: "AL", Purchase: &schema.KeyboardPartPurchaseInput{DeliveryDate: &bad}},
-	})
-
-	s.Require().ErrorContains(err, "purchase.delivery_date")
-}
-
-func (s *HandleKeyboardPlateSuite) TestCreate_BlankMaterial_ReturnsError() {
-	_, _, err := handleCreateKeyboardPlate(s.mockKeyboards, s.mockPrefs)(callerContext(s.T()), nil, schema.CreateKeyboardPlateInput{
-		KeyboardID: "kb-1",
-	})
-
-	s.Require().ErrorContains(err, "material must not be blank")
-}
-
 func (s *HandleKeyboardPlateSuite) TestCreate_KeyboardMissing_ReturnsNotFound() {
 	s.mockKeyboards.EXPECT().AddPlate(mock.Anything, "kb-1", mock.Anything).Return(nil, repository.ErrNotFound)
 
@@ -106,15 +88,6 @@ func (s *HandleKeyboardPlateSuite) TestUpdate_UsesPlateIDFromInput() {
 	s.Require().NoError(err)
 	s.Equal("plate-1", out.Plate.ID)
 	s.Equal(new("Black"), out.Plate.Color)
-}
-
-func (s *HandleKeyboardPlateSuite) TestUpdate_BlankPlateID_ReturnsError() {
-	_, _, err := handleUpdateKeyboardPlate(s.mockKeyboards, s.mockPrefs)(callerContext(s.T()), nil, schema.UpdateKeyboardPlateInput{
-		KeyboardID:         "kb-1",
-		KeyboardPlateInput: schema.KeyboardPlateInput{Material: "AL"},
-	})
-
-	s.Require().ErrorContains(err, "plate_id must not be blank")
 }
 
 type HandleDeleteKeyboardPartSuite struct {
@@ -167,13 +140,6 @@ func (s *HandleDeleteKeyboardPartSuite) TestPCBUsed_Cascade_DeletesBuild() {
 
 	s.Require().NoError(err)
 	s.Equal([]string{"b1"}, out.DeletedBuildIDs)
-}
-
-func (s *HandleDeleteKeyboardPartSuite) TestInvalidOnDelete_ReturnsError() {
-	_, _, err := handleDeleteKeyboardPCB(s.mockKeyboards, s.mockBuilds, s.mockBuildImg)(callerContext(s.T()), nil,
-		schema.DeleteKeyboardPCBInput{KeyboardID: "kb-1", PCBID: "pcb-1", OnDelete: "detach"})
-
-	s.Require().ErrorContains(err, "on_delete must be block or cascade")
 }
 
 type HandleKeyboardPCBSuite struct {

@@ -70,7 +70,7 @@ func handleListSwitches(
 
 		visibilities := authz.ReadableVisibilities(ctx, ownerID)
 
-		switches, nextCursor, err := repo.List(ctx, ownerID, visibilities, clampListLimit(in.Limit), in.Cursor)
+		switches, nextCursor, err := repo.List(ctx, ownerID, visibilities, listLimit(in.Limit), in.Cursor)
 		if errors.Is(err, repository.ErrInvalidCursor) {
 			return nil, schema.ListSwitchesOutput{}, errors.New("invalid cursor; restart from the first page")
 		}
@@ -100,10 +100,6 @@ func handleGetSwitch(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.GetSwitchInput, schema.GetSwitchOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetSwitchInput) (*mcp.CallToolResult, schema.GetSwitchOutput, error) {
-		if strings.TrimSpace(in.SwitchID) == "" {
-			return nil, schema.GetSwitchOutput{}, errors.New("switch_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, in.UserID)
 		if err != nil {
 			return nil, schema.GetSwitchOutput{}, err
@@ -167,10 +163,6 @@ func handleUpdateSwitch(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateSwitchInput, schema.UpdateSwitchOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateSwitchInput) (*mcp.CallToolResult, schema.UpdateSwitchOutput, error) {
-		if strings.TrimSpace(in.SwitchID) == "" {
-			return nil, schema.UpdateSwitchOutput{}, errors.New("switch_id must not be blank")
-		}
-
 		sw, err := validatedSwitch(ctx, in.SwitchInput)
 		if err != nil {
 			return nil, schema.UpdateSwitchOutput{}, err
@@ -201,14 +193,7 @@ func handleDeleteSwitch(
 	switchImages repository.SwitchImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteSwitchInput, schema.DeleteSwitchOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteSwitchInput) (*mcp.CallToolResult, schema.DeleteSwitchOutput, error) {
-		if strings.TrimSpace(in.SwitchID) == "" {
-			return nil, schema.DeleteSwitchOutput{}, errors.New("switch_id must not be blank")
-		}
-
-		onDelete, ok := cascadedelete.ParseOnDelete(in.OnDelete)
-		if !ok {
-			return nil, schema.DeleteSwitchOutput{}, errors.New("on_delete must be block or cascade")
-		}
+		onDelete, _ := cascadedelete.ParseOnDelete(in.OnDelete)
 
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
@@ -234,15 +219,7 @@ func handleSetSwitchImage(
 	uploads *uploadlimit.Limiter,
 ) mcp.ToolHandlerFor[schema.SetSwitchImageInput, schema.SetSwitchImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.SetSwitchImageInput) (*mcp.CallToolResult, schema.SetSwitchImageOutput, error) {
-		if strings.TrimSpace(in.SwitchID) == "" {
-			return nil, schema.SetSwitchImageOutput{}, errors.New("switch_id must not be blank")
-		}
-
 		if err := lookupErrors(lookup.ValidateImageContentType(ctx, in.ContentType)); err != nil {
-			return nil, schema.SetSwitchImageOutput{}, err
-		}
-
-		if err := validateImageSize(in.SizeBytes); err != nil {
 			return nil, schema.SetSwitchImageOutput{}, err
 		}
 
@@ -293,10 +270,6 @@ func handleDeleteSwitchImage(
 	images repository.SwitchImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteSwitchImageInput, schema.DeleteSwitchImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteSwitchImageInput) (*mcp.CallToolResult, schema.DeleteSwitchImageOutput, error) {
-		if strings.TrimSpace(in.SwitchID) == "" {
-			return nil, schema.DeleteSwitchImageOutput{}, errors.New("switch_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
 			return nil, schema.DeleteSwitchImageOutput{}, err
@@ -325,32 +298,11 @@ func handleDeleteSwitchImage(
 	}
 }
 
-// validatedSwitch checks in code what api/openapi.yaml declares for REST:
-// the SDK infers tool schemas from Go types alone, so there is no per-field
-// constraint to attach.
 func validatedSwitch(
 	ctx context.Context,
 	in schema.SwitchInput,
 ) (repository.Switch, error) {
-	if strings.TrimSpace(in.Brand) == "" {
-		return repository.Switch{}, errors.New("brand must not be blank")
-	}
-	if strings.TrimSpace(in.Name) == "" {
-		return repository.Switch{}, errors.New("name must not be blank")
-	}
-
-	if in.Purchase != nil {
-		if err := validatePurchaseDates(in.Purchase.OrderDate, in.Purchase.DeliveryDate); err != nil {
-			return repository.Switch{}, err
-		}
-	}
-
 	sw := repomcp.Switch{}.FromMCP(in)
-
-	if !sw.Visibility.Valid() {
-		return repository.Switch{}, fmt.Errorf(
-			"visibility %q must be one of: public, authenticated, private", in.Visibility)
-	}
 
 	if err := lookupErrors(lookup.ValidateSwitch(ctx, sw)); err != nil {
 		return repository.Switch{}, err

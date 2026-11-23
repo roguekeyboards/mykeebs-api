@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -88,7 +87,7 @@ func handleListBuilds(
 
 		visibilities := authz.ReadableVisibilities(ctx, ownerID)
 
-		builds, nextCursor, err := buildRepo.List(ctx, ownerID, visibilities, in.KeyboardID, clampListLimit(in.Limit), in.Cursor)
+		builds, nextCursor, err := buildRepo.List(ctx, ownerID, visibilities, in.KeyboardID, listLimit(in.Limit), in.Cursor)
 		if errors.Is(err, repository.ErrInvalidCursor) {
 			return nil, schema.ListBuildsOutput{}, errors.New("invalid cursor; restart from the first page")
 		}
@@ -145,10 +144,6 @@ func handleGetBuild(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.GetBuildInput, schema.GetBuildOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetBuildInput) (*mcp.CallToolResult, schema.GetBuildOutput, error) {
-		if strings.TrimSpace(in.BuildID) == "" {
-			return nil, schema.GetBuildOutput{}, errors.New("build_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, in.UserID)
 		if err != nil {
 			return nil, schema.GetBuildOutput{}, err
@@ -202,11 +197,7 @@ func handleCreateBuild(
 			return nil, schema.CreateBuildOutput{}, errors.New("failed to validate build")
 		}
 		if len(fieldErrs) > 0 {
-			reasons := make([]string, len(fieldErrs))
-			for i, fe := range fieldErrs {
-				reasons[i] = fmt.Sprintf("%s: %q %s", fe.Field, fe.Value, fe.Reason)
-			}
-			return nil, schema.CreateBuildOutput{}, errors.New(strings.Join(reasons, "; "))
+			return nil, schema.CreateBuildOutput{}, buildRefErrors(fieldErrs)
 		}
 
 		b.ID = uuid.NewString()
@@ -243,10 +234,6 @@ func handleUpdateBuild(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateBuildInput, schema.UpdateBuildOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateBuildInput) (*mcp.CallToolResult, schema.UpdateBuildOutput, error) {
-		if strings.TrimSpace(in.BuildID) == "" {
-			return nil, schema.UpdateBuildOutput{}, errors.New("build_id must not be blank")
-		}
-
 		b, err := validatedBuild(ctx, in.BuildInput)
 		if err != nil {
 			return nil, schema.UpdateBuildOutput{}, err
@@ -263,11 +250,7 @@ func handleUpdateBuild(
 			return nil, schema.UpdateBuildOutput{}, errors.New("failed to validate build")
 		}
 		if len(fieldErrs) > 0 {
-			reasons := make([]string, len(fieldErrs))
-			for i, fe := range fieldErrs {
-				reasons[i] = fmt.Sprintf("%s: %q %s", fe.Field, fe.Value, fe.Reason)
-			}
-			return nil, schema.UpdateBuildOutput{}, errors.New(strings.Join(reasons, "; "))
+			return nil, schema.UpdateBuildOutput{}, buildRefErrors(fieldErrs)
 		}
 
 		b.ID = in.BuildID
@@ -288,43 +271,20 @@ func handleUpdateBuild(
 	}
 }
 
-// validatedBuild checks in code what api/openapi.yaml declares for REST: the
-// SDK infers tool schemas from Go types alone, so there is no per-field
-// constraint to attach.
+func buildRefErrors(fieldErrs []buildrefs.FieldError) error {
+	reasons := make([]string, len(fieldErrs))
+	for i, fe := range fieldErrs {
+		if fe.Value == "" {
+			reasons[i] = fe.Field + ": " + fe.Reason
+			continue
+		}
+		reasons[i] = fmt.Sprintf("%s: %q %s", fe.Field, fe.Value, fe.Reason)
+	}
+	return errors.New(strings.Join(reasons, "; "))
+}
+
 func validatedBuild(ctx context.Context, in schema.BuildInput) (repository.Build, error) {
-	if strings.TrimSpace(in.Keyboard) == "" {
-		return repository.Build{}, errors.New("keyboard must not be blank")
-	}
-
-	if in.BuildDate != nil {
-		if _, err := time.Parse(dateLayout, *in.BuildDate); err != nil {
-			return repository.Build{}, fmt.Errorf("build_date: %q must be a date in YYYY-MM-DD form", *in.BuildDate)
-		}
-	}
-
-	for i, entry := range in.Switches {
-		if strings.TrimSpace(entry.Switch) == "" {
-			return repository.Build{}, fmt.Errorf("switches[%d].switch must not be blank", i)
-		}
-		if entry.Count < 1 {
-			return repository.Build{}, fmt.Errorf("switches[%d].count: %d must be at least 1", i, entry.Count)
-		}
-	}
-	for i, entry := range in.ECParts {
-		if strings.TrimSpace(entry.ECPart) == "" {
-			return repository.Build{}, fmt.Errorf("ec_parts[%d].ec_part must not be blank", i)
-		}
-		if entry.Count < 1 {
-			return repository.Build{}, fmt.Errorf("ec_parts[%d].count: %d must be at least 1", i, entry.Count)
-		}
-	}
-
 	b := repomcp.Build{}.FromMCP(in)
-
-	if !b.Visibility.Valid() {
-		return repository.Build{}, fmt.Errorf(
-			"visibility %q must be one of: public, authenticated, private", in.Visibility)
-	}
 
 	if err := lookupErrors(lookup.ValidateBuild(ctx, b)); err != nil {
 		return repository.Build{}, err
@@ -338,10 +298,6 @@ func handleDeleteBuild(
 	images repository.BuildImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteBuildInput, schema.DeleteBuildOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteBuildInput) (*mcp.CallToolResult, schema.DeleteBuildOutput, error) {
-		if strings.TrimSpace(in.BuildID) == "" {
-			return nil, schema.DeleteBuildOutput{}, errors.New("build_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
 			return nil, schema.DeleteBuildOutput{}, err
@@ -396,15 +352,7 @@ func handleAddBuildImage(
 	uploads *uploadlimit.Limiter,
 ) mcp.ToolHandlerFor[schema.AddBuildImageInput, schema.AddBuildImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.AddBuildImageInput) (*mcp.CallToolResult, schema.AddBuildImageOutput, error) {
-		if strings.TrimSpace(in.BuildID) == "" {
-			return nil, schema.AddBuildImageOutput{}, errors.New("build_id must not be blank")
-		}
-
 		if err := lookupErrors(lookup.ValidateImageContentType(ctx, in.ContentType)); err != nil {
-			return nil, schema.AddBuildImageOutput{}, err
-		}
-
-		if err := validateImageSize(in.SizeBytes); err != nil {
 			return nil, schema.AddBuildImageOutput{}, err
 		}
 
@@ -439,10 +387,6 @@ func handleListBuildImages(
 	repo repository.BuildRepository,
 ) mcp.ToolHandlerFor[schema.ListBuildImagesInput, schema.ListBuildImagesOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.ListBuildImagesInput) (*mcp.CallToolResult, schema.ListBuildImagesOutput, error) {
-		if strings.TrimSpace(in.BuildID) == "" {
-			return nil, schema.ListBuildImagesOutput{}, errors.New("build_id must not be blank")
-		}
-
 		b, err := ownedReadable(ctx, repo.Get, func(b repository.Build) repository.Visibility { return b.Visibility },
 			"build", errBuildNotFound, log.BuildID, in.UserID, in.BuildID)
 		if err != nil {
@@ -460,13 +404,6 @@ func handleDeleteBuildImage(
 	images repository.BuildImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteBuildImageInput, schema.DeleteBuildImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteBuildImageInput) (*mcp.CallToolResult, schema.DeleteBuildImageOutput, error) {
-		if strings.TrimSpace(in.BuildID) == "" {
-			return nil, schema.DeleteBuildImageOutput{}, errors.New("build_id must not be blank")
-		}
-		if strings.TrimSpace(in.ImageID) == "" {
-			return nil, schema.DeleteBuildImageOutput{}, errors.New("image_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
 			return nil, schema.DeleteBuildImageOutput{}, err

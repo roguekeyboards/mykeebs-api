@@ -150,18 +150,6 @@ func (s *HandleListKeycapSetsSuite) TestOtherUsersCollection_ExcludesPrivate() {
 	s.Require().NoError(err)
 }
 
-func (s *HandleListKeycapSetsSuite) TestLimitAboveMax_IsClamped() {
-	s.mockRepo.EXPECT().
-		List(mock.Anything, mock.Anything, mock.Anything, maxListLimit, mock.Anything).
-		Return(nil, "", nil)
-	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, mock.Anything).Return(repository.ProfilePreferences{}, nil)
-
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{Limit: 5000})
-
-	s.Require().NoError(err)
-}
-
 func (s *HandleListKeycapSetsSuite) TestCursorIsPropagated() {
 	s.mockRepo.EXPECT().
 		List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, "page-2").
@@ -272,13 +260,6 @@ func (s *HandleGetKeycapSetSuite) TestKitsMapWithHasImage() {
 	s.Require().Len(out.KeycapSet.Kits, 2)
 	s.True(out.KeycapSet.Kits[0].HasImage)
 	s.False(out.KeycapSet.Kits[1].HasImage)
-}
-
-func (s *HandleGetKeycapSetSuite) TestBlankKeycapSetID_ReturnsError() {
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "  "})
-
-	s.Require().ErrorContains(err, "keycap_set_id must not be blank")
 }
 
 func (s *HandleGetKeycapSetSuite) TestNotFound_ReturnsNotFound() {
@@ -435,36 +416,6 @@ func (s *HandleCreateKeycapSetSuite) TestSucceeds() {
 	s.NotEmpty(out.KeycapSet.ID, "create must assign a server-generated id")
 }
 
-func (s *HandleCreateKeycapSetSuite) TestBlankBrand_ReturnsError() {
-	in := validKeycapSetInput()
-	in.Brand = "   "
-
-	handler := handleCreateKeycapSet(s.mockKeycapSets, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeycapSetInput{KeycapSetInput: in})
-
-	s.Require().ErrorContains(err, "brand must not be blank")
-}
-
-func (s *HandleCreateKeycapSetSuite) TestBlankName_ReturnsError() {
-	in := validKeycapSetInput()
-	in.Name = "  "
-
-	handler := handleCreateKeycapSet(s.mockKeycapSets, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeycapSetInput{KeycapSetInput: in})
-
-	s.Require().ErrorContains(err, "name must not be blank")
-}
-
-func (s *HandleCreateKeycapSetSuite) TestInvalidVisibility_ReturnsError() {
-	in := validKeycapSetInput()
-	in.Visibility = "everyone"
-
-	handler := handleCreateKeycapSet(s.mockKeycapSets, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeycapSetInput{KeycapSetInput: in})
-
-	s.Require().ErrorContains(err, "visibility")
-}
-
 func (s *HandleCreateKeycapSetSuite) TestUnapprovedProfile_ReturnsError() {
 	profile := "NotAProfile"
 	in := validKeycapSetInput()
@@ -546,16 +497,6 @@ func (s *HandleUpdateKeycapSetSuite) TestSucceeds() {
 	s.Equal("ks-1", out.KeycapSet.ID, "update must target the requested id")
 }
 
-func (s *HandleUpdateKeycapSetSuite) TestBlankKeycapSetID_ReturnsError() {
-	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapSetInput{
-		KeycapSetID:    "  ",
-		KeycapSetInput: validKeycapSetInput(),
-	})
-
-	s.Require().ErrorContains(err, "keycap_set_id must not be blank")
-}
-
 func (s *HandleUpdateKeycapSetSuite) TestNotFound_ReturnsNotFound() {
 	s.mockKeycapSets.EXPECT().
 		Update(mock.Anything, mock.Anything).
@@ -616,13 +557,6 @@ func (s *HandleDeleteKeycapSetSuite) TestSucceeds() {
 
 	s.Require().NoError(err)
 	s.Empty(out.DeletedBuildIDs)
-}
-
-func (s *HandleDeleteKeycapSetSuite) TestBlankKeycapSetID_ReturnsError() {
-	handler := handleDeleteKeycapSet(s.mockRepo, s.mockBuilds, s.mockBuildImg, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeycapSetInput{KeycapSetID: ""})
-
-	s.Require().ErrorContains(err, "keycap_set_id must not be blank")
 }
 
 func (s *HandleDeleteKeycapSetSuite) TestInvalidOnDelete_ReturnsError() {
@@ -804,43 +738,6 @@ func (s *HandleCreateKeycapKitSuite) TestPrimaryOmitted_PassesNilToRepo() {
 	s.Require().NoError(err)
 }
 
-func (s *HandleCreateKeycapKitSuite) TestBlankKeycapSetID_ReturnsError() {
-	handler := handleCreateKeycapKit(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeycapKitInput{
-		KeycapSetID:    "  ",
-		KeycapKitInput: validKeycapKitInput(),
-	})
-
-	s.Require().ErrorContains(err, "keycap_set_id must not be blank")
-}
-
-func (s *HandleCreateKeycapKitSuite) TestBlankName_ReturnsError() {
-	in := validKeycapKitInput()
-	in.Name = " "
-
-	handler := handleCreateKeycapKit(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeycapKitInput{
-		KeycapSetID:    "ks-1",
-		KeycapKitInput: in,
-	})
-
-	s.Require().ErrorContains(err, "name must not be blank")
-}
-
-func (s *HandleCreateKeycapKitSuite) TestMalformedOrderDate_ReturnsError() {
-	bad := "not-a-date"
-	in := validKeycapKitInput()
-	in.Purchase = &schema.KeycapKitPurchaseInput{OrderDate: &bad}
-
-	handler := handleCreateKeycapKit(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeycapKitInput{
-		KeycapSetID:    "ks-1",
-		KeycapKitInput: in,
-	})
-
-	s.Require().ErrorContains(err, "purchase.order_date")
-}
-
 func (s *HandleCreateKeycapKitSuite) TestUnapprovedVendor_ReturnsError() {
 	vendor := "NotARealVendor"
 	in := validKeycapKitInput()
@@ -977,28 +874,6 @@ func (s *HandleUpdateKeycapKitSuite) TestPrimaryOmitted_PassesNilToRepo() {
 	s.Require().NoError(err)
 }
 
-func (s *HandleUpdateKeycapKitSuite) TestBlankKeycapSetID_ReturnsError() {
-	handler := handleUpdateKeycapKit(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapKitInput{
-		KeycapSetID:    " ",
-		KitID:          "kit-1",
-		KeycapKitInput: validKeycapKitInput(),
-	})
-
-	s.Require().ErrorContains(err, "keycap_set_id must not be blank")
-}
-
-func (s *HandleUpdateKeycapKitSuite) TestBlankKitID_ReturnsError() {
-	handler := handleUpdateKeycapKit(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapKitInput{
-		KeycapSetID:    "ks-1",
-		KitID:          " ",
-		KeycapKitInput: validKeycapKitInput(),
-	})
-
-	s.Require().ErrorContains(err, "kit_id must not be blank")
-}
-
 func (s *HandleUpdateKeycapKitSuite) TestUnapprovedVendor_ReturnsError() {
 	vendor := "NotARealVendor"
 	in := validKeycapKitInput()
@@ -1077,20 +952,6 @@ func (s *HandleDeleteKeycapKitSuite) TestSucceeds() {
 
 	s.Require().NoError(err)
 	s.Empty(out.DeletedBuildIDs)
-}
-
-func (s *HandleDeleteKeycapKitSuite) TestBlankKeycapSetID_ReturnsError() {
-	handler := handleDeleteKeycapKit(s.mockRepo, s.mockBuilds, s.mockBuildImg, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeycapKitInput{KeycapSetID: " ", KitID: "kit-1"})
-
-	s.Require().ErrorContains(err, "keycap_set_id must not be blank")
-}
-
-func (s *HandleDeleteKeycapKitSuite) TestBlankKitID_ReturnsError() {
-	handler := handleDeleteKeycapKit(s.mockRepo, s.mockBuilds, s.mockBuildImg, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeycapKitInput{KeycapSetID: "ks-1", KitID: " "})
-
-	s.Require().ErrorContains(err, "kit_id must not be blank")
 }
 
 func (s *HandleDeleteKeycapKitSuite) TestInvalidOnDelete_ReturnsError() {
@@ -1292,42 +1153,6 @@ func (s *HandleSetKeycapKitImageSuite) TestReplacingImage_DeletesPreviousObjectF
 	s.Require().NoError(err)
 }
 
-func (s *HandleSetKeycapKitImageSuite) TestBlankKeycapSetID_ReturnsError() {
-	handler := handleSetKeycapKitImage(s.mockRepo, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.SetKeycapKitImageInput{
-		KeycapSetID: " ",
-		KitID:       "kit-1",
-		ContentType: "image/webp",
-		SizeBytes:   524288,
-	})
-
-	s.Require().ErrorContains(err, "keycap_set_id must not be blank")
-}
-
-func (s *HandleSetKeycapKitImageSuite) TestBlankKitID_ReturnsError() {
-	handler := handleSetKeycapKitImage(s.mockRepo, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.SetKeycapKitImageInput{
-		KeycapSetID: "ks-1",
-		KitID:       " ",
-		ContentType: "image/webp",
-		SizeBytes:   524288,
-	})
-
-	s.Require().ErrorContains(err, "kit_id must not be blank")
-}
-
-func (s *HandleSetKeycapKitImageSuite) TestSizeOverCap_ReturnsError() {
-	handler := handleSetKeycapKitImage(s.mockRepo, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.SetKeycapKitImageInput{
-		KeycapSetID: "ks-1",
-		KitID:       "kit-1",
-		ContentType: "image/webp",
-		SizeBytes:   repository.MaxImageSizeBytes + 1,
-	})
-
-	s.Require().ErrorContains(err, "size_bytes")
-}
-
 func (s *HandleSetKeycapKitImageSuite) TestUnapprovedContentType_ReturnsError() {
 	handler := handleSetKeycapKitImage(s.mockRepo, s.mockImages, uploadlimit.New(s.mockUploads, 500))
 	_, _, err := handler(callerContext(s.T()), nil, schema.SetKeycapKitImageInput{
@@ -1425,20 +1250,6 @@ func (s *HandleDeleteKeycapKitImageSuite) TestSucceeds() {
 	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeycapKitImageInput{KeycapSetID: "ks-1", KitID: "kit-1"})
 
 	s.Require().NoError(err)
-}
-
-func (s *HandleDeleteKeycapKitImageSuite) TestBlankKeycapSetID_ReturnsError() {
-	handler := handleDeleteKeycapKitImage(s.mockRepo, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeycapKitImageInput{KeycapSetID: " ", KitID: "kit-1"})
-
-	s.Require().ErrorContains(err, "keycap_set_id must not be blank")
-}
-
-func (s *HandleDeleteKeycapKitImageSuite) TestBlankKitID_ReturnsError() {
-	handler := handleDeleteKeycapKitImage(s.mockRepo, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeycapKitImageInput{KeycapSetID: "ks-1", KitID: " "})
-
-	s.Require().ErrorContains(err, "kit_id must not be blank")
 }
 
 func (s *HandleDeleteKeycapKitImageSuite) TestClearKitImagePathNotFound_IdempotentNoError() {

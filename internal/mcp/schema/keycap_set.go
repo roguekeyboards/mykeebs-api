@@ -3,7 +3,7 @@ package schema
 // ListKeycapSetsInput is the list_keycap_sets tool input.
 type ListKeycapSetsInput struct {
 	UserID string `json:"user_id,omitempty" jsonschema:"whose collection to list; omit for your own"`
-	Limit  int    `json:"limit,omitempty" jsonschema:"maximum number of keycap sets to return (1-100, default 20)"`
+	Limit  *int   `json:"limit,omitempty" jsonschema:"maximum number of keycap sets to return (1-100, default 20)"`
 	Cursor string `json:"cursor,omitempty" jsonschema:"resume from a previous call's next_cursor"`
 }
 

@@ -56,12 +56,6 @@ func (s *HandleListECPartsSuite) TestPartType_PassedToRepository() {
 	s.Require().NoError(err)
 }
 
-func (s *HandleListECPartsSuite) TestUnknownPartType_ReturnsErrorWithoutListing() {
-	_, _, err := handleListECParts(s.mockRepo, s.mockPrefs)(callerContext(s.T()), nil, schema.ListECPartsInput{PartType: "keycaps"})
-
-	s.EqualError(err, "part_type: must be one of: domes, sliders, housings, springs, rings")
-}
-
 func (s *HandleListECPartsSuite) TestInvalidCursor_ReturnsError() {
 	s.mockRepo.EXPECT().
 		List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -97,12 +91,6 @@ func (s *HandleGetECPartSuite) TestSucceeds() {
 
 	s.Require().NoError(err)
 	s.Equal(&schema.ECSliders{Stem: new("MX")}, out.ECPart.Sliders)
-}
-
-func (s *HandleGetECPartSuite) TestBlankID_ReturnsError() {
-	_, _, err := handleGetECPart(s.mockRepo, s.mockPrefs)(callerContext(s.T()), nil, schema.GetECPartInput{ECPartID: " "})
-
-	s.ErrorContains(err, "ec_part_id")
 }
 
 func (s *HandleGetECPartSuite) TestOtherUsersPrivatePart_ReturnsNotFound() {
@@ -153,15 +141,7 @@ func (s *HandleCreateECPartSuite) TestInvalidInputs_ReturnErrorsWithoutCreating(
 		edit func(*schema.ECPartInput)
 		want string
 	}{
-		"blank brand":       {func(in *schema.ECPartInput) { in.Brand = " " }, "brand"},
-		"blank name":        {func(in *schema.ECPartInput) { in.Name = "" }, "name"},
-		"bad date":          {func(in *schema.ECPartInput) { in.Purchase = &schema.ECPartPurchaseInput{OrderDate: new("21/09/2026")} }, "order_date"},
-		"bad visibility":    {func(in *schema.ECPartInput) { in.Visibility = "friends" }, "visibility"},
-		"unknown part_type": {func(in *schema.ECPartInput) { in.PartType = "keycaps" }, "part_type"},
 		"other sub-object":  {func(in *schema.ECPartInput) { in.Rings = &schema.ECRings{} }, "rings"},
-		"unknown size": {func(in *schema.ECPartInput) {
-			in.PartType, in.Domes, in.Sliders = "sliders", nil, &schema.ECSliders{Size: new("3U")}
-		}, "sliders.size"},
 		"unapproved vendor": {func(in *schema.ECPartInput) { in.Purchase = &schema.ECPartPurchaseInput{Vendor: new("Nowhere")} }, "purchase.vendor"},
 	} {
 		in := validECPartInput()
@@ -208,12 +188,6 @@ func (s *HandleUpdateECPartSuite) TestSucceeds() {
 
 	s.Require().NoError(err)
 	s.Equal("p1", out.ECPart.ID)
-}
-
-func (s *HandleUpdateECPartSuite) TestBlankID_ReturnsError() {
-	_, _, err := handleUpdateECPart(s.mockRepo, s.mockPrefs)(callerContext(s.T()), nil, schema.UpdateECPartInput{ECPartInput: validECPartInput()})
-
-	s.ErrorContains(err, "ec_part_id")
 }
 
 func (s *HandleUpdateECPartSuite) TestNotFound_ReturnsMutationNotFound() {
@@ -264,9 +238,7 @@ func (s *HandleSetECPartImageSuite) TestReplacingImage_PresignsThenDeletesPrevio
 
 func (s *HandleSetECPartImageSuite) TestInvalidInputs_ReturnErrors() {
 	for name, in := range map[string]schema.SetECPartImageInput{
-		"blank id":        {ContentType: "image/webp", SizeBytes: 1000},
 		"unapproved type": {ECPartID: "p1", ContentType: "image/png", SizeBytes: 1000},
-		"too large":       {ECPartID: "p1", ContentType: "image/webp", SizeBytes: 10 << 20},
 	} {
 		_, err := s.call(in)
 		s.Error(err, name)
@@ -370,12 +342,4 @@ func (s *HandleDeleteECPartSuite) TestCascade_ReturnsDeletedBuildIDs() {
 
 	s.Require().NoError(err)
 	s.Equal([]string{"b1"}, out.DeletedBuildIDs)
-}
-
-func (s *HandleDeleteECPartSuite) TestInvalidInputs_ReturnErrors() {
-	_, err := s.call(schema.DeleteECPartInput{ECPartID: " "})
-	s.Require().ErrorContains(err, "ec_part_id")
-
-	_, err = s.call(schema.DeleteECPartInput{ECPartID: "p1", OnDelete: "detach"})
-	s.ErrorContains(err, "on_delete")
 }

@@ -13,13 +13,8 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
 )
 
-// REST gets these bounds from api/openapi.yaml's Limit param, applied by
-// the request validator before a handler runs. MCP has no equivalent
-// validation layer, so the tool handlers apply them themselves.
-const (
-	defaultListLimit = 20
-	maxListLimit     = 100
-)
+// defaultListLimit is api/openapi.yaml's Limit param default.
+const defaultListLimit = 20
 
 // errNoCallerIdentity is unreachable while requireBearerToken gates every
 // MCP request (see server.go), but fails closed rather than defaulting to
@@ -94,15 +89,6 @@ func ownedReadable[T any](
 	}
 
 	return item, nil
-}
-
-// validateImageSize is REST's ImageUploadRequest.size_bytes bound, which
-// the request validator applies there, for the MCP image tools.
-func validateImageSize(size int64) error {
-	if size < 1 || size > repository.MaxImageSizeBytes {
-		return fmt.Errorf("size_bytes: must be between 1 and %d (1.5 MB); resize or recompress the image first", repository.MaxImageSizeBytes)
-	}
-	return nil
 }
 
 // errMutationNotFound, errMutationConflict, and errMutationFailed are
@@ -182,13 +168,9 @@ func handleClearImageError(ctx context.Context, err error, logFields ...any) err
 	return handleMutationError(ctx, err, logFields...)
 }
 
-func clampListLimit(limit int) int {
-	if limit < 1 {
+func listLimit(limit *int) int {
+	if limit == nil {
 		return defaultListLimit
 	}
-	if limit > maxListLimit {
-		return maxListLimit
-	}
-
-	return limit
+	return *limit
 }

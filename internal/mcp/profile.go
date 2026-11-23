@@ -62,10 +62,6 @@ var deleteProfileImageTool = &mcp.Tool{
 
 func handleGetProfile(repo repository.ProfileRepository) mcp.ToolHandlerFor[schema.GetProfileInput, schema.GetProfileOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetProfileInput) (*mcp.CallToolResult, schema.GetProfileOutput, error) {
-		if strings.TrimSpace(in.Identifier) == "" {
-			return nil, schema.GetProfileOutput{}, errors.New("identifier must not be blank")
-		}
-
 		p, ok, err := profileread.Resolve(ctx, repo, in.Identifier)
 		if err != nil {
 			log.FromContext(ctx).Error("getting profile", log.Error, err, log.ProfileID, in.Identifier)
@@ -139,11 +135,7 @@ func handleDeleteProfile(account accountdelete.Account) mcp.ToolHandlerFor[schem
 
 func handleListProfiles(repo repository.ProfileRepository) mcp.ToolHandlerFor[schema.ListProfilesInput, schema.ListProfilesOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.ListProfilesInput) (*mcp.CallToolResult, schema.ListProfilesOutput, error) {
-		if in.Username != "" && in.DiscordUsername != "" {
-			return nil, schema.ListProfilesOutput{}, errors.New("username and discord_username are mutually exclusive")
-		}
-
-		profiles, nextCursor, err := repo.ListPublic(ctx, in.Username, in.DiscordUsername, clampListLimit(in.Limit), in.Cursor)
+		profiles, nextCursor, err := repo.ListPublic(ctx, in.Username, in.DiscordUsername, listLimit(in.Limit), in.Cursor)
 		if errors.Is(err, repository.ErrInvalidCursor) {
 			return nil, schema.ListProfilesOutput{}, errors.New("invalid cursor; restart from the first page (a cursor can't be reused with a different filter)")
 		}
@@ -168,10 +160,6 @@ func handleSetProfileImage(
 ) mcp.ToolHandlerFor[schema.SetProfileImageInput, schema.SetProfileImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.SetProfileImageInput) (*mcp.CallToolResult, schema.SetProfileImageOutput, error) {
 		if err := lookupErrors(lookup.ValidateImageContentType(ctx, in.ContentType)); err != nil {
-			return nil, schema.SetProfileImageOutput{}, err
-		}
-
-		if err := validateImageSize(in.SizeBytes); err != nil {
 			return nil, schema.SetProfileImageOutput{}, err
 		}
 
@@ -251,7 +239,7 @@ func handleDeleteProfileImage(
 
 // validatedProfile runs the full field rule set (the SDK enforces none of
 // it) and maps the input to a repository.Profile, joining every violation
-// into one error like validatedSwitch.
+// into one error.
 func validatedProfile(in schema.ProfileInput) (repository.Profile, error) {
 	p := repomcp.Profile{}.FromMCP(in)
 

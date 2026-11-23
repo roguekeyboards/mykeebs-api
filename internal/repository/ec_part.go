@@ -113,7 +113,7 @@ type ECPartPurchase struct {
 // so a build can mix parts from different purchases. UserID is the
 // DynamoDB partition key; ID is the sort key. At most the sub-object
 // matching PartType is set, as checked by
-// [github.com/roguekeyboards/mykeebs-api/internal/lookup.ValidateECPart].
+// [github.com/roguekeyboards/mykeebs-api/internal/ecpartvalidate.Validate].
 type ECPart struct {
 	UserID     string          `dynamodbav:"user_id" json:"-"`
 	ID         string          `dynamodbav:"id" json:"id"`

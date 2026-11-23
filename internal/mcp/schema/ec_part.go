@@ -4,7 +4,7 @@ package schema
 type ListECPartsInput struct {
 	UserID   string `json:"user_id,omitempty" jsonschema:"whose collection to list; omit for your own"`
 	PartType string `json:"part_type,omitempty" jsonschema:"if set, only return parts of this type: domes, sliders, housings, springs or rings"`
-	Limit    int    `json:"limit,omitempty" jsonschema:"maximum number of EC parts to return (1-100, default 20)"`
+	Limit    *int   `json:"limit,omitempty" jsonschema:"maximum number of EC parts to return (1-100, default 20)"`
 	Cursor   string `json:"cursor,omitempty" jsonschema:"resume from a previous call's next_cursor, with the same part_type"`
 }
 

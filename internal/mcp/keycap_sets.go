@@ -85,7 +85,7 @@ func handleListKeycapSets(
 
 		visibilities := authz.ReadableVisibilities(ctx, ownerID)
 
-		sets, nextCursor, err := repo.List(ctx, ownerID, visibilities, clampListLimit(in.Limit), in.Cursor)
+		sets, nextCursor, err := repo.List(ctx, ownerID, visibilities, listLimit(in.Limit), in.Cursor)
 		if errors.Is(err, repository.ErrInvalidCursor) {
 			return nil, schema.ListKeycapSetsOutput{}, errors.New("invalid cursor; restart from the first page")
 		}
@@ -115,10 +115,6 @@ func handleGetKeycapSet(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.GetKeycapSetInput, schema.GetKeycapSetOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetKeycapSetInput) (*mcp.CallToolResult, schema.GetKeycapSetOutput, error) {
-		if strings.TrimSpace(in.KeycapSetID) == "" {
-			return nil, schema.GetKeycapSetOutput{}, errors.New("keycap_set_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, in.UserID)
 		if err != nil {
 			return nil, schema.GetKeycapSetOutput{}, err
@@ -178,10 +174,6 @@ func handleUpdateKeycapSet(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateKeycapSetInput, schema.UpdateKeycapSetOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateKeycapSetInput) (*mcp.CallToolResult, schema.UpdateKeycapSetOutput, error) {
-		if strings.TrimSpace(in.KeycapSetID) == "" {
-			return nil, schema.UpdateKeycapSetOutput{}, errors.New("keycap_set_id must not be blank")
-		}
-
 		ks, err := validatedKeycapSet(ctx, in.KeycapSetInput)
 		if err != nil {
 			return nil, schema.UpdateKeycapSetOutput{}, err
@@ -212,14 +204,7 @@ func handleDeleteKeycapSet(
 	images repository.KeycapKitImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteKeycapSetInput, schema.DeleteKeycapSetOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteKeycapSetInput) (*mcp.CallToolResult, schema.DeleteKeycapSetOutput, error) {
-		if strings.TrimSpace(in.KeycapSetID) == "" {
-			return nil, schema.DeleteKeycapSetOutput{}, errors.New("keycap_set_id must not be blank")
-		}
-
-		onDelete, ok := cascadedelete.ParseOnDelete(in.OnDelete)
-		if !ok {
-			return nil, schema.DeleteKeycapSetOutput{}, errors.New("on_delete must be block or cascade")
-		}
+		onDelete, _ := cascadedelete.ParseOnDelete(in.OnDelete)
 
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
@@ -239,26 +224,11 @@ func handleDeleteKeycapSet(
 	}
 }
 
-// validatedKeycapSet checks in code what api/openapi.yaml declares for
-// REST: the SDK infers tool schemas from Go types alone, so there is no
-// per-field constraint to attach.
 func validatedKeycapSet(
 	ctx context.Context,
 	in schema.KeycapSetInput,
 ) (repository.KeycapSet, error) {
-	if strings.TrimSpace(in.Brand) == "" {
-		return repository.KeycapSet{}, errors.New("brand must not be blank")
-	}
-	if strings.TrimSpace(in.Name) == "" {
-		return repository.KeycapSet{}, errors.New("name must not be blank")
-	}
-
 	ks := repomcp.KeycapSet{}.FromMCP(in)
-
-	if !ks.Visibility.Valid() {
-		return repository.KeycapSet{}, fmt.Errorf(
-			"visibility %q must be one of: public, authenticated, private", in.Visibility)
-	}
 
 	if err := lookupErrors(lookup.ValidateKeycapSet(ctx, ks)); err != nil {
 		return repository.KeycapSet{}, err
@@ -272,10 +242,6 @@ func handleCreateKeycapKit(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.CreateKeycapKitInput, schema.CreateKeycapKitOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.CreateKeycapKitInput) (*mcp.CallToolResult, schema.CreateKeycapKitOutput, error) {
-		if strings.TrimSpace(in.KeycapSetID) == "" {
-			return nil, schema.CreateKeycapKitOutput{}, errors.New("keycap_set_id must not be blank")
-		}
-
 		kit, err := validatedKeycapKit(ctx, in.KeycapKitInput)
 		if err != nil {
 			return nil, schema.CreateKeycapKitOutput{}, err
@@ -304,13 +270,6 @@ func handleUpdateKeycapKit(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateKeycapKitInput, schema.UpdateKeycapKitOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateKeycapKitInput) (*mcp.CallToolResult, schema.UpdateKeycapKitOutput, error) {
-		if strings.TrimSpace(in.KeycapSetID) == "" {
-			return nil, schema.UpdateKeycapKitOutput{}, errors.New("keycap_set_id must not be blank")
-		}
-		if strings.TrimSpace(in.KitID) == "" {
-			return nil, schema.UpdateKeycapKitOutput{}, errors.New("kit_id must not be blank")
-		}
-
 		kit, err := validatedKeycapKit(ctx, in.KeycapKitInput)
 		if err != nil {
 			return nil, schema.UpdateKeycapKitOutput{}, err
@@ -341,17 +300,7 @@ func handleDeleteKeycapKit(
 	images repository.KeycapKitImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteKeycapKitInput, schema.DeleteKeycapKitOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteKeycapKitInput) (*mcp.CallToolResult, schema.DeleteKeycapKitOutput, error) {
-		if strings.TrimSpace(in.KeycapSetID) == "" {
-			return nil, schema.DeleteKeycapKitOutput{}, errors.New("keycap_set_id must not be blank")
-		}
-		if strings.TrimSpace(in.KitID) == "" {
-			return nil, schema.DeleteKeycapKitOutput{}, errors.New("kit_id must not be blank")
-		}
-
-		onDelete, ok := cascadedelete.ParseOnDelete(in.OnDelete)
-		if !ok {
-			return nil, schema.DeleteKeycapKitOutput{}, errors.New("on_delete must be block or cascade")
-		}
+		onDelete, _ := cascadedelete.ParseOnDelete(in.OnDelete)
 
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
@@ -376,18 +325,7 @@ func handleSetKeycapKitImage(
 	uploads *uploadlimit.Limiter,
 ) mcp.ToolHandlerFor[schema.SetKeycapKitImageInput, schema.SetKeycapKitImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.SetKeycapKitImageInput) (*mcp.CallToolResult, schema.SetKeycapKitImageOutput, error) {
-		if strings.TrimSpace(in.KeycapSetID) == "" {
-			return nil, schema.SetKeycapKitImageOutput{}, errors.New("keycap_set_id must not be blank")
-		}
-		if strings.TrimSpace(in.KitID) == "" {
-			return nil, schema.SetKeycapKitImageOutput{}, errors.New("kit_id must not be blank")
-		}
-
 		if err := lookupErrors(lookup.ValidateImageContentType(ctx, in.ContentType)); err != nil {
-			return nil, schema.SetKeycapKitImageOutput{}, err
-		}
-
-		if err := validateImageSize(in.SizeBytes); err != nil {
 			return nil, schema.SetKeycapKitImageOutput{}, err
 		}
 
@@ -443,13 +381,6 @@ func handleDeleteKeycapKitImage(
 	images repository.KeycapKitImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteKeycapKitImageInput, schema.DeleteKeycapKitImageOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteKeycapKitImageInput) (*mcp.CallToolResult, schema.DeleteKeycapKitImageOutput, error) {
-		if strings.TrimSpace(in.KeycapSetID) == "" {
-			return nil, schema.DeleteKeycapKitImageOutput{}, errors.New("keycap_set_id must not be blank")
-		}
-		if strings.TrimSpace(in.KitID) == "" {
-			return nil, schema.DeleteKeycapKitImageOutput{}, errors.New("kit_id must not be blank")
-		}
-
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
 			return nil, schema.DeleteKeycapKitImageOutput{}, err
@@ -483,25 +414,10 @@ func handleDeleteKeycapKitImage(
 	}
 }
 
-// validatedKeycapKit checks in code what api/openapi.yaml declares for
-// REST: the SDK infers tool schemas from Go types alone, so there is no
-// per-field constraint to attach. Unlike validatedKeycapSet, there's no
-// visibility to check - a kit has no independent visibility, only the
-// parent set's.
 func validatedKeycapKit(
 	ctx context.Context,
 	in schema.KeycapKitInput,
 ) (repository.KeycapKit, error) {
-	if strings.TrimSpace(in.Name) == "" {
-		return repository.KeycapKit{}, errors.New("name must not be blank")
-	}
-
-	if in.Purchase != nil {
-		if err := validatePurchaseDates(in.Purchase.OrderDate, in.Purchase.DeliveryDate); err != nil {
-			return repository.KeycapKit{}, err
-		}
-	}
-
 	kit := repomcp.KeycapSet{}.KitFromMCP(in)
 
 	if err := lookupErrors(lookup.ValidateKeycapKit(ctx, kit)); err != nil {

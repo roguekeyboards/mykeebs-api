@@ -141,18 +141,6 @@ func (s *HandleListSwitchesSuite) TestOtherUsersCollection_ExcludesPrivate() {
 	s.Require().NoError(err)
 }
 
-func (s *HandleListSwitchesSuite) TestLimitAboveMax_IsClamped() {
-	s.mockRepo.EXPECT().
-		List(mock.Anything, mock.Anything, mock.Anything, maxListLimit, mock.Anything).
-		Return(nil, "", nil)
-	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, mock.Anything).Return(repository.ProfilePreferences{}, nil)
-
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{Limit: 5000})
-
-	s.Require().NoError(err)
-}
-
 func (s *HandleListSwitchesSuite) TestCursorIsPropagated() {
 	s.mockRepo.EXPECT().
 		List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, "page-2").
@@ -243,13 +231,6 @@ func (s *HandleGetSwitchSuite) TestSucceeds() {
 	s.Equal("Gateron", out.Switch.Brand)
 	s.Require().NotNil(out.Switch.Visibility)
 	s.Equal("private", *out.Switch.Visibility)
-}
-
-func (s *HandleGetSwitchSuite) TestBlankSwitchID_ReturnsError() {
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "  "})
-
-	s.Require().ErrorContains(err, "switch_id must not be blank")
 }
 
 func (s *HandleGetSwitchSuite) TestNotFound_ReturnsNotFound() {
@@ -411,38 +392,6 @@ func (s *HandleCreateSwitchSuite) TestSucceeds() {
 	s.NotEmpty(out.Switch.ID, "create must assign a server-generated id")
 }
 
-func (s *HandleCreateSwitchSuite) TestBlankBrand_ReturnsError() {
-	in := validInput()
-	in.Brand = ""
-
-	handler := handleCreateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateSwitchInput{SwitchInput: in})
-
-	s.Require().ErrorContains(err, "brand must not be blank")
-}
-
-// REST rejects this too, via openapi.yaml's \S pattern - minLength alone
-// counts characters without trimming.
-func (s *HandleCreateSwitchSuite) TestWhitespaceOnlyBrand_ReturnsError() {
-	in := validInput()
-	in.Brand = "   "
-
-	handler := handleCreateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateSwitchInput{SwitchInput: in})
-
-	s.Require().ErrorContains(err, "brand must not be blank")
-}
-
-func (s *HandleCreateSwitchSuite) TestInvalidVisibility_ReturnsError() {
-	in := validInput()
-	in.Visibility = "everyone"
-
-	handler := handleCreateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateSwitchInput{SwitchInput: in})
-
-	s.Require().ErrorContains(err, "visibility")
-}
-
 func (s *HandleCreateSwitchSuite) TestUnapprovedLookupValue_ReturnsError() {
 	in := validInput()
 	in.Type = "NotAType"
@@ -474,33 +423,6 @@ func (s *HandleCreateSwitchSuite) TestRepositoryError_ReturnsError() {
 	_, _, err := handler(callerContext(s.T()), nil, schema.CreateSwitchInput{SwitchInput: validInput()})
 
 	s.Require().ErrorContains(err, "failed to create switch")
-}
-
-// REST rejects a malformed date via api/openapi.yaml's `format: date`. MCP
-// has no such validator, and nothing downstream re-checks: a bad date
-// reaches DynamoDB and every later REST read of that row fails its date
-// parse with a 500, unrepairable through the API.
-func (s *HandleCreateSwitchSuite) TestMalformedOrderDate_ReturnsError() {
-	bad := "next tuesday"
-	in := validInput()
-	in.Purchase = &schema.SwitchPurchaseInput{OrderDate: &bad}
-
-	handler := handleCreateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateSwitchInput{SwitchInput: in})
-
-	s.Require().ErrorContains(err, "purchase.order_date")
-	s.Require().ErrorContains(err, "YYYY-MM-DD")
-}
-
-func (s *HandleCreateSwitchSuite) TestMalformedDeliveryDate_ReturnsError() {
-	bad := "2026-13-45"
-	in := validInput()
-	in.Purchase = &schema.SwitchPurchaseInput{DeliveryDate: &bad}
-
-	handler := handleCreateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateSwitchInput{SwitchInput: in})
-
-	s.Require().ErrorContains(err, "purchase.delivery_date")
 }
 
 func (s *HandleCreateSwitchSuite) TestWellFormedDates_Succeed() {
@@ -555,57 +477,6 @@ func (s *HandleUpdateSwitchSuite) TestSucceeds() {
 	s.Equal("sw-1", out.Switch.ID, "update must target the requested id")
 }
 
-func (s *HandleUpdateSwitchSuite) TestBlankName_ReturnsError() {
-	in := validInput()
-	in.Name = ""
-
-	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{
-		SwitchID:    "sw-1",
-		SwitchInput: in,
-	})
-
-	s.Require().ErrorContains(err, "name must not be blank")
-}
-
-func (s *HandleUpdateSwitchSuite) TestBlankSwitchID_ReturnsError() {
-	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{
-		SwitchID:    "  ",
-		SwitchInput: validInput(),
-	})
-
-	s.Require().ErrorContains(err, "switch_id must not be blank")
-}
-
-func (s *HandleUpdateSwitchSuite) TestMalformedOrderDate_ReturnsError() {
-	bad := "01/15/2026"
-	in := validInput()
-	in.Purchase = &schema.SwitchPurchaseInput{OrderDate: &bad}
-
-	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{
-		SwitchID:    "sw-1",
-		SwitchInput: in,
-	})
-
-	s.Require().ErrorContains(err, "purchase.order_date")
-}
-
-func (s *HandleUpdateSwitchSuite) TestMalformedDeliveryDate_ReturnsError() {
-	bad := "2026-13-45"
-	in := validInput()
-	in.Purchase = &schema.SwitchPurchaseInput{DeliveryDate: &bad}
-
-	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{
-		SwitchID:    "sw-1",
-		SwitchInput: in,
-	})
-
-	s.Require().ErrorContains(err, "purchase.delivery_date")
-}
-
 func (s *HandleUpdateSwitchSuite) TestNotFound_ReturnsNotFound() {
 	s.mockSwitches.EXPECT().
 		Update(mock.Anything, mock.Anything).
@@ -654,13 +525,6 @@ func (s *HandleDeleteSwitchSuite) TestSucceeds() {
 
 	s.Require().NoError(err)
 	s.Empty(out.DeletedBuildIDs)
-}
-
-func (s *HandleDeleteSwitchSuite) TestBlankSwitchID_ReturnsError() {
-	handler := handleDeleteSwitch(s.mockSwitches, s.mockBuilds, s.mockBuildImages, s.mockSwitchImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteSwitchInput{SwitchID: ""})
-
-	s.Require().ErrorContains(err, "switch_id must not be blank")
 }
 
 func (s *HandleDeleteSwitchSuite) TestInvalidOnDelete_ReturnsError() {
@@ -823,28 +687,6 @@ func (s *HandleSetSwitchImageSuite) TestReplacingImage_DeletesPreviousObjectFirs
 	s.Require().NoError(err)
 }
 
-func (s *HandleSetSwitchImageSuite) TestBlankSwitchID_ReturnsError() {
-	handler := handleSetSwitchImage(s.mockSwitches, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.SetSwitchImageInput{
-		SwitchID:    " ",
-		ContentType: "image/webp",
-		SizeBytes:   524288,
-	})
-
-	s.Require().ErrorContains(err, "switch_id must not be blank")
-}
-
-func (s *HandleSetSwitchImageSuite) TestSizeOverCap_ReturnsError() {
-	handler := handleSetSwitchImage(s.mockSwitches, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.SetSwitchImageInput{
-		SwitchID:    "sw-1",
-		ContentType: "image/webp",
-		SizeBytes:   repository.MaxImageSizeBytes + 1,
-	})
-
-	s.Require().ErrorContains(err, "size_bytes")
-}
-
 func (s *HandleSetSwitchImageSuite) TestUnapprovedContentType_ReturnsError() {
 	handler := handleSetSwitchImage(s.mockSwitches, s.mockImages, uploadlimit.New(s.mockUploads, 500))
 	_, _, err := handler(callerContext(s.T()), nil, schema.SetSwitchImageInput{
@@ -930,13 +772,6 @@ func (s *HandleDeleteSwitchImageSuite) TestSucceeds() {
 	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteSwitchImageInput{SwitchID: "sw-1"})
 
 	s.Require().NoError(err)
-}
-
-func (s *HandleDeleteSwitchImageSuite) TestBlankSwitchID_ReturnsError() {
-	handler := handleDeleteSwitchImage(s.mockSwitches, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteSwitchImageInput{SwitchID: " "})
-
-	s.Require().ErrorContains(err, "switch_id must not be blank")
 }
 
 func (s *HandleDeleteSwitchImageSuite) TestClearImagePathNotFound_IdempotentNoError() {

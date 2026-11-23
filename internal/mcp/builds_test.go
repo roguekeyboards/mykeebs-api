@@ -80,26 +80,6 @@ func (s *HandleCreateBuildSuite) TestSucceeds() {
 	s.NotEmpty(out.Build.ID, "create must assign a server-generated id")
 }
 
-func (s *HandleCreateBuildSuite) TestBlankKeyboard_ReturnsError() {
-	in := validBuildInput()
-	in.Keyboard = "   "
-
-	handler := s.handler()
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
-
-	s.Require().ErrorContains(err, "keyboard must not be blank")
-}
-
-func (s *HandleCreateBuildSuite) TestInvalidVisibility_ReturnsError() {
-	in := validBuildInput()
-	in.Visibility = "everyone"
-
-	handler := s.handler()
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
-
-	s.Require().ErrorContains(err, "visibility")
-}
-
 func (s *HandleCreateBuildSuite) TestDurometerWithoutDurometerSupport_ReturnsError() {
 	in := validBuildInput()
 	mountType, durometer := "Top Mount", "40A"
@@ -110,27 +90,6 @@ func (s *HandleCreateBuildSuite) TestDurometerWithoutDurometerSupport_ReturnsErr
 
 	s.Require().ErrorContains(err, "case_mount_type.durometer")
 	s.Require().ErrorContains(err, "supports durometer")
-}
-
-func (s *HandleCreateBuildSuite) TestMalformedBuildDate_ReturnsError() {
-	in := validBuildInput()
-	badDate := "not-a-date"
-	in.BuildDate = &badDate
-
-	handler := s.handler()
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
-
-	s.Require().ErrorContains(err, "build_date")
-}
-
-func (s *HandleCreateBuildSuite) TestNonPositiveSwitchCount_ReturnsError() {
-	in := validBuildInput()
-	in.Switches = []schema.BuildSwitchEntry{{Switch: "sw-1", Count: 0}}
-
-	handler := s.handler()
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
-
-	s.Require().ErrorContains(err, "switches[0].count")
 }
 
 func (s *HandleCreateBuildSuite) TestUnapprovedStabsName_ReturnsError() {
@@ -338,26 +297,6 @@ func (s *HandleUpdateBuildSuite) TestSucceeds() {
 	s.Equal("b-1", out.Build.ID, "update must target the requested id")
 }
 
-func (s *HandleUpdateBuildSuite) TestBlankBuildID_ReturnsError() {
-	handler := s.handler()
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateBuildInput{
-		BuildID:    "  ",
-		BuildInput: validBuildInput(),
-	})
-
-	s.Require().ErrorContains(err, "build_id must not be blank")
-}
-
-func (s *HandleUpdateBuildSuite) TestBlankKeyboard_ReturnsError() {
-	in := validBuildInput()
-	in.Keyboard = "   "
-
-	handler := s.handler()
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateBuildInput{BuildID: "b-1", BuildInput: in})
-
-	s.Require().ErrorContains(err, "keyboard must not be blank")
-}
-
 func (s *HandleUpdateBuildSuite) TestMissingKeyboard_ReturnsError() {
 	s.mockKeyboards.EXPECT().
 		Get(mock.Anything, mock.Anything, "kb-1").
@@ -502,7 +441,7 @@ func (s *HandleListBuildsSuite) TestPassesLimitAndCursor() {
 		Return([]repository.Build{}, "", nil)
 
 	handler := s.handler()
-	_, _, err := handler(callerContext(s.T()), nil, schema.ListBuildsInput{Limit: 5, Cursor: "abc"})
+	_, _, err := handler(callerContext(s.T()), nil, schema.ListBuildsInput{Limit: new(5), Cursor: "abc"})
 
 	s.Require().NoError(err)
 }
@@ -634,13 +573,6 @@ func (s *HandleGetBuildSuite) TestKeyboardError_ReturnsError() {
 	_, _, err := s.handler()(callerContext(s.T()), nil, schema.GetBuildInput{BuildID: "build-1"})
 
 	s.Require().ErrorContains(err, "failed to get build")
-}
-
-func (s *HandleGetBuildSuite) TestBlankBuildID_ReturnsError() {
-	handler := s.handler()
-	_, _, err := handler(callerContext(s.T()), nil, schema.GetBuildInput{BuildID: "  "})
-
-	s.Require().ErrorContains(err, "build_id must not be blank")
 }
 
 func (s *HandleGetBuildSuite) TestNotFound_ReturnsNotFound() {
@@ -777,13 +709,6 @@ func (s *HandleDeleteBuildSuite) TestSucceeds() {
 	s.Require().NoError(err)
 }
 
-func (s *HandleDeleteBuildSuite) TestBlankBuildID_ReturnsError() {
-	handler := handleDeleteBuild(s.mockBuilds, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteBuildInput{BuildID: ""})
-
-	s.Require().ErrorContains(err, "build_id must not be blank")
-}
-
 func (s *HandleDeleteBuildSuite) TestNotFound_StillSucceeds() {
 	s.mockBuilds.EXPECT().
 		Get(mock.Anything, mock.Anything, "missing").
@@ -897,17 +822,6 @@ func (s *HandleAddBuildImageSuite) TestSucceeds() {
 	s.Equal("https://example.com/upload", out.UploadURL)
 }
 
-func (s *HandleAddBuildImageSuite) TestBlankBuildID_ReturnsError() {
-	handler := handleAddBuildImage(s.mockBuilds, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.AddBuildImageInput{
-		BuildID:     " ",
-		ContentType: "image/webp",
-		SizeBytes:   524288,
-	})
-
-	s.Require().ErrorContains(err, "build_id must not be blank")
-}
-
 func (s *HandleAddBuildImageSuite) TestImageLimitReached_ReturnsError() {
 	expectUploadReserved(s.mockUploads)
 	s.mockImages.EXPECT().
@@ -925,17 +839,6 @@ func (s *HandleAddBuildImageSuite) TestImageLimitReached_ReturnsError() {
 	})
 
 	s.Require().ErrorIs(err, errImageLimitReached)
-}
-
-func (s *HandleAddBuildImageSuite) TestSizeOverCap_ReturnsError() {
-	handler := handleAddBuildImage(s.mockBuilds, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.AddBuildImageInput{
-		BuildID:     "build-1",
-		ContentType: "image/webp",
-		SizeBytes:   repository.MaxImageSizeBytes + 1,
-	})
-
-	s.Require().ErrorContains(err, "size_bytes")
 }
 
 func (s *HandleAddBuildImageSuite) TestUnapprovedContentType_ReturnsError() {
@@ -1035,20 +938,6 @@ func (s *HandleDeleteBuildImageSuite) TestSucceeds() {
 	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteBuildImageInput{BuildID: "build-1", ImageID: "img-1"})
 
 	s.Require().NoError(err)
-}
-
-func (s *HandleDeleteBuildImageSuite) TestBlankBuildID_ReturnsError() {
-	handler := handleDeleteBuildImage(s.mockBuilds, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteBuildImageInput{BuildID: " ", ImageID: "img-1"})
-
-	s.Require().ErrorContains(err, "build_id must not be blank")
-}
-
-func (s *HandleDeleteBuildImageSuite) TestBlankImageID_ReturnsError() {
-	handler := handleDeleteBuildImage(s.mockBuilds, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteBuildImageInput{BuildID: "build-1", ImageID: " "})
-
-	s.Require().ErrorContains(err, "image_id must not be blank")
 }
 
 func (s *HandleDeleteBuildImageSuite) TestDeleteImageNotFound_IdempotentNoError() {
@@ -1256,15 +1145,13 @@ func (s *HandleCreateBuildSuite) TestInvalidECPartInputs_ReturnErrors() {
 		edit func(*schema.BuildInput)
 		want string
 	}{
-		"zero count": {func(in *schema.BuildInput) {
-			in.BuildType, in.ECParts = "EC", []schema.BuildECPartEntry{{ECPart: "p-1"}}
-		}, "ec_parts[0].count"},
 		"ec parts on MX": {func(in *schema.BuildInput) { in.ECParts = []schema.BuildECPartEntry{{ECPart: "p-1", Count: 1}} }, "ec_parts"},
 		"switches on EC": {func(in *schema.BuildInput) {
 			in.BuildType, in.Switches = "EC", []schema.BuildSwitchEntry{{Switch: "sw-1", Count: 1}}
 		}, "switches"},
 		"unknown build type": {func(in *schema.BuildInput) { in.BuildType = "Topre" }, "build_type"},
 	} {
+		s.stubOwnedKeyboard()
 		in := validBuildInput()
 		tc.edit(&in)
 
@@ -1285,20 +1172,4 @@ func (s *HandleCreateBuildSuite) TestMissingECPart_ReturnsError() {
 	_, _, err := s.handler()(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
 
 	s.ErrorContains(err, "ec_parts[0].ec_part")
-}
-
-func (s *HandleCreateBuildSuite) TestBlankReferenceIDs_ReturnFieldErrors() {
-	for want, edit := range map[string]func(*schema.BuildInput){
-		"switches[0].switch must not be blank": func(in *schema.BuildInput) { in.Switches = []schema.BuildSwitchEntry{{Switch: " ", Count: 1}} },
-		"ec_parts[0].ec_part must not be blank": func(in *schema.BuildInput) {
-			in.BuildType, in.ECParts = "EC", []schema.BuildECPartEntry{{ECPart: "", Count: 1}}
-		},
-	} {
-		in := validBuildInput()
-		edit(&in)
-
-		_, _, err := s.handler()(callerContext(s.T()), nil, schema.CreateBuildInput{BuildInput: in})
-
-		s.EqualError(err, want)
-	}
 }

@@ -90,6 +90,27 @@ var _ = Describe("Creating a switch over MCP", func() {
 			})
 		})
 
+		Context("given a negative purchase price", func() {
+			When("the create_switch tool is called", func() {
+				BeforeEach(func(ctx SpecContext) {
+					result, err = client.CallTool(ctx, "create_switch", map[string]any{
+						"brand":      "Gateron",
+						"name":       "Yellow",
+						"type":       approvedType,
+						"visibility": "private",
+						"purchase":   map[string]any{"price": -1},
+					})
+					captureCreatedID(result)
+				})
+
+				It("returns an MCP tool error result naming the price", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.IsError).To(BeTrue())
+					Expect(result.Content[0].(*sdkmcp.TextContent).Text).To(ContainSubstring("purchase.price"))
+				})
+			})
+		})
+
 		Context("given an invalid visibility", func() {
 			When("the create_switch tool is called", func() {
 				BeforeEach(func(ctx SpecContext) {
