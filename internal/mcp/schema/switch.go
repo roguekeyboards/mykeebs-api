@@ -91,7 +91,7 @@ type SwitchInput struct {
 	FactoryLubed *bool                `json:"factory_lubed,omitempty" jsonschema:"whether the switch ships pre-lubed"`
 	Material     *SwitchMaterial      `json:"material,omitempty" jsonschema:"housing and stem materials; each must be an approved switch_material lookup value"`
 	Force        *SwitchForce         `json:"force,omitempty" jsonschema:"actuation and bottom-out force, in grams"`
-	Spring       *SwitchSpring        `json:"spring,omitempty" jsonschema:"spring material and travel distances, in mm"`
+	Spring       *SwitchSpring        `json:"spring,omitempty" jsonschema:"spring material, plus its length and travel distances in mm"`
 	Purchase     *SwitchPurchaseInput `json:"purchase,omitempty" jsonschema:"where it was bought and the order's status"`
 	Notes        *string              `json:"notes,omitempty" jsonschema:"free-form notes"`
 	Visibility   string               `json:"visibility" jsonschema:"who can read this switch; one of \"public\", \"authenticated\", \"private\""`
@@ -113,7 +113,7 @@ type Switch struct {
 	FactoryLubed *bool           `json:"factory_lubed,omitempty" jsonschema:"whether the switch ships pre-lubed"`
 	Material     *SwitchMaterial `json:"material,omitempty" jsonschema:"housing and stem materials"`
 	Force        *SwitchForce    `json:"force,omitempty" jsonschema:"actuation and bottom-out force, in grams"`
-	Spring       *SwitchSpring   `json:"spring,omitempty" jsonschema:"spring material and travel distances, in mm"`
+	Spring       *SwitchSpring   `json:"spring,omitempty" jsonschema:"spring material, plus its length and travel distances in mm"`
 	Purchase     *SwitchPurchase `json:"purchase,omitempty" jsonschema:"where it was bought and the order's status"`
 	Notes        *string         `json:"notes,omitempty" jsonschema:"free-form notes"`
 	Visibility   *string         `json:"visibility,omitempty" jsonschema:"who can read this switch; one of \"public\", \"authenticated\", \"private\"; only ever present for the switch's owner"`
@@ -136,11 +136,13 @@ type SwitchForce struct {
 	BottomOut *float64 `json:"bottom_out,omitempty" jsonschema:"bottom-out force in grams"`
 }
 
-// SwitchSpring is a switch's spring material and travel distances, in mm.
+// SwitchSpring is a switch's spring material, plus its length and travel
+// distances in mm.
 type SwitchSpring struct {
 	Material    *string  `json:"material,omitempty" jsonschema:"spring material"`
 	PreTravel   *float64 `json:"pre_travel,omitempty" jsonschema:"pre-travel distance in mm"`
 	TotalTravel *float64 `json:"total_travel,omitempty" jsonschema:"total travel distance in mm"`
+	Length      *float64 `json:"length,omitempty" jsonschema:"length of the stock spring in mm"`
 }
 
 // SwitchPurchase is a switch's purchase and order lifecycle, plus how many

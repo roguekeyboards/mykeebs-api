@@ -2306,6 +2306,11 @@ components:
           format: double
           minimum: 0
           description: Total travel distance in mm.
+        length:
+          type: number
+          format: double
+          minimum: 0
+          description: Length of the stock spring in mm.
 
     SwitchPurchaseInput:
       type: object

@@ -33,7 +33,10 @@ type getOutput struct {
 		Type       string `json:"type"`
 		Visibility string `json:"visibility"`
 		HasImage   bool   `json:"has_image"`
-		Purchase   *struct {
+		Spring     *struct {
+			Length *float64 `json:"length"`
+		} `json:"spring"`
+		Purchase *struct {
 			Vendor *string  `json:"vendor"`
 			Price  *float64 `json:"price"`
 		} `json:"purchase"`

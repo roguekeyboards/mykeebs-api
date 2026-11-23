@@ -47,6 +47,7 @@ func fullRepoSwitch() repository.Switch {
 			Material:    strPtr("Steel"),
 			PreTravel:   floatPtr(2),
 			TotalTravel: floatPtr(4),
+			Length:      floatPtr(22),
 		},
 		Purchase: repository.SwitchPurchase{
 			Vendor:       strPtr("CannonKeys"),
@@ -99,6 +100,7 @@ func (s *SwitchToAPISuite) TestFullRoundTrip_PreservesEveryField() {
 		s.Equal(sw.Spring.Material, out.Spring.Material)
 		s.Equal(sw.Spring.PreTravel, out.Spring.PreTravel)
 		s.Equal(sw.Spring.TotalTravel, out.Spring.TotalTravel)
+		s.Equal(sw.Spring.Length, out.Spring.Length)
 	}
 	if s.NotNil(out.Purchase) {
 		s.Equal(sw.Purchase.Vendor, out.Purchase.Vendor)
@@ -153,6 +155,21 @@ func (s *SwitchToAPISuite) TestOneFieldSetInSubStruct_SubStructPresent() {
 		s.Nil(out.Material.TopHousing)
 		s.Nil(out.Material.BottomHousing)
 		s.Equal(strPtr("POM"), out.Material.Stem)
+	}
+}
+
+func (s *SwitchToAPISuite) TestOnlySpringLengthSet_SpringPresent() {
+	sw := repository.Switch{
+		ID: "sw1", Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: repository.VisibilityPrivate,
+		Spring: repository.SwitchSpring{Length: floatPtr(18)},
+	}
+
+	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
+	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	s.Require().NoError(err)
+
+	if s.NotNil(out.Spring) {
+		s.Equal(floatPtr(18), out.Spring.Length)
 	}
 }
 
@@ -281,6 +298,7 @@ func (s *SwitchToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 			Material:    strPtr("Steel"),
 			PreTravel:   floatPtr(2),
 			TotalTravel: floatPtr(4),
+			Length:      floatPtr(22),
 		},
 		Purchase: &api.SwitchPurchaseInput{
 			Vendor:       strPtr("CannonKeys"),
@@ -315,6 +333,7 @@ func (s *SwitchToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 	s.Equal(in.Spring.Material, sw.Spring.Material)
 	s.Equal(in.Spring.PreTravel, sw.Spring.PreTravel)
 	s.Equal(in.Spring.TotalTravel, sw.Spring.TotalTravel)
+	s.Equal(in.Spring.Length, sw.Spring.Length)
 	s.Equal(in.Purchase.Vendor, sw.Purchase.Vendor)
 	s.Equal(in.Purchase.Price, sw.Purchase.Price)
 	s.Equal(in.Purchase.OrderStatus, sw.Purchase.OrderStatus)
