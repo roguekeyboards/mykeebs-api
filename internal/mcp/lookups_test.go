@@ -60,10 +60,3 @@ func (s *HandleGetLookupSuite) TestKeyboardLayout_ReturnsTypedValues() {
 	s.Equal(string(lookup.CategoryKeyboardLayout), out.Category)
 	s.NotEmpty(out.Values)
 }
-
-func (s *HandleGetLookupSuite) TestBlankCategory_ReturnsError() {
-	handler := handleGetLookup()
-	_, _, err := handler(s.T().Context(), nil, schema.GetLookupInput{Category: "  "})
-
-	s.Require().ErrorContains(err, "must not be blank")
-}

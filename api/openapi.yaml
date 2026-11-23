@@ -1994,6 +1994,7 @@ components:
         thickness:
           type: number
           format: double
+          minimum: 0
           description: Thickness in mm.
           example: 1.5
         purchase:
@@ -2017,6 +2018,7 @@ components:
         thickness:
           type: number
           format: double
+          minimum: 0
           description: Thickness in mm.
         purchase:
           $ref: "#/components/schemas/Purchase"
@@ -2028,6 +2030,7 @@ components:
         thickness:
           type: number
           format: double
+          minimum: 0
           description: Thickness in mm.
           example: 1.6
         firmware:
@@ -2056,6 +2059,7 @@ components:
         thickness:
           type: number
           format: double
+          minimum: 0
           description: Thickness in mm.
         firmware:
           type: string
@@ -2277,10 +2281,12 @@ components:
         actuation:
           type: number
           format: double
+          minimum: 0
           description: Actuation force in grams (nominal value).
         bottom_out:
           type: number
           format: double
+          minimum: 0
           description: Bottom-out force in grams (nominal value).
 
     SwitchSpring:
@@ -2293,10 +2299,12 @@ components:
         pre_travel:
           type: number
           format: double
+          minimum: 0
           description: Pre-travel distance in mm.
         total_travel:
           type: number
           format: double
+          minimum: 0
           description: Total travel distance in mm.
 
     SwitchPurchaseInput:
@@ -2380,6 +2388,7 @@ components:
           description: Open vocabulary — validated against the "switch_type" lookup at request time.
         pins:
           type: integer
+          minimum: 1
           example: 5
           description: PCB mount pin count.
         factory_lubed:
@@ -2448,6 +2457,7 @@ components:
           type: string
         pins:
           type: integer
+          minimum: 1
           example: 5
           description: PCB mount pin count.
         factory_lubed:
@@ -3176,6 +3186,7 @@ components:
         thickness:
           type: number
           format: double
+          minimum: 0
           description: Thickness in mm.
 
     BuildPCBRef:
@@ -3190,6 +3201,7 @@ components:
         thickness:
           type: number
           format: double
+          minimum: 0
           description: Thickness in mm.
         firmware:
           type: string

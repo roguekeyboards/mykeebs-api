@@ -71,11 +71,9 @@ var _ = Describe("Listing keycap sets over MCP", func() {
 					result, err = client.CallTool(ctx, "list_keycap_sets", map[string]any{"limit": limit})
 					Expect(err).NotTo(HaveOccurred())
 
-					By("clamping rather than rejecting the call")
-					Expect(result.IsError).To(BeFalse())
-
-					ids := idsOf(decodeListOutput(result))
-					Expect(ids).To(ContainElements(publicID, authenticatedID, privateID))
+					By("rejecting the call, as REST does")
+					Expect(result.IsError).To(BeTrue())
+					Expect(result.Content[0].(*sdkmcp.TextContent).Text).To(ContainSubstring("limit"))
 				},
 				Entry("below the minimum", 0),
 				Entry("above the maximum", 101),

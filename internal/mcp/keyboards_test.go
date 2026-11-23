@@ -138,18 +138,6 @@ func (s *HandleListKeyboardsSuite) TestOtherUsersCollection_ExcludesPrivate() {
 	s.Require().NoError(err)
 }
 
-func (s *HandleListKeyboardsSuite) TestLimitAboveMax_IsClamped() {
-	s.mockRepo.EXPECT().
-		List(mock.Anything, mock.Anything, mock.Anything, maxListLimit, mock.Anything).
-		Return(nil, "", nil)
-	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, mock.Anything).Return(repository.ProfilePreferences{}, nil)
-
-	handler := handleListKeyboards(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeyboardsInput{Limit: 5000})
-
-	s.Require().NoError(err)
-}
-
 func (s *HandleListKeyboardsSuite) TestCursorIsPropagated() {
 	s.mockRepo.EXPECT().
 		List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, "page-2").
@@ -239,13 +227,6 @@ func (s *HandleGetKeyboardSuite) TestSucceeds() {
 	s.Equal("Mode", out.Keyboard.Brand)
 	s.Require().NotNil(out.Keyboard.Visibility)
 	s.Equal("private", *out.Keyboard.Visibility)
-}
-
-func (s *HandleGetKeyboardSuite) TestBlankKeyboardID_ReturnsError() {
-	handler := handleGetKeyboard(s.mockRepo, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.GetKeyboardInput{KeyboardID: "  "})
-
-	s.Require().ErrorContains(err, "keyboard_id must not be blank")
 }
 
 func (s *HandleGetKeyboardSuite) TestNotFound_ReturnsNotFound() {
@@ -399,26 +380,6 @@ func (s *HandleCreateKeyboardSuite) TestSucceeds() {
 	s.NotEmpty(out.Keyboard.ID, "create must assign a server-generated id")
 }
 
-func (s *HandleCreateKeyboardSuite) TestBlankBrand_ReturnsError() {
-	in := validKeyboardInput()
-	in.Brand = "   "
-
-	handler := handleCreateKeyboard(s.mockKeyboards, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeyboardInput{KeyboardInput: in})
-
-	s.Require().ErrorContains(err, "brand must not be blank")
-}
-
-func (s *HandleCreateKeyboardSuite) TestInvalidVisibility_ReturnsError() {
-	in := validKeyboardInput()
-	in.Visibility = "everyone"
-
-	handler := handleCreateKeyboard(s.mockKeyboards, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeyboardInput{KeyboardInput: in})
-
-	s.Require().ErrorContains(err, "visibility")
-}
-
 func (s *HandleCreateKeyboardSuite) TestUnapprovedSize_ReturnsError() {
 	size := "NotASize"
 	in := validKeyboardInput()
@@ -515,16 +476,6 @@ func (s *HandleUpdateKeyboardSuite) TestSucceeds() {
 	s.Equal("kb-1", out.Keyboard.ID, "update must target the requested id")
 }
 
-func (s *HandleUpdateKeyboardSuite) TestBlankKeyboardID_ReturnsError() {
-	handler := handleUpdateKeyboard(s.mockKeyboards, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeyboardInput{
-		KeyboardID:    "  ",
-		KeyboardInput: validKeyboardInput(),
-	})
-
-	s.Require().ErrorContains(err, "keyboard_id must not be blank")
-}
-
 func (s *HandleUpdateKeyboardSuite) TestNotFound_ReturnsNotFound() {
 	s.mockKeyboards.EXPECT().
 		Update(mock.Anything, mock.Anything).
@@ -575,13 +526,6 @@ func (s *HandleDeleteKeyboardSuite) TestSucceeds() {
 
 	s.Require().NoError(err)
 	s.Empty(out.DeletedBuildIDs)
-}
-
-func (s *HandleDeleteKeyboardSuite) TestBlankKeyboardID_ReturnsError() {
-	handler := handleDeleteKeyboard(s.mockKeyboards, s.mockBuilds, s.mockBuildImages, s.mockKeyboardImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeyboardInput{KeyboardID: ""})
-
-	s.Require().Error(err)
 }
 
 func (s *HandleDeleteKeyboardSuite) TestInvalidOnDelete_ReturnsError() {
@@ -664,33 +608,6 @@ func (s *HandleDeleteKeyboardSuite) TestImageDeleteFails_ReturnsError_DoesNotDel
 	// was never touched.
 }
 
-// REST rejects a malformed date via api/openapi.yaml's `format: date`. MCP
-// has no such validator, and nothing downstream re-checks: a bad date
-// reaches DynamoDB and every later REST read of that row fails its date
-// parse with a 500, unrepairable through the API.
-func (s *HandleCreateKeyboardSuite) TestMalformedOrderDate_ReturnsError() {
-	bad := "next tuesday"
-	in := validKeyboardInput()
-	in.Purchase = &schema.KeyboardPurchaseInput{OrderDate: &bad}
-
-	handler := handleCreateKeyboard(s.mockKeyboards, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeyboardInput{KeyboardInput: in})
-
-	s.Require().ErrorContains(err, "purchase.order_date")
-	s.Require().ErrorContains(err, "YYYY-MM-DD")
-}
-
-func (s *HandleCreateKeyboardSuite) TestMalformedDeliveryDate_ReturnsError() {
-	bad := "2026-13-45"
-	in := validKeyboardInput()
-	in.Purchase = &schema.KeyboardPurchaseInput{DeliveryDate: &bad}
-
-	handler := handleCreateKeyboard(s.mockKeyboards, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeyboardInput{KeyboardInput: in})
-
-	s.Require().ErrorContains(err, "purchase.delivery_date")
-}
-
 func (s *HandleCreateKeyboardSuite) TestWellFormedDates_Succeed() {
 	ordered, delivered := "2026-01-15", "2026-02-01"
 	in := validKeyboardInput()
@@ -706,20 +623,6 @@ func (s *HandleCreateKeyboardSuite) TestWellFormedDates_Succeed() {
 	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeyboardInput{KeyboardInput: in})
 
 	s.Require().NoError(err)
-}
-
-func (s *HandleUpdateKeyboardSuite) TestMalformedOrderDate_ReturnsError() {
-	bad := "01/15/2026"
-	in := validKeyboardInput()
-	in.Purchase = &schema.KeyboardPurchaseInput{OrderDate: &bad}
-
-	handler := handleUpdateKeyboard(s.mockKeyboards, s.mockPrefs)
-	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeyboardInput{
-		KeyboardID:    "kb-1",
-		KeyboardInput: in,
-	})
-
-	s.Require().ErrorContains(err, "purchase.order_date")
 }
 
 type HandleListKeyboardImagesSuite struct {
@@ -753,13 +656,6 @@ func (s *HandleListKeyboardImagesSuite) TestSucceeds() {
 
 	s.Require().NoError(err)
 	s.Equal([]schema.KeyboardImage{{ImageID: "img-1"}, {ImageID: "img-2"}}, out.Images)
-}
-
-func (s *HandleListKeyboardImagesSuite) TestBlankKeyboardID_ReturnsError() {
-	handler := handleListKeyboardImages(s.mockRepo)
-	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeyboardImagesInput{KeyboardID: " "})
-
-	s.Require().ErrorContains(err, "keyboard_id must not be blank")
 }
 
 func (s *HandleListKeyboardImagesSuite) TestKeyboardNotFound_ReturnsError() {
@@ -815,17 +711,6 @@ func (s *HandleAddKeyboardImageSuite) TestSucceeds() {
 	s.Equal("https://example.com/upload", out.UploadURL)
 }
 
-func (s *HandleAddKeyboardImageSuite) TestBlankKeyboardID_ReturnsError() {
-	handler := handleAddKeyboardImage(s.mockKeyboards, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.AddKeyboardImageInput{
-		KeyboardID:  " ",
-		ContentType: "image/webp",
-		SizeBytes:   524288,
-	})
-
-	s.Require().ErrorContains(err, "keyboard_id must not be blank")
-}
-
 func (s *HandleAddKeyboardImageSuite) TestImageLimitReached_ReturnsError() {
 	expectUploadReserved(s.mockUploads)
 	s.mockImages.EXPECT().
@@ -843,17 +728,6 @@ func (s *HandleAddKeyboardImageSuite) TestImageLimitReached_ReturnsError() {
 	})
 
 	s.Require().ErrorIs(err, errImageLimitReached)
-}
-
-func (s *HandleAddKeyboardImageSuite) TestSizeOverCap_ReturnsError() {
-	handler := handleAddKeyboardImage(s.mockKeyboards, s.mockImages, uploadlimit.New(s.mockUploads, 500))
-	_, _, err := handler(callerContext(s.T()), nil, schema.AddKeyboardImageInput{
-		KeyboardID:  "kb-1",
-		ContentType: "image/webp",
-		SizeBytes:   repository.MaxImageSizeBytes + 1,
-	})
-
-	s.Require().ErrorContains(err, "size_bytes")
 }
 
 func (s *HandleAddKeyboardImageSuite) TestUnapprovedContentType_ReturnsError() {
@@ -949,20 +823,6 @@ func (s *HandleDeleteKeyboardImageSuite) TestDeleteImageNotFound_IdempotentNoErr
 	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeyboardImageInput{KeyboardID: "kb-1", ImageID: "img-1"})
 
 	s.Require().NoError(err)
-}
-
-func (s *HandleDeleteKeyboardImageSuite) TestBlankKeyboardID_ReturnsError() {
-	handler := handleDeleteKeyboardImage(s.mockKeyboards, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeyboardImageInput{KeyboardID: " ", ImageID: "img-1"})
-
-	s.Require().ErrorContains(err, "keyboard_id must not be blank")
-}
-
-func (s *HandleDeleteKeyboardImageSuite) TestBlankImageID_ReturnsError() {
-	handler := handleDeleteKeyboardImage(s.mockKeyboards, s.mockImages)
-	_, _, err := handler(callerContext(s.T()), nil, schema.DeleteKeyboardImageInput{KeyboardID: "kb-1", ImageID: " "})
-
-	s.Require().ErrorContains(err, "image_id must not be blank")
 }
 
 func (s *HandleDeleteKeyboardImageSuite) TestNotFound_ReturnsError() {

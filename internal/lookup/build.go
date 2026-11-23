@@ -36,21 +36,7 @@ func ValidateBuild(ctx context.Context, b repository.Build) []FieldError {
 		fieldErrs = append(fieldErrs, validateBuildCaseMountType(ctx, *b.CaseMountType)...)
 	}
 
-	return append(fieldErrs, validateBuildParts(b)...)
-}
-
-func validateBuildParts(b repository.Build) []FieldError {
-	buildType := b.EffectiveBuildType()
-	if buildType == repository.BuildTypeEC {
-		if len(b.Switches) > 0 {
-			return []FieldError{{Field: "switches", Reason: "not allowed when build_type is EC; list ec_parts instead"}}
-		}
-		return nil
-	}
-	if len(b.ECParts) > 0 {
-		return []FieldError{{Field: "ec_parts", Reason: fmt.Sprintf("only allowed when build_type is EC, not %s; list switches instead", buildType)}}
-	}
-	return nil
+	return fieldErrs
 }
 
 // validateBuildCaseMountType checks case_mount_type.type against

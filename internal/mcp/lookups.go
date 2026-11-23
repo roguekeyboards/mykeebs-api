@@ -2,9 +2,7 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -31,10 +29,6 @@ func handleListLookups() mcp.ToolHandlerFor[schema.ListLookupsInput, schema.List
 
 func handleGetLookup() mcp.ToolHandlerFor[schema.GetLookupInput, schema.GetLookupOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetLookupInput) (*mcp.CallToolResult, schema.GetLookupOutput, error) {
-		if strings.TrimSpace(in.Category) == "" {
-			return nil, schema.GetLookupOutput{}, errors.New("category must not be blank")
-		}
-
 		l, ok := lookup.GetCategory(ctx, lookup.Category(in.Category))
 		if !ok {
 			return nil, schema.GetLookupOutput{}, fmt.Errorf("lookup category %q not found", in.Category)

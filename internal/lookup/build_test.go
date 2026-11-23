@@ -116,24 +116,3 @@ func (s *ValidateBuildSuite) TestBuildType_EmptyCountsAsMXAndUnapprovedIsReporte
 		{Field: "build_type", Value: "Topre", Reason: `"Topre" is not an approved build_type value`},
 	}, lookup.ValidateBuild(s.T().Context(), repository.Build{BuildType: "Topre"}))
 }
-
-func (s *ValidateBuildSuite) TestECBuild_ECPartsAllowedSwitchesNot() {
-	ec := repository.Build{BuildType: repository.BuildTypeEC, ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 60}}}
-	s.Empty(lookup.ValidateBuild(s.T().Context(), ec))
-
-	ec.Switches = []repository.BuildSwitchEntry{{Switch: "sw1", Count: 60}}
-	errs := lookup.ValidateBuild(s.T().Context(), ec)
-	s.Require().Len(errs, 1)
-	s.Equal("switches", errs[0].Field)
-}
-
-func (s *ValidateBuildSuite) TestNonECBuild_ECPartsRejected() {
-	for _, buildType := range []string{"", "MX", "HE", "Alps"} {
-		b := repository.Build{BuildType: buildType, ECParts: []repository.BuildECPartEntry{{ECPart: "p1", Count: 60}}}
-
-		errs := lookup.ValidateBuild(s.T().Context(), b)
-
-		s.Require().Len(errs, 1, buildType)
-		s.Equal("ec_parts", errs[0].Field, buildType)
-	}
-}

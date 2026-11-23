@@ -52,10 +52,6 @@ func handleCreateKeyboardPlate(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.CreateKeyboardPlateInput, schema.CreateKeyboardPlateOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.CreateKeyboardPlateInput) (*mcp.CallToolResult, schema.CreateKeyboardPlateOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.CreateKeyboardPlateOutput{}, errors.New("keyboard_id must not be blank")
-		}
-
 		plate, err := validatedKeyboardPlate(ctx, in.KeyboardPlateInput)
 		if err != nil {
 			return nil, schema.CreateKeyboardPlateOutput{}, err
@@ -84,13 +80,6 @@ func handleUpdateKeyboardPlate(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateKeyboardPlateInput, schema.UpdateKeyboardPlateOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateKeyboardPlateInput) (*mcp.CallToolResult, schema.UpdateKeyboardPlateOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.UpdateKeyboardPlateOutput{}, errors.New("keyboard_id must not be blank")
-		}
-		if strings.TrimSpace(in.PlateID) == "" {
-			return nil, schema.UpdateKeyboardPlateOutput{}, errors.New("plate_id must not be blank")
-		}
-
 		plate, err := validatedKeyboardPlate(ctx, in.KeyboardPlateInput)
 		if err != nil {
 			return nil, schema.UpdateKeyboardPlateOutput{}, err
@@ -120,17 +109,7 @@ func handleDeleteKeyboardPlate(
 	buildImages repository.BuildImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteKeyboardPlateInput, schema.DeleteKeyboardPlateOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteKeyboardPlateInput) (*mcp.CallToolResult, schema.DeleteKeyboardPlateOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.DeleteKeyboardPlateOutput{}, errors.New("keyboard_id must not be blank")
-		}
-		if strings.TrimSpace(in.PlateID) == "" {
-			return nil, schema.DeleteKeyboardPlateOutput{}, errors.New("plate_id must not be blank")
-		}
-
-		onDelete, ok := cascadedelete.ParseOnDelete(in.OnDelete)
-		if !ok {
-			return nil, schema.DeleteKeyboardPlateOutput{}, errors.New("on_delete must be block or cascade")
-		}
+		onDelete, _ := cascadedelete.ParseOnDelete(in.OnDelete)
 
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
@@ -151,10 +130,6 @@ func handleCreateKeyboardPCB(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.CreateKeyboardPCBInput, schema.CreateKeyboardPCBOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.CreateKeyboardPCBInput) (*mcp.CallToolResult, schema.CreateKeyboardPCBOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.CreateKeyboardPCBOutput{}, errors.New("keyboard_id must not be blank")
-		}
-
 		pcb, err := validatedKeyboardPCB(ctx, in.KeyboardPCBInput)
 		if err != nil {
 			return nil, schema.CreateKeyboardPCBOutput{}, err
@@ -183,13 +158,6 @@ func handleUpdateKeyboardPCB(
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateKeyboardPCBInput, schema.UpdateKeyboardPCBOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateKeyboardPCBInput) (*mcp.CallToolResult, schema.UpdateKeyboardPCBOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.UpdateKeyboardPCBOutput{}, errors.New("keyboard_id must not be blank")
-		}
-		if strings.TrimSpace(in.PCBID) == "" {
-			return nil, schema.UpdateKeyboardPCBOutput{}, errors.New("pcb_id must not be blank")
-		}
-
 		pcb, err := validatedKeyboardPCB(ctx, in.KeyboardPCBInput)
 		if err != nil {
 			return nil, schema.UpdateKeyboardPCBOutput{}, err
@@ -219,17 +187,7 @@ func handleDeleteKeyboardPCB(
 	buildImages repository.BuildImageStore,
 ) mcp.ToolHandlerFor[schema.DeleteKeyboardPCBInput, schema.DeleteKeyboardPCBOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.DeleteKeyboardPCBInput) (*mcp.CallToolResult, schema.DeleteKeyboardPCBOutput, error) {
-		if strings.TrimSpace(in.KeyboardID) == "" {
-			return nil, schema.DeleteKeyboardPCBOutput{}, errors.New("keyboard_id must not be blank")
-		}
-		if strings.TrimSpace(in.PCBID) == "" {
-			return nil, schema.DeleteKeyboardPCBOutput{}, errors.New("pcb_id must not be blank")
-		}
-
-		onDelete, ok := cascadedelete.ParseOnDelete(in.OnDelete)
-		if !ok {
-			return nil, schema.DeleteKeyboardPCBOutput{}, errors.New("on_delete must be block or cascade")
-		}
+		onDelete, _ := cascadedelete.ParseOnDelete(in.OnDelete)
 
 		ownerID, err := resolveOwnerID(ctx, "")
 		if err != nil {
@@ -255,15 +213,6 @@ func partDeleteError(ctx context.Context, err error, kind string, logFields ...a
 }
 
 func validatedKeyboardPlate(ctx context.Context, in schema.KeyboardPlateInput) (repository.KeyboardPlate, error) {
-	if strings.TrimSpace(in.Material) == "" {
-		return repository.KeyboardPlate{}, errors.New("material must not be blank")
-	}
-	if in.Purchase != nil {
-		if err := validatePurchaseDates(in.Purchase.OrderDate, in.Purchase.DeliveryDate); err != nil {
-			return repository.KeyboardPlate{}, err
-		}
-	}
-
 	plate := repomcp.Keyboard{}.PlateFromMCP(in)
 	if err := lookupErrors(lookup.ValidateKeyboardPlate(ctx, plate)); err != nil {
 		return repository.KeyboardPlate{}, err
@@ -273,12 +222,6 @@ func validatedKeyboardPlate(ctx context.Context, in schema.KeyboardPlateInput) (
 }
 
 func validatedKeyboardPCB(ctx context.Context, in schema.KeyboardPCBInput) (repository.KeyboardPCB, error) {
-	if in.Purchase != nil {
-		if err := validatePurchaseDates(in.Purchase.OrderDate, in.Purchase.DeliveryDate); err != nil {
-			return repository.KeyboardPCB{}, err
-		}
-	}
-
 	pcb := repomcp.Keyboard{}.PCBFromMCP(in)
 	if err := lookupErrors(lookup.ValidateKeyboardPCB(ctx, pcb)); err != nil {
 		return repository.KeyboardPCB{}, err

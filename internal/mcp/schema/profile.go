@@ -65,7 +65,7 @@ type DeleteProfileOutput struct{}
 // ListProfilesInput is the list_profiles tool arguments. Username and
 // DiscordUsername are mutually-exclusive begins-with filters.
 type ListProfilesInput struct {
-	Limit           int    `json:"limit,omitempty" jsonschema:"maximum number of profiles to return (1-100, default 20)"`
+	Limit           *int   `json:"limit,omitempty" jsonschema:"maximum number of profiles to return (1-100, default 20)"`
 	Cursor          string `json:"cursor,omitempty" jsonschema:"resume from a previous call's next_cursor"`
 	Username        string `json:"username,omitempty" jsonschema:"case-sensitive begins-with filter on username; mutually exclusive with discord_username"`
 	DiscordUsername string `json:"discord_username,omitempty" jsonschema:"case-insensitive begins-with filter on discord_username; mutually exclusive with username"`
