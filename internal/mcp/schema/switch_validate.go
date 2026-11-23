@@ -34,6 +34,7 @@ func (in SwitchForce) Validate(v *validate.V) {
 func (in SwitchSpring) Validate(v *validate.V) {
 	v.NonNegative("pre_travel", in.PreTravel)
 	v.NonNegative("total_travel", in.TotalTravel)
+	v.NonNegative("length", in.Length)
 }
 
 // Validate implements [validate.Validatable].

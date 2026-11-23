@@ -94,6 +94,37 @@ var _ = Describe("Creating a switch", func() {
 			})
 		})
 
+		Context("given a spring length", func() {
+			When("creating a switch", func() {
+				BeforeEach(func(ctx SpecContext) {
+					var err error
+					resp, err = client.Create(ctx, ownerID, ownerToken,
+						`{"brand":"HMX","name":"Azalea","type":"Linear","visibility":"private","spring":{"length":18}}`)
+					Expect(err).NotTo(HaveOccurred())
+					if resp.StatusCode == http.StatusCreated {
+						captureCreatedID(resp)
+					}
+				})
+
+				It("stores the spring length", func(ctx SpecContext) {
+					By("returning 201 Created")
+					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+
+					By("returning the spring length on a later get")
+					getResp, err := client.Get(ctx, ownerID, createdID, ownerToken)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(getResp.StatusCode).To(Equal(http.StatusOK))
+					var got struct {
+						Spring struct {
+							Length *float64 `json:"length"`
+						} `json:"spring"`
+					}
+					Expect(json.NewDecoder(getResp.Body).Decode(&got)).To(Succeed())
+					Expect(got.Spring.Length).To(HaveValue(BeNumerically("==", 18)))
+				})
+			})
+		})
+
 		Context("given an open-vocabulary field has an unapproved value", func() {
 			When("creating a switch", func() {
 				BeforeEach(func(ctx SpecContext) {

@@ -134,7 +134,7 @@ func (s Switch) forceToRepo(f *api.SwitchForce) repository.SwitchForce {
 }
 
 func (s Switch) springToAPI(sp repository.SwitchSpring) *api.SwitchSpring {
-	if sp.Material == nil && sp.PreTravel == nil && sp.TotalTravel == nil {
+	if sp.Material == nil && sp.PreTravel == nil && sp.TotalTravel == nil && sp.Length == nil {
 		return nil
 	}
 
@@ -142,6 +142,7 @@ func (s Switch) springToAPI(sp repository.SwitchSpring) *api.SwitchSpring {
 		Material:    sp.Material,
 		PreTravel:   sp.PreTravel,
 		TotalTravel: sp.TotalTravel,
+		Length:      sp.Length,
 	}
 }
 
@@ -154,6 +155,7 @@ func (s Switch) springToRepo(sp *api.SwitchSpring) repository.SwitchSpring {
 		Material:    sp.Material,
 		PreTravel:   sp.PreTravel,
 		TotalTravel: sp.TotalTravel,
+		Length:      sp.Length,
 	}
 }
 

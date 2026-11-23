@@ -71,6 +71,38 @@ var _ = Describe("Creating a switch over MCP", func() {
 			})
 		})
 
+		Context("given a spring length", func() {
+			When("the create_switch tool is called", func() {
+				BeforeEach(func(ctx SpecContext) {
+					result, err = client.CallTool(ctx, "create_switch", map[string]any{
+						"brand":      "HMX",
+						"name":       "Azalea",
+						"type":       approvedType,
+						"visibility": "private",
+						"spring":     map[string]any{"length": 18},
+					})
+					captureCreatedID(result)
+				})
+
+				It("stores the spring length", func(ctx SpecContext) {
+					By("returning the spring length from create_switch")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.IsError).To(BeFalse())
+					out := decodeGetOutput(result)
+					Expect(out.Switch.Spring).NotTo(BeNil())
+					Expect(out.Switch.Spring.Length).To(HaveValue(BeNumerically("==", 18)))
+
+					By("returning the spring length from a later get_switch")
+					got, err := client.CallTool(ctx, "get_switch", map[string]any{"switch_id": createdID})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(got.IsError).To(BeFalse())
+					gotOut := decodeGetOutput(got)
+					Expect(gotOut.Switch.Spring).NotTo(BeNil())
+					Expect(gotOut.Switch.Spring.Length).To(HaveValue(BeNumerically("==", 18)))
+				})
+			})
+		})
+
 		Context("given a type that is not an approved lookup value", func() {
 			When("the create_switch tool is called", func() {
 				BeforeEach(func(ctx SpecContext) {

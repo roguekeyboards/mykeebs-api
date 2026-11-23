@@ -20,11 +20,13 @@ type SwitchForce struct {
 	BottomOut *float64 `dynamodbav:"bottom_out,omitempty" json:"bottom_out,omitempty"`
 }
 
-// SwitchSpring is a switch's spring material and travel distances (mm).
+// SwitchSpring is a switch's spring material, plus its length and travel
+// distances in mm.
 type SwitchSpring struct {
 	Material    *string  `dynamodbav:"material,omitempty" json:"material,omitempty"`
 	PreTravel   *float64 `dynamodbav:"pre_travel,omitempty" json:"pre_travel,omitempty"`
 	TotalTravel *float64 `dynamodbav:"total_travel,omitempty" json:"total_travel,omitempty"`
+	Length      *float64 `dynamodbav:"length,omitempty" json:"length,omitempty"`
 }
 
 // SwitchPurchase is where/how much/how many of a switch were bought, plus

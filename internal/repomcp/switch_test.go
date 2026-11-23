@@ -118,6 +118,18 @@ func (s *SwitchToMCPSuite) TestPartiallySetGroup_IsRetained() {
 	s.Nil(out.Force.Actuation)
 }
 
+func (s *SwitchToMCPSuite) TestOnlySpringLengthSet_SpringRetained() {
+	length := 18.0
+
+	out := Switch{}.ToMCP(repository.Switch{
+		Spring: repository.SwitchSpring{Length: &length},
+	}, true, repository.ProfilePreferences{})
+
+	s.Require().NotNil(out.Spring)
+	s.Require().NotNil(out.Spring.Length)
+	s.InDelta(18.0, *out.Spring.Length, 0.001)
+}
+
 // A recorded zero (a free purchase, a 0-pin count) must stay distinct from
 // an unset field, or MCP would report "not recorded" for a switch REST
 // reports as 0.
@@ -311,6 +323,7 @@ func TestSwitchFromMCPSuite(t *testing.T) {
 func (s *SwitchFromMCPSuite) TestMapsAllFields() {
 	stem := "POM"
 	actuation := 50.0
+	springLength := 22.0
 	vendor := "Divinikey"
 	price := 0.0
 	orderDate := "2026-01-15"
@@ -323,6 +336,7 @@ func (s *SwitchFromMCPSuite) TestMapsAllFields() {
 		Type:     "linear",
 		Material: &schema.SwitchMaterial{Stem: &stem},
 		Force:    &schema.SwitchForce{Actuation: &actuation},
+		Spring:   &schema.SwitchSpring{Length: &springLength},
 		Purchase: &schema.SwitchPurchaseInput{
 			Vendor: &vendor, Price: &price,
 			OrderDate: &orderDate, DeliveryDate: &deliveryDate, OrderStatus: &status,
@@ -336,6 +350,8 @@ func (s *SwitchFromMCPSuite) TestMapsAllFields() {
 	s.Equal("POM", *out.Material.Stem)
 	s.Require().NotNil(out.Force.Actuation)
 	s.InDelta(50.0, *out.Force.Actuation, 0.001)
+	s.Require().NotNil(out.Spring.Length)
+	s.InDelta(22.0, *out.Spring.Length, 0.001)
 	s.Require().NotNil(out.Purchase.Price)
 	s.Zero(*out.Purchase.Price, "a recorded zero price must survive the inbound mapping too")
 	s.Require().NotNil(out.Purchase.OrderDate)

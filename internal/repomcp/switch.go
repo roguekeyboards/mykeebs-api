@@ -91,7 +91,7 @@ func (s Switch) forceToMCP(f repository.SwitchForce) *schema.SwitchForce {
 }
 
 func (s Switch) springToMCP(sp repository.SwitchSpring) *schema.SwitchSpring {
-	if sp.Material == nil && sp.PreTravel == nil && sp.TotalTravel == nil {
+	if sp.Material == nil && sp.PreTravel == nil && sp.TotalTravel == nil && sp.Length == nil {
 		return nil
 	}
 
@@ -99,6 +99,7 @@ func (s Switch) springToMCP(sp repository.SwitchSpring) *schema.SwitchSpring {
 		Material:    sp.Material,
 		PreTravel:   sp.PreTravel,
 		TotalTravel: sp.TotalTravel,
+		Length:      sp.Length,
 	}
 }
 
@@ -178,6 +179,7 @@ func (s Switch) springFromMCP(sp *schema.SwitchSpring) repository.SwitchSpring {
 		Material:    sp.Material,
 		PreTravel:   sp.PreTravel,
 		TotalTravel: sp.TotalTravel,
+		Length:      sp.Length,
 	}
 }
 
