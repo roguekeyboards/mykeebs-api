@@ -56,7 +56,7 @@ var _ = Describe("Updating an EC part", func() {
 					Expect(part.Sliders).NotTo(BeNil())
 					Expect(*part.Sliders.Size).To(Equal("2U"))
 					Expect(*part.Sliders.Stem).To(Equal("OEM"))
-					Expect(part.Purchase).To(BeNil())
+					Expect(part.Purchases).To(BeEmpty())
 				})
 			})
 		})

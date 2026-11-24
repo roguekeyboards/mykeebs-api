@@ -2404,12 +2404,6 @@ components:
           $ref: "#/components/schemas/SwitchForce"
         spring:
           $ref: "#/components/schemas/SwitchSpring"
-        purchase:
-          $ref: "#/components/schemas/SwitchPurchaseInput"
-          deprecated: true
-          description: >
-            Replaced by purchases. Ignored when purchases is sent; otherwise
-            it replaces every purchase with this one.
         purchases:
           type: array
           items:
@@ -2483,12 +2477,6 @@ components:
           $ref: "#/components/schemas/SwitchForce"
         spring:
           $ref: "#/components/schemas/SwitchSpring"
-        purchase:
-          $ref: "#/components/schemas/SwitchPurchase"
-          deprecated: true
-          description: >
-            Replaced by purchases. The purchase with the earliest
-            order_date, or the first purchase when none has one.
         purchases:
           type: array
           items:
@@ -2710,12 +2698,6 @@ components:
           $ref: "#/components/schemas/ECSprings"
         rings:
           $ref: "#/components/schemas/ECRings"
-        purchase:
-          $ref: "#/components/schemas/ECPartPurchaseInput"
-          deprecated: true
-          description: >
-            Replaced by purchases. Ignored when purchases is sent; otherwise
-            it replaces every purchase with this one.
         purchases:
           type: array
           items:
@@ -2784,12 +2766,6 @@ components:
           $ref: "#/components/schemas/ECSprings"
         rings:
           $ref: "#/components/schemas/ECRings"
-        purchase:
-          $ref: "#/components/schemas/ECPartPurchase"
-          deprecated: true
-          description: >
-            Replaced by purchases. The purchase with the earliest
-            order_date, or the first purchase when none has one.
         purchases:
           type: array
           items:
