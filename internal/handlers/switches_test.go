@@ -117,6 +117,7 @@ func (s *ListSwitchesSuite) TestListSwitches_OwnerShowPriceToMeTrue_IncludesPric
 	s.Require().NotNil(got.Items)
 	s.Require().Len(*got.Items, 1)
 	s.Require().NotNil((*got.Items)[0].Purchases)
+	s.Require().Len(*(*got.Items)[0].Purchases, 1)
 	purchase := (*(*got.Items)[0].Purchases)[0]
 	s.Require().NotNil(purchase.Price)
 	s.InDelta(price, *purchase.Price, 0.0001)
@@ -161,6 +162,7 @@ func (s *ListSwitchesSuite) TestListSwitches_OwnerShowPriceToMeFalse_KeepsRestOf
 	s.Require().NotNil(got.Items)
 	s.Require().Len(*got.Items, 1)
 	s.Require().NotNil((*got.Items)[0].Purchases)
+	s.Require().Len(*(*got.Items)[0].Purchases, 1)
 	purchase := (*(*got.Items)[0].Purchases)[0]
 	s.Nil(purchase.Price)
 	s.Nil(purchase.Currency)
@@ -204,6 +206,7 @@ func (s *ListSwitchesSuite) TestListSwitches_NonOwnerShowPriceToOthersTrue_Inclu
 	s.Require().NotNil(got.Items)
 	s.Require().Len(*got.Items, 1)
 	s.Require().NotNil((*got.Items)[0].Purchases)
+	s.Require().Len(*(*got.Items)[0].Purchases, 1)
 	purchase := (*(*got.Items)[0].Purchases)[0]
 	s.Require().NotNil(purchase.Price)
 	s.InDelta(price, *purchase.Price, 0.0001)
@@ -371,6 +374,7 @@ func (s *GetSwitchSuite) TestGetSwitch_NonOwnerShowPriceToOthersTrue_IncludesPri
 	var got api.Switch
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
 	s.Require().NotNil(got.Purchases)
+	s.Require().Len(*got.Purchases, 1)
 	s.Require().NotNil((*got.Purchases)[0].Price)
 	s.InDelta(price, *(*got.Purchases)[0].Price, 0.0001)
 }
@@ -393,6 +397,7 @@ func (s *GetSwitchSuite) TestGetSwitch_NonOwnerShowPriceToOthersFalse_OmitsPrice
 	var got api.Switch
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
 	s.Require().NotNil(got.Purchases)
+	s.Require().Len(*got.Purchases, 1)
 	s.Nil((*got.Purchases)[0].Price)
 }
 
@@ -414,9 +419,9 @@ func (s *GetSwitchSuite) TestGetSwitch_Owner_AlwaysIncludesPriceAndCurrency() {
 	var got api.Switch
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
 	s.Require().NotNil(got.Purchases)
+	s.Require().Len(*got.Purchases, 1)
 	s.Require().NotNil((*got.Purchases)[0].Price)
 	s.InDelta(price, *(*got.Purchases)[0].Price, 0.0001)
-	s.Require().NotNil(got.Purchases)
 	s.Require().NotNil((*got.Purchases)[0].Currency)
 	s.Equal("EUR", *(*got.Purchases)[0].Currency)
 }
@@ -1444,6 +1449,7 @@ func (s *CreateSwitchSuite) TestCreateSwitch_ReturnsOwnersCurrencyWithPrice() {
 	var got api.Switch
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
 	s.Require().NotNil(got.Purchases)
+	s.Require().Len(*got.Purchases, 1)
 	s.Require().NotNil((*got.Purchases)[0].Currency)
 	s.Equal("EUR", *(*got.Purchases)[0].Currency)
 }
@@ -1460,6 +1466,7 @@ func (s *UpdateSwitchSuite) TestUpdateSwitch_ReturnsOwnersCurrencyWithPrice() {
 	var got api.Switch
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
 	s.Require().NotNil(got.Purchases)
+	s.Require().Len(*got.Purchases, 1)
 	s.Require().NotNil((*got.Purchases)[0].Currency)
 	s.Equal("EUR", *(*got.Purchases)[0].Currency)
 }

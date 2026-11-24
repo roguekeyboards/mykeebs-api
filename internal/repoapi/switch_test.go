@@ -102,16 +102,16 @@ func (s *SwitchToAPISuite) TestFullRoundTrip_PreservesEveryField() {
 		s.Equal(sw.Spring.TotalTravel, out.Spring.TotalTravel)
 		s.Equal(sw.Spring.Length, out.Spring.Length)
 	}
-	if s.NotNil(out.Purchases) {
-		s.Equal(sw.Purchases[0].Vendor, (*out.Purchases)[0].Vendor)
-		s.Equal(sw.Purchases[0].Price, (*out.Purchases)[0].Price)
-		s.Equal(sw.Purchases[0].OrderStatus, (*out.Purchases)[0].OrderStatus)
-		s.Equal(sw.Purchases[0].Quantity, (*out.Purchases)[0].Quantity)
-		s.Require().NotNil((*out.Purchases)[0].OrderDate)
-		s.Equal(*sw.Purchases[0].OrderDate, (*out.Purchases)[0].OrderDate.Format(dateLayout))
-		s.Require().NotNil((*out.Purchases)[0].DeliveryDate)
-		s.Equal(*sw.Purchases[0].DeliveryDate, (*out.Purchases)[0].DeliveryDate.Format(dateLayout))
-	}
+	s.Require().NotNil(out.Purchases)
+	s.Require().Len(*out.Purchases, 1)
+	s.Equal(sw.Purchases[0].Vendor, (*out.Purchases)[0].Vendor)
+	s.Equal(sw.Purchases[0].Price, (*out.Purchases)[0].Price)
+	s.Equal(sw.Purchases[0].OrderStatus, (*out.Purchases)[0].OrderStatus)
+	s.Equal(sw.Purchases[0].Quantity, (*out.Purchases)[0].Quantity)
+	s.Require().NotNil((*out.Purchases)[0].OrderDate)
+	s.Equal(*sw.Purchases[0].OrderDate, (*out.Purchases)[0].OrderDate.Format(dateLayout))
+	s.Require().NotNil((*out.Purchases)[0].DeliveryDate)
+	s.Equal(*sw.Purchases[0].DeliveryDate, (*out.Purchases)[0].DeliveryDate.Format(dateLayout))
 }
 
 func (s *SwitchToAPISuite) TestNonOwner_OmitsVisibility() {
@@ -193,6 +193,7 @@ func (s *SwitchToAPISuite) TestNonOwnerShowPriceToOthersFalse_OmitsPriceKeepsRes
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Purchases)
+	s.Require().Len(*out.Purchases, 1)
 	s.Nil((*out.Purchases)[0].Price)
 	s.Equal(sw.Purchases[0].Vendor, (*out.Purchases)[0].Vendor)
 	s.Equal(sw.Purchases[0].OrderStatus, (*out.Purchases)[0].OrderStatus)
@@ -212,6 +213,7 @@ func (s *SwitchToAPISuite) TestNonOwnerShowPriceToOthersTrue_IncludesPrice() {
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Purchases)
+	s.Require().Len(*out.Purchases, 1)
 	s.Equal(sw.Purchases[0].Price, (*out.Purchases)[0].Price)
 	s.Require().NotNil((*out.Purchases)[0].Currency)
 	s.Equal("EUR", *(*out.Purchases)[0].Currency)
@@ -225,6 +227,7 @@ func (s *SwitchToAPISuite) TestOwner_AlwaysIncludesPriceRegardlessOfShowPriceToM
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Purchases)
+	s.Require().Len(*out.Purchases, 1)
 	s.Equal(sw.Purchases[0].Price, (*out.Purchases)[0].Price)
 	s.Require().NotNil((*out.Purchases)[0].Currency)
 	s.Equal("EUR", *(*out.Purchases)[0].Currency)

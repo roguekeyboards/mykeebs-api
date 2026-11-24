@@ -71,11 +71,13 @@ func (s *ECPartSuite) TestToAPI_NonOwner_HidesVisibilityAndPriceUnlessShared() {
 	s.Require().NoError(err)
 	s.Nil(hidden.Visibility)
 	s.Require().NotNil(hidden.Purchases)
+	s.Require().Len(*hidden.Purchases, 1)
 	s.Nil((*hidden.Purchases)[0].Price)
 
 	shown, err := ECPart{}.ToAPI(s.T().Context(), p, false, repository.ProfilePreferences{ShowPriceToOthers: true, Currency: "USD"})
 	s.Require().NoError(err)
 	s.Require().NotNil(shown.Purchases)
+	s.Require().Len(*shown.Purchases, 1)
 	s.Equal(new(36.0), (*shown.Purchases)[0].Price)
 }
 
