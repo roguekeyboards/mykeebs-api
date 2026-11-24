@@ -36,7 +36,7 @@ func (e ECPart) ToAPI(ctx context.Context, p repository.ECPart, isOwner bool, ow
 		}
 	}
 
-	return api.ECPart{
+	out := api.ECPart{
 		Id:            p.ID,
 		Brand:         p.Brand,
 		Name:          p.Name,
@@ -49,10 +49,17 @@ func (e ECPart) ToAPI(ctx context.Context, p repository.ECPart, isOwner bool, ow
 		Purchase:      purchase,
 		Purchases:     purchases,
 		TotalQuantity: p.Purchases.TotalQuantity(),
+		OrderStatus:   p.Purchases.OrderStatus(),
 		Notes:         p.Notes,
 		Visibility:    ownerVisibility(p.Visibility, isOwner),
 		Image:         image,
-	}, nil
+	}
+	if ownerPrefs.ShowPriceSingle(isOwner) {
+		out.TotalCost = p.Purchases.TotalPrice()
+	}
+	out.Currency = ownerPrefs.CurrencyFor(out.TotalCost)
+
+	return out, nil
 }
 
 // ToRepo maps a generated ECPartInput (already schema-validated by the
@@ -76,6 +83,8 @@ func (e ECPart) ToRepo(in api.ECPartInput) repository.ECPart {
 
 // StripPrices clears the prices [ECPart.ToAPI] sets on out.
 func (e ECPart) StripPrices(out *api.ECPart) {
+	out.TotalCost = nil
+	out.Currency = nil
 	out.Purchases = stripBulkPurchasePrices(out.Purchases, func(p *api.ECPartPurchase) {
 		p.Price = nil
 		p.Currency = nil

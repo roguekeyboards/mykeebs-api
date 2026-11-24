@@ -36,7 +36,7 @@ func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, o
 		}
 	}
 
-	return api.Switch{
+	out := api.Switch{
 		Id:            sw.ID,
 		Brand:         sw.Brand,
 		Manufacturer:  sw.Manufacturer,
@@ -50,10 +50,17 @@ func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, o
 		Purchase:      purchase,
 		Purchases:     purchases,
 		TotalQuantity: sw.Purchases.TotalQuantity(),
+		OrderStatus:   sw.Purchases.OrderStatus(),
 		Notes:         sw.Notes,
 		Visibility:    ownerVisibility(sw.Visibility, isOwner),
 		Image:         image,
-	}, nil
+	}
+	if ownerPrefs.ShowPriceSingle(isOwner) {
+		out.TotalCost = sw.Purchases.TotalPrice()
+	}
+	out.Currency = ownerPrefs.CurrencyFor(out.TotalCost)
+
+	return out, nil
 }
 
 // ToRepo maps a generated SwitchInput (already schema-validated by the
@@ -79,6 +86,8 @@ func (s Switch) ToRepo(in api.SwitchInput) repository.Switch {
 
 // StripPrices clears the prices [Switch.ToAPI] sets on out.
 func (s Switch) StripPrices(out *api.Switch) {
+	out.TotalCost = nil
+	out.Currency = nil
 	out.Purchases = stripBulkPurchasePrices(out.Purchases, func(p *api.SwitchPurchase) {
 		p.Price = nil
 		p.Currency = nil

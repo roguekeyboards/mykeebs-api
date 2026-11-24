@@ -461,3 +461,39 @@ func (s *SwitchToAPISuite) TestStripPrices_EveryPurchaseOnlyPriced_DropsPurchase
 
 	s.Nil(out.Purchases)
 }
+
+func (s *SwitchToAPISuite) TestPurchases_DerivesOrderStatusAndTotalCostSkippingCancelled() {
+	sw := repository.Switch{Purchases: repository.BulkPurchases{
+		{Price: floatPtr(36.0), OrderStatus: strPtr("Delivered")},
+		{Price: floatPtr(28.8), OrderStatus: strPtr("Ordered")},
+		{Price: floatPtr(50.0), OrderStatus: strPtr("Cancelled")},
+	}}
+
+	out, err := Switch{}.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{Currency: "USD"})
+	s.Require().NoError(err)
+
+	s.Equal(strPtr("Ordered"), out.OrderStatus)
+	s.Equal(floatPtr(64.8), out.TotalCost)
+	s.Equal(strPtr("USD"), out.Currency)
+}
+
+func (s *SwitchToAPISuite) TestNonOwnerShowPriceToOthersFalse_OmitsTotalCostKeepsOrderStatus() {
+	sw := repository.Switch{Purchases: repository.BulkPurchases{{Price: floatPtr(36.0), OrderStatus: strPtr("Delivered")}}}
+
+	out, err := Switch{}.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{Currency: "USD"})
+	s.Require().NoError(err)
+
+	s.Equal(strPtr("Delivered"), out.OrderStatus)
+	s.Nil(out.TotalCost)
+	s.Nil(out.Currency)
+}
+
+func (s *SwitchToAPISuite) TestStripPrices_ClearsTotalCost() {
+	out := api.Switch{TotalCost: floatPtr(64.8), Currency: strPtr("USD"), OrderStatus: strPtr("Ordered")}
+
+	Switch{}.StripPrices(&out)
+
+	s.Nil(out.TotalCost)
+	s.Nil(out.Currency)
+	s.Equal(strPtr("Ordered"), out.OrderStatus)
+}

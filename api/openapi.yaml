@@ -2502,6 +2502,26 @@ components:
           description: >
             The sum of the quantities of purchases not Cancelled. Absent
             when none has a quantity.
+        order_status:
+          type: string
+          description: >
+            Derived, read-only summary of every purchase's order_status:
+            the least-progressed status among them wins (Planned <
+            Ordered < Shipped < Delivered). A Cancelled purchase is
+            excluded from that comparison unless every purchase is
+            Cancelled, in which case this is Cancelled too. Omitted if no
+            purchase has an order_status.
+        total_cost:
+          $ref: "#/components/schemas/Money"
+          description: >
+            Total paid across the purchases not Cancelled with a known
+            price. Purchases with no known price are excluded rather than
+            treated as zero, so this may undercount.
+        currency:
+          $ref: "#/components/schemas/Currency"
+          description: >
+            The owner's display currency, for labelling total_cost.
+            Present exactly when total_cost is.
         notes:
           type: string
         visibility:
@@ -2783,6 +2803,26 @@ components:
           description: >
             The sum of the quantities of purchases not Cancelled. Absent
             when none has a quantity.
+        order_status:
+          type: string
+          description: >
+            Derived, read-only summary of every purchase's order_status:
+            the least-progressed status among them wins (Planned <
+            Ordered < Shipped < Delivered). A Cancelled purchase is
+            excluded from that comparison unless every purchase is
+            Cancelled, in which case this is Cancelled too. Omitted if no
+            purchase has an order_status.
+        total_cost:
+          $ref: "#/components/schemas/Money"
+          description: >
+            Total paid across the purchases not Cancelled with a known
+            price. Purchases with no known price are excluded rather than
+            treated as zero, so this may undercount.
+        currency:
+          $ref: "#/components/schemas/Currency"
+          description: >
+            The owner's display currency, for labelling total_cost.
+            Present exactly when total_cost is.
         notes:
           type: string
         visibility:

@@ -49,6 +49,9 @@ func (s *ECPartSuite) TestToAPI_MapsSubObjectAndPurchase() {
 		Purchase:      &purchase,
 		Purchases:     &[]api.ECPartPurchase{purchase},
 		TotalQuantity: new(72),
+		OrderStatus:   new("Delivered"),
+		TotalCost:     new(20.0),
+		Currency:      new("USD"),
 		Notes:         new("smooth"),
 		Visibility:    new(api.VisibilityPublic),
 	}, out)
@@ -164,4 +167,14 @@ func (s *ECPartSuite) TestToAPI_SignFails_ReturnsError() {
 	_, err := ECPart{Images: images}.ToAPI(s.T().Context(), repository.ECPart{ImagePath: &key, ImageStatus: repository.ImageStatusApproved}, false, repository.ProfilePreferences{})
 
 	s.Error(err)
+}
+
+func (s *ECPartSuite) TestStripPrices_ClearsTotalCost() {
+	out := api.ECPart{TotalCost: new(64.8), Currency: new("USD"), OrderStatus: new("Ordered")}
+
+	ECPart{}.StripPrices(&out)
+
+	s.Nil(out.TotalCost)
+	s.Nil(out.Currency)
+	s.Equal(new("Ordered"), out.OrderStatus)
 }
