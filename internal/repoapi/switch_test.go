@@ -445,3 +445,12 @@ func (s *SwitchToAPISuite) TestStripPrices_ClearsTotalCost() {
 	s.Nil(out.Currency)
 	s.Equal(strPtr("Ordered"), out.OrderStatus)
 }
+
+func (s *SwitchToRepoSuite) TestEmptyPurchaseObjects_Dropped() {
+	in := api.SwitchInput{
+		Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: api.VisibilityPrivate,
+		Purchases: &[]api.SwitchPurchaseInput{{}, {Vendor: strPtr("CannonKeys")}},
+	}
+
+	s.Equal(repository.BulkPurchases{{Vendor: strPtr("CannonKeys")}}, Switch{}.ToRepo(in).Purchases)
+}

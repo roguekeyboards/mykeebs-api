@@ -73,7 +73,7 @@ type ECPartInput struct {
 	Housings   *ECHousings           `json:"housings,omitempty" jsonschema:"housing details; only with part_type housings"`
 	Springs    *ECSprings            `json:"springs,omitempty" jsonschema:"spring details; only with part_type springs"`
 	Rings      *ECRings              `json:"rings,omitempty" jsonschema:"silencing ring details; only with part_type rings"`
-	Purchases  []ECPartPurchaseInput `json:"purchases,omitempty" jsonschema:"every order of this part, each with where it was bought and the order's status"`
+	Purchases  []ECPartPurchaseInput `json:"purchases,omitempty" jsonschema:"every order of this part, each with where it was bought and the order's status; an empty purchase is dropped"`
 	Notes      *string               `json:"notes,omitempty" jsonschema:"free-form notes"`
 	Visibility string                `json:"visibility" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\""`
 }

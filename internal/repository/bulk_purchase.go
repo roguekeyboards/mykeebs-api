@@ -20,6 +20,18 @@ type BulkPurchase struct {
 // interchangeable, so a build draws on all of them at their average cost.
 type BulkPurchases []BulkPurchase
 
+// WithoutEmpty drops purchases with no field set, returning nil if none
+// remain.
+func (ps BulkPurchases) WithoutEmpty() BulkPurchases {
+	var out BulkPurchases
+	for _, p := range ps {
+		if p != (BulkPurchase{}) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 func (p BulkPurchase) cancelled() bool {
 	return p.OrderStatus != nil && *p.OrderStatus == "Cancelled"
 }

@@ -125,3 +125,10 @@ func (s *ECPartSuite) TestToMCP_NonOwner_HidesUnsharedTotalCostKeepsOrderStatus(
 	s.Nil(out.TotalCost)
 	s.Nil(out.Currency)
 }
+
+func (s *ECPartSuite) TestFromMCP_DropsEmptyPurchases() {
+	in := schema.ECPartInput{Brand: "DynaCap", Name: "Domes", PartType: "domes", Visibility: "private",
+		Purchases: []schema.ECPartPurchaseInput{{}, {Vendor: new("Omnitype")}}}
+
+	s.Equal(repository.BulkPurchases{{Vendor: new("Omnitype")}}, ECPart{}.FromMCP(in).Purchases)
+}

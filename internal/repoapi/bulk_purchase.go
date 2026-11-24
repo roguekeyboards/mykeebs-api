@@ -66,7 +66,7 @@ func bulkPurchasesToRepo[T any](purchases *[]T, conv func(T) api.SwitchPurchaseI
 	for i, p := range *purchases {
 		out[i] = bulkPurchaseToRepo(conv(p))
 	}
-	return out
+	return out.WithoutEmpty()
 }
 
 func bulkPurchaseToRepo(p api.SwitchPurchaseInput) repository.BulkPurchase {

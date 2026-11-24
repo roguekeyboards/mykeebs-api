@@ -2409,7 +2409,7 @@ components:
           items:
             $ref: "#/components/schemas/SwitchPurchaseInput"
           description: >
-            Every order of this switch, e.g. a restock bought later.
+            Every order of this switch, e.g. a restock bought later. An empty purchase is dropped.
         notes:
           type: string
         visibility:
@@ -2703,7 +2703,7 @@ components:
           items:
             $ref: "#/components/schemas/ECPartPurchaseInput"
           description: >
-            Every order of this part, e.g. a second kit bought later.
+            Every order of this part, e.g. a second kit bought later. An empty purchase is dropped.
         notes:
           type: string
         visibility:

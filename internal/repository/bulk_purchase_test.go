@@ -86,3 +86,13 @@ func (s *BulkPurchasesSuite) TestTotals_AllCancelled_ReturnNil() {
 	s.Nil(ps.TotalPrice())
 	s.Nil(ps.UnitPrice())
 }
+
+func (s *BulkPurchasesSuite) TestWithoutEmpty_DropsPurchasesWithNoFieldSet() {
+	ps := repository.BulkPurchases{{}, {Vendor: new("Omnitype")}, {}}
+
+	s.Equal(repository.BulkPurchases{{Vendor: new("Omnitype")}}, ps.WithoutEmpty())
+}
+
+func (s *BulkPurchasesSuite) TestWithoutEmpty_AllEmpty_ReturnsNil() {
+	s.Nil(repository.BulkPurchases{{}, {}}.WithoutEmpty())
+}
