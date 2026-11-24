@@ -20,13 +20,17 @@ type BulkPurchase struct {
 // interchangeable, so a build draws on all of them at their average cost.
 type BulkPurchases []BulkPurchase
 
-// TotalQuantity sums the purchases with a known quantity, or returns nil
-// if none has one.
+func (p BulkPurchase) cancelled() bool {
+	return p.OrderStatus != nil && *p.OrderStatus == "Cancelled"
+}
+
+// TotalQuantity sums the non-Cancelled purchases with a known quantity, or
+// returns nil if none has one.
 func (ps BulkPurchases) TotalQuantity() *int {
 	var total int
 	known := false
 	for _, p := range ps {
-		if p.Quantity == nil {
+		if p.Quantity == nil || p.cancelled() {
 			continue
 		}
 		total += *p.Quantity
@@ -38,13 +42,13 @@ func (ps BulkPurchases) TotalQuantity() *int {
 	return &total
 }
 
-// TotalPrice sums the purchases with a known price, rounded to cents, or
-// returns nil if none has one.
+// TotalPrice sums the non-Cancelled purchases with a known price, rounded
+// to cents, or returns nil if none has one.
 func (ps BulkPurchases) TotalPrice() *float64 {
 	var total float64
 	priced := false
 	for _, p := range ps {
-		if p.Price == nil {
+		if p.Price == nil || p.cancelled() {
 			continue
 		}
 		total += *p.Price
@@ -58,13 +62,14 @@ func (ps BulkPurchases) TotalPrice() *float64 {
 	return &total
 }
 
-// UnitPrice is the average price per unit across the purchases with both a
-// price and a non-zero quantity, or nil if none has both.
+// UnitPrice is the average price per unit across the non-Cancelled
+// purchases with both a price and a non-zero quantity, or nil if none has
+// both.
 func (ps BulkPurchases) UnitPrice() *float64 {
 	var price float64
 	var quantity int
 	for _, p := range ps {
-		if p.Price == nil || p.Quantity == nil || *p.Quantity == 0 {
+		if p.Price == nil || p.Quantity == nil || *p.Quantity == 0 || p.cancelled() {
 			continue
 		}
 		price += *p.Price

@@ -22,7 +22,7 @@ type ECPartSummary struct {
 	Name        string   `json:"name" jsonschema:"the part's name"`
 	PartType    string   `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings"`
 	OrderStatus *string  `json:"order_status,omitempty" jsonschema:"derived from every purchase's order_status: the least-progressed status wins (Planned < Ordered < Shipped < Delivered); a Cancelled purchase is ignored unless every purchase is Cancelled; omitted if no purchase has a status set"`
-	Price       *float64 `json:"price,omitempty" jsonschema:"total paid across purchases with a known price; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
+	Price       *float64 `json:"price,omitempty" jsonschema:"total paid across purchases not Cancelled with a known price; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
 	Currency    *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
 	Visibility  *string  `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
 	HasImage    bool     `json:"has_image" jsonschema:"whether this part has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
@@ -93,7 +93,7 @@ type ECPart struct {
 	Springs       *ECSprings       `json:"springs,omitempty" jsonschema:"spring details"`
 	Rings         *ECRings         `json:"rings,omitempty" jsonschema:"silencing ring details"`
 	Purchases     []ECPartPurchase `json:"purchases,omitempty" jsonschema:"every order of this part, each with where it was bought and the order's status"`
-	TotalQuantity *int             `json:"total_quantity,omitempty" jsonschema:"the sum of purchases' quantities; omitted if no purchase has a quantity"`
+	TotalQuantity *int             `json:"total_quantity,omitempty" jsonschema:"the sum of the quantities of purchases not Cancelled; omitted if none has a quantity"`
 	Notes         *string          `json:"notes,omitempty" jsonschema:"free-form notes"`
 	Visibility    *string          `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
 	HasImage      bool             `json:"has_image" jsonschema:"whether this part has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`

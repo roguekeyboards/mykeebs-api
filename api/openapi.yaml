@@ -2495,13 +2495,13 @@ components:
             $ref: "#/components/schemas/SwitchPurchase"
           description: >
             Every order of this switch. A build's switches are costed at
-            the average price per switch across them.
+            the average price per switch across those not Cancelled.
         total_quantity:
           type: integer
           minimum: 0
           description: >
-            The sum of purchases' quantities. Absent when no purchase has a
-            quantity.
+            The sum of the quantities of purchases not Cancelled. Absent
+            when none has a quantity.
         notes:
           type: string
         visibility:
@@ -2776,13 +2776,13 @@ components:
             $ref: "#/components/schemas/ECPartPurchase"
           description: >
             Every order of this part. A build's EC parts are costed at the
-            average price per part across them.
+            average price per part across those not Cancelled.
         total_quantity:
           type: integer
           minimum: 0
           description: >
-            The sum of purchases' quantities. Absent when no purchase has a
-            quantity.
+            The sum of the quantities of purchases not Cancelled. Absent
+            when none has a quantity.
         notes:
           type: string
         visibility:

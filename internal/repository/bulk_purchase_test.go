@@ -66,3 +66,23 @@ func (s *BulkPurchasesSuite) TestOrderStatus_LeastProgressedWins() {
 func (s *BulkPurchasesSuite) TestOrderStatus_NoneSet_ReturnsNil() {
 	s.Nil(repository.BulkPurchases{{}}.OrderStatus())
 }
+
+func (s *BulkPurchasesSuite) TestTotals_SkipCancelledPurchases() {
+	ps := repository.BulkPurchases{
+		{Price: new(35.0), Quantity: new(70), OrderStatus: new("Delivered")},
+		{Price: new(50.0), Quantity: new(70), OrderStatus: new("Cancelled")},
+	}
+
+	s.Equal(new(70), ps.TotalQuantity())
+	s.Equal(new(35.0), ps.TotalPrice())
+	s.Require().NotNil(ps.UnitPrice())
+	s.InDelta(0.5, *ps.UnitPrice(), 1e-9)
+}
+
+func (s *BulkPurchasesSuite) TestTotals_AllCancelled_ReturnNil() {
+	ps := repository.BulkPurchases{{Price: new(50.0), Quantity: new(70), OrderStatus: new("Cancelled")}}
+
+	s.Nil(ps.TotalQuantity())
+	s.Nil(ps.TotalPrice())
+	s.Nil(ps.UnitPrice())
+}
