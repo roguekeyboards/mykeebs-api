@@ -37,7 +37,9 @@ type ecPart struct {
 		OrderDate *string `json:"order_date"`
 		Quantity  *int    `json:"quantity"`
 	} `json:"purchases"`
-	TotalQuantity *int `json:"total_quantity"`
+	TotalQuantity *int     `json:"total_quantity"`
+	OrderStatus   *string  `json:"order_status"`
+	TotalCost     *float64 `json:"total_cost"`
 	Image         *struct {
 		URL    *string `json:"url"`
 		Status *string `json:"status"`

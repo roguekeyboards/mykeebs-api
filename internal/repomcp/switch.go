@@ -32,10 +32,15 @@ func (s Switch) ToMCP(sw repository.Switch, isOwner bool, ownerPrefs repository.
 		Spring:        s.springToMCP(sw.Spring),
 		Purchases:     bulkPurchasesToMCP(sw.Purchases, isOwner, ownerPrefs, func(p schema.SwitchPurchase) schema.SwitchPurchase { return p }),
 		TotalQuantity: sw.Purchases.TotalQuantity(),
+		OrderStatus:   sw.Purchases.OrderStatus(),
 		Notes:         sw.Notes,
 		Visibility:    ownerVisibility(sw.Visibility, isOwner),
 		HasImage:      sw.ImagePath != nil && sw.ImageStatus.VisibleTo(isOwner),
 	}
+	if ownerPrefs.ShowPriceSingle(isOwner) {
+		out.TotalCost = sw.Purchases.TotalPrice()
+	}
+	out.Currency = ownerPrefs.CurrencyFor(out.TotalCost)
 	out.ImageStatus, out.ImageRejectionReason = imageStatusToMCP(sw.ImagePath != nil, sw.ImageStatus, sw.ImageRejectionReason, isOwner)
 
 	return out

@@ -116,6 +116,9 @@ type Switch struct {
 	Spring        *SwitchSpring    `json:"spring,omitempty" jsonschema:"spring material, plus its length and travel distances in mm"`
 	Purchases     []SwitchPurchase `json:"purchases,omitempty" jsonschema:"every order of this switch, each with where it was bought and the order's status"`
 	TotalQuantity *int             `json:"total_quantity,omitempty" jsonschema:"the sum of the quantities of purchases not Cancelled; omitted if none has a quantity"`
+	OrderStatus   *string          `json:"order_status,omitempty" jsonschema:"the least-progressed order_status across purchases; a Cancelled purchase is ignored unless every purchase is Cancelled"`
+	TotalCost     *float64         `json:"total_cost,omitempty" jsonschema:"the total price of purchases not Cancelled; shown under the same rules as purchase prices"`
+	Currency      *string          `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for total_cost; present exactly when total_cost is"`
 	Notes         *string          `json:"notes,omitempty" jsonschema:"free-form notes"`
 	Visibility    *string          `json:"visibility,omitempty" jsonschema:"who can read this switch; one of \"public\", \"authenticated\", \"private\"; only ever present for the switch's owner"`
 	HasImage      bool             `json:"has_image" jsonschema:"whether this switch has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`

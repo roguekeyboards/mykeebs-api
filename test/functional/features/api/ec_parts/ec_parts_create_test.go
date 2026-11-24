@@ -78,8 +78,8 @@ var _ = Describe("Creating an EC part", func() {
 				BeforeEach(func(ctx SpecContext) {
 					create(ctx, ownerID, ownerToken,
 						`{"brand":"DynaCap","name":"Heavy","part_type":"domes","visibility":"private","purchases":[`+
-							`{"vendor":"Omnitype","order_date":"2026-11-23","quantity":72},`+
-							`{"vendor":"Omnitype","order_date":"2026-09-21","quantity":72}]}`)
+							`{"vendor":"Omnitype","order_date":"2026-11-23","quantity":72,"price":28.8,"order_status":"Ordered"},`+
+							`{"vendor":"Omnitype","order_date":"2026-09-21","quantity":72,"price":36,"order_status":"Delivered"}]}`)
 				})
 
 				It("keeps every purchase", func() {
@@ -93,6 +93,12 @@ var _ = Describe("Creating an EC part", func() {
 
 					By("totalling their quantities")
 					Expect(created.TotalQuantity).To(HaveValue(Equal(144)))
+
+					By("deriving the least-progressed order status")
+					Expect(created.OrderStatus).To(HaveValue(Equal("Ordered")))
+
+					By("totalling their prices")
+					Expect(created.TotalCost).To(HaveValue(Equal(64.8)))
 
 					By("returning the earliest as the deprecated purchase")
 					Expect(created.Purchase).NotTo(BeNil())
