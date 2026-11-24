@@ -64,10 +64,10 @@ func (s *ValidateECPartSuite) TestUnapprovedMaterials_ReturnFieldErrors() {
 }
 
 func (s *ValidateECPartSuite) TestUnapprovedPurchaseValues_ReturnFieldErrors() {
-	p := repository.ECPart{PartType: repository.ECPartTypeSprings, Purchase: repository.ECPartPurchase{Vendor: new("NotAVendor"), OrderStatus: new("NotAStatus")}}
+	p := repository.ECPart{PartType: repository.ECPartTypeSprings, Purchases: repository.BulkPurchases{{Vendor: new("NotAVendor"), OrderStatus: new("NotAStatus")}}}
 
 	s.Equal([]lookup.FieldError{
-		{Field: "purchase.vendor", Value: "NotAVendor", Reason: `"NotAVendor" is not an approved vendor value`},
-		{Field: "purchase.order_status", Value: "NotAStatus", Reason: `"NotAStatus" is not an approved order_status value`},
+		{Field: "purchases[0].vendor", Value: "NotAVendor", Reason: `"NotAVendor" is not an approved vendor value`},
+		{Field: "purchases[0].order_status", Value: "NotAStatus", Reason: `"NotAStatus" is not an approved order_status value`},
 	}, lookup.ValidateECPart(s.T().Context(), p))
 }

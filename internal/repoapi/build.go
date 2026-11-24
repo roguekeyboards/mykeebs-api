@@ -318,12 +318,9 @@ func (b Build) pcbRefToAPI(p *repository.KeyboardPCB) *api.BuildPCBRef {
 // switchEntriesResolvedToAPI resolves each entry's Switch id into a
 // denormalized reference via a per-entry SwitchRepo.Get call, run
 // concurrently across entries since each only touches its own out[i]. Also
-// returns
-// the summed cost across entries with a known per-unit price: switches are
-// bought in bulk (SwitchPurchase.Price is the total for Quantity units, not
-// a per-unit price - see SwitchPurchase's doc), so an entry contributes
-// (Price/Quantity)*Count only when Quantity is set and non-zero; otherwise
-// its cost is unknown and excluded rather than guessed at.
+// returns the summed cost across entries with a known per-unit price: an
+// entry contributes [repository.BulkPurchases.UnitPrice]*Count, or is excluded
+// rather than guessed at when no purchase has both a price and a quantity.
 func (b Build) switchEntriesResolvedToAPI(
 	ctx context.Context, ownerID string, entries []repository.BuildSwitchEntry, isOwner bool,
 ) (*[]api.BuildSwitchEntryResolved, *float64, error) {
@@ -367,9 +364,8 @@ func (b Build) switchEntriesResolvedToAPI(
 				out[i].Switch.ImageUrl = &url
 			}
 
-			if sw.Purchase.Price != nil && sw.Purchase.Quantity != nil && *sw.Purchase.Quantity != 0 {
-				unitPrice := *sw.Purchase.Price / float64(*sw.Purchase.Quantity)
-				entryCost := unitPrice * float64(e.Count)
+			if unitPrice := sw.Purchases.UnitPrice(); unitPrice != nil {
+				entryCost := *unitPrice * float64(e.Count)
 				costs[i] = &entryCost
 			}
 		}(i, e)
@@ -514,8 +510,9 @@ func servedInRef(status repository.ImageStatus, isOwner bool) bool {
 	return status.VisibleTo(isOwner) && status.Downloadable()
 }
 
-// ecPartEntriesResolvedToAPI prices each entry at (Price/Quantity)*Count,
-// leaving out entries where either is unknown.
+// ecPartEntriesResolvedToAPI prices each entry at
+// [repository.BulkPurchases.UnitPrice]*Count, leaving out entries with no
+// known unit price.
 func (b Build) ecPartEntriesResolvedToAPI(
 	ctx context.Context, ownerID string, entries []repository.BuildECPartEntry, isOwner bool,
 ) (*[]api.BuildECPartEntryResolved, *float64, error) {
@@ -555,8 +552,8 @@ func (b Build) ecPartEntriesResolvedToAPI(
 				out[i].EcPart.ImageUrl = &url
 			}
 
-			if p.Purchase.Price != nil && p.Purchase.Quantity != nil && *p.Purchase.Quantity != 0 {
-				entryCost := *p.Purchase.Price / float64(*p.Purchase.Quantity) * float64(e.Count)
+			if unitPrice := p.Purchases.UnitPrice(); unitPrice != nil {
+				entryCost := *unitPrice * float64(e.Count)
 				costs[i] = &entryCost
 			}
 		})

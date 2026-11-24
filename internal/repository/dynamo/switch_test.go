@@ -288,6 +288,38 @@ func (s *SwitchRepositorySuite) TestUpdate_OmittedOptionalFields_AreRemoved() {
 	s.Require().NoError(err)
 }
 
+func (s *SwitchRepositorySuite) TestUpdate_NoPurchases_RemovesPurchases() {
+	var captured *dynamodb.UpdateItemInput
+	s.mockClient.EXPECT().
+		UpdateItem(mock.Anything, mock.MatchedBy(func(in *dynamodb.UpdateItemInput) bool {
+			captured = in
+			return true
+		})).
+		Return(&dynamodb.UpdateItemOutput{Attributes: s.updatedItem()}, nil)
+
+	ctx := apictx.WithUserID(s.T().Context(), "alice")
+	_, err := s.repo.Update(ctx, repository.Switch{ID: "sw1", Brand: "Gateron"})
+
+	s.Require().NoError(err)
+	s.True(removesAttr(captured, "purchases"))
+}
+
+func (s *SwitchRepositorySuite) TestUpdate_WithPurchases_SetsPurchases() {
+	var captured *dynamodb.UpdateItemInput
+	s.mockClient.EXPECT().
+		UpdateItem(mock.Anything, mock.MatchedBy(func(in *dynamodb.UpdateItemInput) bool {
+			captured = in
+			return true
+		})).
+		Return(&dynamodb.UpdateItemOutput{Attributes: s.updatedItem()}, nil)
+
+	ctx := apictx.WithUserID(s.T().Context(), "alice")
+	_, err := s.repo.Update(ctx, repository.Switch{ID: "sw1", Brand: "Gateron", Purchases: repository.BulkPurchases{{Quantity: new(70)}}})
+
+	s.Require().NoError(err)
+	s.True(setsAttr(captured, "purchases"))
+}
+
 func (s *SwitchRepositorySuite) TestUpdate_ReturnsPersistedImagePath() {
 	after := s.updatedItem()
 	after["image_path"] = &types.AttributeValueMemberS{Value: "switches/alice/sw1/image/up1"}

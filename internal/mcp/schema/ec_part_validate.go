@@ -38,8 +38,8 @@ func (in ECPartInput) Validate(v *validate.V) {
 	if in.Rings != nil {
 		v.NonNegative("rings.thickness", in.Rings.Thickness)
 	}
-	if in.Purchase != nil {
-		in.Purchase.Validate(v.At("purchase"))
+	for i, p := range in.Purchases {
+		p.Validate(v.Index("purchases", i))
 	}
 	checkVisibility(v, in.Visibility)
 }

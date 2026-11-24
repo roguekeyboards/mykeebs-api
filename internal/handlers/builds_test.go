@@ -714,7 +714,7 @@ func (s *ListBuildsSuite) TestListBuilds_OwnerShowPriceToMeTrue_IncludesTotalCos
 		Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45), Quantity: intPtr(90)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45), Quantity: intPtr(90)}},
 		}, nil)
 	s.mockKeycapSetRepo.EXPECT().
 		Get(mock.Anything, "alice", "ks1").
@@ -794,7 +794,7 @@ func (s *ListBuildsSuite) TestListBuilds_NonOwnerShowPriceToOthersFalse_OmitsTot
 		Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45), Quantity: intPtr(90)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45), Quantity: intPtr(90)}},
 		}, nil)
 	s.mockKeycapSetRepo.EXPECT().
 		Get(mock.Anything, "alice", "ks1").
@@ -842,7 +842,7 @@ func (s *ListBuildsSuite) TestListBuilds_NonOwnerShowPriceToOthersTrue_IncludesT
 		Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45), Quantity: intPtr(90)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45), Quantity: intPtr(90)}},
 		}, nil)
 	s.mockKeycapSetRepo.EXPECT().
 		Get(mock.Anything, "alice", "ks1").

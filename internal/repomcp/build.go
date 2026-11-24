@@ -156,10 +156,9 @@ func (b Build) ToMCPSummary(
 
 // switchesCost mirrors
 // [github.com/roguekeyboards/mykeebs-api/internal/repoapi.Build.switchEntriesResolvedToAPI]'s
-// calculation: switches are bought in bulk, so
-// [github.com/roguekeyboards/mykeebs-api/internal/repository.SwitchPurchase.Price]
-// is the total for Quantity units, not a per-unit price. An entry without
-// a Quantity is excluded rather than guessed at.
+// calculation: each entry at
+// [github.com/roguekeyboards/mykeebs-api/internal/repository.BulkPurchases.UnitPrice]*Count,
+// leaving out entries with no known unit price.
 func (b Build) switchesCost(ctx context.Context, ownerID string, entries []repository.BuildSwitchEntry) (*float64, error) {
 	costs := make([]*float64, 0, len(entries))
 
@@ -169,8 +168,8 @@ func (b Build) switchesCost(ctx context.Context, ownerID string, entries []repos
 			return nil, fmt.Errorf("getting switch %q: %w", e.Switch, err)
 		}
 
-		if sw.Purchase.Price != nil && sw.Purchase.Quantity != nil && *sw.Purchase.Quantity != 0 {
-			entryCost := *sw.Purchase.Price / float64(*sw.Purchase.Quantity) * float64(e.Count)
+		if unitPrice := sw.Purchases.UnitPrice(); unitPrice != nil {
+			entryCost := *unitPrice * float64(e.Count)
 			costs = append(costs, &entryCost)
 		}
 	}
@@ -178,8 +177,7 @@ func (b Build) switchesCost(ctx context.Context, ownerID string, entries []repos
 	return sumKnownCosts(costs...), nil
 }
 
-// ecPartsCost prices each entry at (Price/Quantity)*Count, leaving out
-// entries where either is unknown.
+// ecPartsCost prices each entry the same way as switchesCost.
 func (b Build) ecPartsCost(ctx context.Context, ownerID string, entries []repository.BuildECPartEntry) (*float64, error) {
 	costs := make([]*float64, 0, len(entries))
 
@@ -189,8 +187,8 @@ func (b Build) ecPartsCost(ctx context.Context, ownerID string, entries []reposi
 			return nil, fmt.Errorf("getting EC part %q: %w", e.ECPart, err)
 		}
 
-		if p.Purchase.Price != nil && p.Purchase.Quantity != nil && *p.Purchase.Quantity != 0 {
-			entryCost := *p.Purchase.Price / float64(*p.Purchase.Quantity) * float64(e.Count)
+		if unitPrice := p.Purchases.UnitPrice(); unitPrice != nil {
+			entryCost := *unitPrice * float64(e.Count)
 			costs = append(costs, &entryCost)
 		}
 	}

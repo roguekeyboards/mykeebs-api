@@ -44,11 +44,11 @@ func (s *SwitchToMCPSuite) TestMapsAllFields() {
 		Material:     repository.SwitchMaterial{Stem: &stem},
 		Force:        repository.SwitchForce{Actuation: &actuation},
 		Spring:       repository.SwitchSpring{Material: &springMaterial},
-		Purchase: repository.SwitchPurchase{
+		Purchases: repository.BulkPurchases{{
 			Vendor: &vendor, Price: &price,
 			OrderDate: &orderDate, DeliveryDate: &deliveryDate, OrderStatus: &status,
 			Quantity: &quantity,
-		},
+		}},
 		Notes:      &notes,
 		Visibility: repository.VisibilityPublic,
 	}
@@ -68,14 +68,14 @@ func (s *SwitchToMCPSuite) TestMapsAllFields() {
 	s.InDelta(50.0, *out.Force.Actuation, 0.001)
 	s.Require().NotNil(out.Spring)
 	s.Equal("steel", *out.Spring.Material)
-	s.Require().NotNil(out.Purchase)
-	s.Equal(90, *out.Purchase.Quantity)
-	s.Require().NotNil(out.Purchase.OrderDate)
-	s.Equal("2026-01-15", *out.Purchase.OrderDate)
-	s.Require().NotNil(out.Purchase.DeliveryDate)
-	s.Equal("2026-01-22", *out.Purchase.DeliveryDate)
-	s.Require().NotNil(out.Purchase.OrderStatus)
-	s.Equal("Delivered", *out.Purchase.OrderStatus)
+	s.Require().Len(out.Purchases, 1)
+	s.Equal(90, *out.Purchases[0].Quantity)
+	s.Require().NotNil(out.Purchases[0].OrderDate)
+	s.Equal("2026-01-15", *out.Purchases[0].OrderDate)
+	s.Require().NotNil(out.Purchases[0].DeliveryDate)
+	s.Equal("2026-01-22", *out.Purchases[0].DeliveryDate)
+	s.Require().NotNil(out.Purchases[0].OrderStatus)
+	s.Equal("Delivered", *out.Purchases[0].OrderStatus)
 	s.Require().NotNil(out.Notes)
 	s.Equal("smooth", *out.Notes)
 	s.Require().NotNil(out.Visibility)
@@ -96,7 +96,7 @@ func (s *SwitchToMCPSuite) TestEmptyGroups_CollapseToNil() {
 	s.Nil(out.Material)
 	s.Nil(out.Force)
 	s.Nil(out.Spring)
-	s.Nil(out.Purchase)
+	s.Nil(out.Purchases)
 	s.Nil(out.FactoryLubed)
 	s.Nil(out.Manufacturer)
 	s.Nil(out.Pins)
@@ -139,22 +139,22 @@ func (s *SwitchToMCPSuite) TestRecordedZero_SurvivesRoundTrip() {
 	quantity := 0
 
 	out := Switch{}.ToMCP(repository.Switch{
-		Pins:     &pins,
-		Purchase: repository.SwitchPurchase{Price: &price, Quantity: &quantity},
+		Pins:      &pins,
+		Purchases: repository.BulkPurchases{{Price: &price, Quantity: &quantity}},
 	}, true, repository.ProfilePreferences{Currency: "USD"})
 
 	s.Require().NotNil(out.Pins)
 	s.Zero(*out.Pins)
-	s.Require().NotNil(out.Purchase)
-	s.Require().NotNil(out.Purchase.Price)
-	s.Zero(*out.Purchase.Price)
-	s.Require().NotNil(out.Purchase.Quantity)
-	s.Zero(*out.Purchase.Quantity)
+	s.Require().Len(out.Purchases, 1)
+	s.Require().NotNil(out.Purchases[0].Price)
+	s.Zero(*out.Purchases[0].Price)
+	s.Require().NotNil(out.Purchases[0].Quantity)
+	s.Zero(*out.Purchases[0].Quantity)
 
 	raw, err := json.Marshal(out)
 	s.Require().NoError(err)
 	s.JSONEq(
-		`{"id":"","brand":"","name":"","type":"","pins":0,"purchase":{"price":0,"currency":"USD","quantity":0},"visibility":"","has_image":false}`,
+		`{"id":"","brand":"","name":"","type":"","pins":0,"purchases":[{"price":0,"currency":"USD","quantity":0}],"total_quantity":0,"visibility":"","has_image":false}`,
 		string(raw),
 	)
 }
@@ -180,15 +180,15 @@ func (s *SwitchToMCPSuite) TestNonOwnerShowPriceToOthersFalse_OmitsPriceKeepsRes
 
 	out := Switch{}.ToMCP(repository.Switch{
 		ID:         "sw-1",
-		Purchase:   repository.SwitchPurchase{Vendor: &vendor, OrderStatus: &status, Price: &price},
+		Purchases:  repository.BulkPurchases{{Vendor: &vendor, OrderStatus: &status, Price: &price}},
 		Visibility: repository.VisibilityPublic,
 	}, false, repository.ProfilePreferences{ShowPriceToOthers: false})
 
-	s.Require().NotNil(out.Purchase)
-	s.Nil(out.Purchase.Price)
-	s.Equal(&vendor, out.Purchase.Vendor)
-	s.Equal(&status, out.Purchase.OrderStatus)
-	s.Nil(out.Purchase.Currency)
+	s.Require().Len(out.Purchases, 1)
+	s.Nil(out.Purchases[0].Price)
+	s.Equal(&vendor, out.Purchases[0].Vendor)
+	s.Equal(&status, out.Purchases[0].OrderStatus)
+	s.Nil(out.Purchases[0].Currency)
 }
 
 func (s *SwitchToMCPSuite) TestNonOwnerShowPriceToOthersTrue_IncludesPrice() {
@@ -196,15 +196,15 @@ func (s *SwitchToMCPSuite) TestNonOwnerShowPriceToOthersTrue_IncludesPrice() {
 
 	out := Switch{}.ToMCP(repository.Switch{
 		ID:         "sw-1",
-		Purchase:   repository.SwitchPurchase{Price: &price},
+		Purchases:  repository.BulkPurchases{{Price: &price}},
 		Visibility: repository.VisibilityPublic,
 	}, false, repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true})
 
-	s.Require().NotNil(out.Purchase)
-	s.Require().NotNil(out.Purchase.Price)
-	s.InDelta(price, *out.Purchase.Price, 0.0001)
-	s.Require().NotNil(out.Purchase.Currency)
-	s.Equal("EUR", *out.Purchase.Currency)
+	s.Require().Len(out.Purchases, 1)
+	s.Require().NotNil(out.Purchases[0].Price)
+	s.InDelta(price, *out.Purchases[0].Price, 0.0001)
+	s.Require().NotNil(out.Purchases[0].Currency)
+	s.Equal("EUR", *out.Purchases[0].Currency)
 }
 
 func (s *SwitchToMCPSuite) TestOwner_AlwaysIncludesPriceRegardlessOfShowPriceToMe() {
@@ -212,15 +212,15 @@ func (s *SwitchToMCPSuite) TestOwner_AlwaysIncludesPriceRegardlessOfShowPriceToM
 
 	out := Switch{}.ToMCP(repository.Switch{
 		ID:         "sw-1",
-		Purchase:   repository.SwitchPurchase{Price: &price},
+		Purchases:  repository.BulkPurchases{{Price: &price}},
 		Visibility: repository.VisibilityPublic,
 	}, true, repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false})
 
-	s.Require().NotNil(out.Purchase)
-	s.Require().NotNil(out.Purchase.Price)
-	s.InDelta(price, *out.Purchase.Price, 0.0001)
-	s.Require().NotNil(out.Purchase.Currency)
-	s.Equal("EUR", *out.Purchase.Currency)
+	s.Require().Len(out.Purchases, 1)
+	s.Require().NotNil(out.Purchases[0].Price)
+	s.InDelta(price, *out.Purchases[0].Price, 0.0001)
+	s.Require().NotNil(out.Purchases[0].Currency)
+	s.Equal("EUR", *out.Purchases[0].Currency)
 }
 
 type SwitchToMCPSummarySuite struct {
@@ -236,12 +236,12 @@ func (s *SwitchToMCPSummarySuite) TestMapsSummaryFields() {
 	orderStatus := "Delivered"
 
 	out := Switch{}.ToMCPSummary(repository.Switch{
-		ID:       "sw-1",
-		Brand:    "Gateron",
-		Name:     "Oil King",
-		Type:     "linear",
-		Notes:    &notes,
-		Purchase: repository.SwitchPurchase{OrderStatus: &orderStatus},
+		ID:        "sw-1",
+		Brand:     "Gateron",
+		Name:      "Oil King",
+		Type:      "linear",
+		Notes:     &notes,
+		Purchases: repository.BulkPurchases{{OrderStatus: &orderStatus}},
 	}, true, repository.ProfilePreferences{})
 
 	s.Equal("sw-1", out.ID)
@@ -264,8 +264,8 @@ func (s *SwitchToMCPSummarySuite) TestOwnerShowPriceToMeTrue_IncludesPrice() {
 	price := 8.50
 
 	out := Switch{}.ToMCPSummary(repository.Switch{
-		ID:       "sw-1",
-		Purchase: repository.SwitchPurchase{Price: &price},
+		ID:        "sw-1",
+		Purchases: repository.BulkPurchases{{Price: &price}},
 	}, true, repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: true})
 
 	s.Require().NotNil(out.Price)
@@ -278,8 +278,8 @@ func (s *SwitchToMCPSummarySuite) TestOwnerShowPriceToMeFalse_OmitsPrice() {
 	price := 8.50
 
 	out := Switch{}.ToMCPSummary(repository.Switch{
-		ID:       "sw-1",
-		Purchase: repository.SwitchPurchase{Price: &price},
+		ID:        "sw-1",
+		Purchases: repository.BulkPurchases{{Price: &price}},
 	}, true, repository.ProfilePreferences{ShowPriceToMe: false})
 
 	s.Nil(out.Price)
@@ -290,8 +290,8 @@ func (s *SwitchToMCPSummarySuite) TestNonOwnerShowPriceToOthersFalse_OmitsPrice(
 	price := 8.50
 
 	out := Switch{}.ToMCPSummary(repository.Switch{
-		ID:       "sw-1",
-		Purchase: repository.SwitchPurchase{Price: &price},
+		ID:        "sw-1",
+		Purchases: repository.BulkPurchases{{Price: &price}},
 	}, false, repository.ProfilePreferences{ShowPriceToOthers: false})
 
 	s.Nil(out.Price)
@@ -302,8 +302,8 @@ func (s *SwitchToMCPSummarySuite) TestNonOwnerShowPriceToOthersTrue_IncludesPric
 	price := 8.50
 
 	out := Switch{}.ToMCPSummary(repository.Switch{
-		ID:       "sw-1",
-		Purchase: repository.SwitchPurchase{Price: &price},
+		ID:        "sw-1",
+		Purchases: repository.BulkPurchases{{Price: &price}},
 	}, false, repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true})
 
 	s.Require().NotNil(out.Price)
@@ -337,10 +337,10 @@ func (s *SwitchFromMCPSuite) TestMapsAllFields() {
 		Material: &schema.SwitchMaterial{Stem: &stem},
 		Force:    &schema.SwitchForce{Actuation: &actuation},
 		Spring:   &schema.SwitchSpring{Length: &springLength},
-		Purchase: &schema.SwitchPurchaseInput{
+		Purchases: []schema.SwitchPurchaseInput{{
 			Vendor: &vendor, Price: &price,
 			OrderDate: &orderDate, DeliveryDate: &deliveryDate, OrderStatus: &status,
-		},
+		}},
 		Visibility: "public",
 	})
 
@@ -352,14 +352,14 @@ func (s *SwitchFromMCPSuite) TestMapsAllFields() {
 	s.InDelta(50.0, *out.Force.Actuation, 0.001)
 	s.Require().NotNil(out.Spring.Length)
 	s.InDelta(22.0, *out.Spring.Length, 0.001)
-	s.Require().NotNil(out.Purchase.Price)
-	s.Zero(*out.Purchase.Price, "a recorded zero price must survive the inbound mapping too")
-	s.Require().NotNil(out.Purchase.OrderDate)
-	s.Equal("2026-01-15", *out.Purchase.OrderDate)
-	s.Require().NotNil(out.Purchase.DeliveryDate)
-	s.Equal("2026-01-22", *out.Purchase.DeliveryDate)
-	s.Require().NotNil(out.Purchase.OrderStatus)
-	s.Equal("Delivered", *out.Purchase.OrderStatus)
+	s.Require().NotNil(out.Purchases[0].Price)
+	s.Zero(*out.Purchases[0].Price, "a recorded zero price must survive the inbound mapping too")
+	s.Require().NotNil(out.Purchases[0].OrderDate)
+	s.Equal("2026-01-15", *out.Purchases[0].OrderDate)
+	s.Require().NotNil(out.Purchases[0].DeliveryDate)
+	s.Equal("2026-01-22", *out.Purchases[0].DeliveryDate)
+	s.Require().NotNil(out.Purchases[0].OrderStatus)
+	s.Equal("Delivered", *out.Purchases[0].OrderStatus)
 }
 
 // ID and UserID are set by the caller and the repository layer
@@ -377,10 +377,7 @@ func (s *SwitchFromMCPSuite) TestNilGroups_MapToZeroValues() {
 	s.Nil(out.Material.Stem)
 	s.Nil(out.Force.Actuation)
 	s.Nil(out.Spring.Material)
-	s.Nil(out.Purchase.Vendor)
-	s.Nil(out.Purchase.OrderDate)
-	s.Nil(out.Purchase.DeliveryDate)
-	s.Nil(out.Purchase.OrderStatus)
+	s.Nil(out.Purchases)
 }
 
 func (s *SwitchToMCPSummarySuite) TestOwner_IncludesVisibility() {
@@ -400,4 +397,36 @@ func (s *SwitchToMCPSummarySuite) TestNonOwner_OmitsVisibility() {
 	}, false, repository.ProfilePreferences{ShowPriceToOthers: true})
 
 	s.Nil(out.Visibility)
+}
+
+func (s *SwitchToMCPSummarySuite) TestSeveralPurchases_AggregatesStatusAndPrice() {
+	out := Switch{}.ToMCPSummary(repository.Switch{
+		ID: "sw-1",
+		Purchases: repository.BulkPurchases{
+			{OrderStatus: new("Delivered"), Price: new(36.0)},
+			{OrderStatus: new("Ordered"), Price: new(54.0)},
+		},
+	}, true, repository.ProfilePreferences{ShowPriceToMe: true})
+
+	s.Equal(new("Ordered"), out.OrderStatus)
+	s.Equal(new(90.0), out.Price)
+}
+
+func (s *SwitchToMCPSuite) TestSeveralPurchases_MapsEachAndTotalsQuantity() {
+	out := Switch{}.ToMCP(repository.Switch{
+		ID:        "sw-1",
+		Purchases: repository.BulkPurchases{{Vendor: new("CannonKeys"), Quantity: new(70)}, {Vendor: new("Divinikey"), Quantity: new(35)}},
+	}, true, repository.ProfilePreferences{})
+
+	s.Equal([]schema.SwitchPurchase{{Vendor: new("CannonKeys"), Quantity: new(70)}, {Vendor: new("Divinikey"), Quantity: new(35)}}, out.Purchases)
+	s.Equal(new(105), out.TotalQuantity)
+}
+
+func (s *SwitchFromMCPSuite) TestSeveralPurchases_MapsEach() {
+	out := Switch{}.FromMCP(schema.SwitchInput{
+		Brand: "B", Name: "N", Type: "linear", Visibility: "private",
+		Purchases: []schema.SwitchPurchaseInput{{Vendor: new("CannonKeys")}, {Vendor: new("Divinikey"), Quantity: new(35)}},
+	})
+
+	s.Equal(repository.BulkPurchases{{Vendor: new("CannonKeys")}, {Vendor: new("Divinikey"), Quantity: new(35)}}, out.Purchases)
 }

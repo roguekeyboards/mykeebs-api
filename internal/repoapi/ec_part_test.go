@@ -26,28 +26,31 @@ func (s *ECPartSuite) TestToAPI_MapsSubObjectAndPurchase() {
 	p := repository.ECPart{
 		ID: "p1", Brand: "DynaCap", Name: "Sliders", PartType: repository.ECPartTypeSliders,
 		Sliders: &repository.ECSliders{Size: new(repository.ECPartSize2U), Stem: new(repository.ECSliderStemOEM), Material: new("POM")},
-		Purchase: repository.ECPartPurchase{
+		Purchases: repository.BulkPurchases{{
 			Vendor: new("Omnitype"), Price: new(20.0), Quantity: new(72),
 			OrderDate: new("2026-09-21"), DeliveryDate: new("2026-09-25"), OrderStatus: new("Delivered"),
-		},
+		}},
 		Notes:      new("smooth"),
 		Visibility: repository.VisibilityPublic,
 	}
 
 	out, err := ECPart{}.ToAPI(s.T().Context(), p, true, repository.ProfilePreferences{Currency: "USD"})
 
+	purchase := api.ECPartPurchase{
+		Vendor: new("Omnitype"), Price: new(20.0), Currency: new("USD"), Quantity: new(72),
+		OrderDate:    &openapi_types.Date{Time: time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)},
+		DeliveryDate: &openapi_types.Date{Time: time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC)},
+		OrderStatus:  new("Delivered"),
+	}
 	s.Require().NoError(err)
 	s.Equal(api.ECPart{
 		Id: "p1", Brand: "DynaCap", Name: "Sliders", PartType: api.ECPartTypeSliders,
-		Sliders: &api.ECSliders{Size: new(api.ECPartSizeN2U), Stem: new(api.ECSliderStemOEM), Material: new("POM")},
-		Purchase: &api.ECPartPurchase{
-			Vendor: new("Omnitype"), Price: new(20.0), Currency: new("USD"), Quantity: new(72),
-			OrderDate:    &openapi_types.Date{Time: time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)},
-			DeliveryDate: &openapi_types.Date{Time: time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC)},
-			OrderStatus:  new("Delivered"),
-		},
-		Notes:      new("smooth"),
-		Visibility: new(api.VisibilityPublic),
+		Sliders:       &api.ECSliders{Size: new(api.ECPartSizeN2U), Stem: new(api.ECSliderStemOEM), Material: new("POM")},
+		Purchase:      &purchase,
+		Purchases:     &[]api.ECPartPurchase{purchase},
+		TotalQuantity: new(72),
+		Notes:         new("smooth"),
+		Visibility:    new(api.VisibilityPublic),
 	}, out)
 }
 
@@ -60,7 +63,7 @@ func (s *ECPartSuite) TestToAPI_EmptyPurchase_Omitted() {
 }
 
 func (s *ECPartSuite) TestToAPI_NonOwner_HidesVisibilityAndPriceUnlessShared() {
-	p := repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, Purchase: repository.ECPartPurchase{Price: new(36.0)}}
+	p := repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, Purchases: repository.BulkPurchases{{Price: new(36.0)}}}
 
 	hidden, err := ECPart{}.ToAPI(s.T().Context(), p, false, repository.ProfilePreferences{})
 	s.Require().NoError(err)
@@ -75,7 +78,7 @@ func (s *ECPartSuite) TestToAPI_NonOwner_HidesVisibilityAndPriceUnlessShared() {
 }
 
 func (s *ECPartSuite) TestToAPI_MalformedStoredDate_ReturnsError() {
-	_, err := ECPart{}.ToAPI(s.T().Context(), repository.ECPart{Purchase: repository.ECPartPurchase{OrderDate: new("not-a-date")}}, true, repository.ProfilePreferences{})
+	_, err := ECPart{}.ToAPI(s.T().Context(), repository.ECPart{Purchases: repository.BulkPurchases{{OrderDate: new("not-a-date")}}}, true, repository.ProfilePreferences{})
 
 	s.Error(err)
 }
@@ -84,9 +87,12 @@ func (s *ECPartSuite) TestToRepo_MapsEveryField() {
 	in := api.ECPartInput{
 		Brand: "DynaCap", Name: "Rings", PartType: api.ECPartTypeRings,
 		Rings: &api.ECRings{Material: new("Silicone"), Thickness: new(0.5)},
-		Purchase: &api.ECPartPurchaseInput{
-			Vendor: new("Omnitype"), Price: new(6.0), Quantity: new(140),
-			OrderDate: &openapi_types.Date{Time: time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)},
+		Purchases: &[]api.ECPartPurchaseInput{
+			{
+				Vendor: new("Omnitype"), Price: new(6.0), Quantity: new(140),
+				OrderDate: &openapi_types.Date{Time: time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)},
+			},
+			{Vendor: new("Omnitype"), Quantity: new(140)},
 		},
 		Notes:      new("0.5mm"),
 		Visibility: api.VisibilityPrivate,
@@ -95,8 +101,9 @@ func (s *ECPartSuite) TestToRepo_MapsEveryField() {
 	s.Equal(repository.ECPart{
 		Brand: "DynaCap", Name: "Rings", PartType: repository.ECPartTypeRings,
 		Rings: &repository.ECRings{Material: new("Silicone"), Thickness: new(0.5)},
-		Purchase: repository.ECPartPurchase{
-			Vendor: new("Omnitype"), Price: new(6.0), Quantity: new(140), OrderDate: new("2026-09-21"),
+		Purchases: repository.BulkPurchases{
+			{Vendor: new("Omnitype"), Price: new(6.0), Quantity: new(140), OrderDate: new("2026-09-21")},
+			{Vendor: new("Omnitype"), Quantity: new(140)},
 		},
 		Notes:      new("0.5mm"),
 		Visibility: repository.VisibilityPrivate,

@@ -2,6 +2,7 @@ package lookup
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -22,8 +23,10 @@ func ValidateSwitch(ctx context.Context, sw repository.Switch) []FieldError {
 	add("material.bottom_housing", sw.Material.BottomHousing, CategorySwitchMaterial)
 	add("material.stem", sw.Material.Stem, CategorySwitchMaterial)
 	add("spring.material", sw.Spring.Material, CategorySwitchSpringMaterial)
-	add("purchase.vendor", sw.Purchase.Vendor, CategoryVendor)
-	add("purchase.order_status", sw.Purchase.OrderStatus, CategoryOrderStatus)
+	for i, pu := range sw.Purchases {
+		add(fmt.Sprintf("purchases[%d].vendor", i), pu.Vendor, CategoryVendor)
+		add(fmt.Sprintf("purchases[%d].order_status", i), pu.OrderStatus, CategoryOrderStatus)
+	}
 
 	return validateFields(ctx, checks)
 }

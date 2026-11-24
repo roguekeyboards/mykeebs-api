@@ -14,11 +14,11 @@ type ECPart struct {
 }
 
 // ToAPI maps a repository.ECPart to its wire representation. The owner
-// always sees their own purchase.price; a non-owner sees it only if
-// ownerPrefs.ShowPriceToOthers. Returns an error if a stored Purchase date
+// always sees their own purchases' prices; a non-owner sees them only if
+// ownerPrefs.ShowPriceToOthers. Returns an error if a stored purchase date
 // doesn't match dateLayout, or the image fails to sign.
 func (e ECPart) ToAPI(ctx context.Context, p repository.ECPart, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.ECPart, error) {
-	purchase, err := e.purchaseToAPI(p.Purchase, isOwner, ownerPrefs)
+	purchases, purchase, err := bulkPurchasesToAPI(p.Purchases, isOwner, ownerPrefs, func(p api.SwitchPurchase) api.ECPartPurchase { return api.ECPartPurchase(p) })
 	if err != nil {
 		return api.ECPart{}, err
 	}
@@ -37,19 +37,21 @@ func (e ECPart) ToAPI(ctx context.Context, p repository.ECPart, isOwner bool, ow
 	}
 
 	return api.ECPart{
-		Id:         p.ID,
-		Brand:      p.Brand,
-		Name:       p.Name,
-		PartType:   api.ECPartType(p.PartType),
-		Domes:      e.domesToAPI(p.Domes),
-		Sliders:    e.slidersToAPI(p.Sliders),
-		Housings:   e.housingsToAPI(p.Housings),
-		Springs:    e.springsToAPI(p.Springs),
-		Rings:      e.ringsToAPI(p.Rings),
-		Purchase:   purchase,
-		Notes:      p.Notes,
-		Visibility: ownerVisibility(p.Visibility, isOwner),
-		Image:      image,
+		Id:            p.ID,
+		Brand:         p.Brand,
+		Name:          p.Name,
+		PartType:      api.ECPartType(p.PartType),
+		Domes:         e.domesToAPI(p.Domes),
+		Sliders:       e.slidersToAPI(p.Sliders),
+		Housings:      e.housingsToAPI(p.Housings),
+		Springs:       e.springsToAPI(p.Springs),
+		Rings:         e.ringsToAPI(p.Rings),
+		Purchase:      purchase,
+		Purchases:     purchases,
+		TotalQuantity: p.Purchases.TotalQuantity(),
+		Notes:         p.Notes,
+		Visibility:    ownerVisibility(p.Visibility, isOwner),
+		Image:         image,
 	}, nil
 }
 
@@ -66,7 +68,7 @@ func (e ECPart) ToRepo(in api.ECPartInput) repository.ECPart {
 		Housings:   e.housingsToRepo(in.Housings),
 		Springs:    e.springsToRepo(in.Springs),
 		Rings:      e.ringsToRepo(in.Rings),
-		Purchase:   e.purchaseToRepo(in.Purchase),
+		Purchases:  bulkPurchasesToRepo(in.Purchases, in.Purchase, func(p api.ECPartPurchaseInput) api.SwitchPurchaseInput { return api.SwitchPurchaseInput(p) }),
 		Notes:      in.Notes,
 		Visibility: repository.Visibility(in.Visibility),
 	}
@@ -74,6 +76,10 @@ func (e ECPart) ToRepo(in api.ECPartInput) repository.ECPart {
 
 // StripPrices clears the prices [ECPart.ToAPI] sets on out.
 func (e ECPart) StripPrices(out *api.ECPart) {
+	out.Purchases = stripBulkPurchasePrices(out.Purchases, func(p *api.ECPartPurchase) {
+		p.Price = nil
+		p.Currency = nil
+	})
 	if out.Purchase == nil {
 		return
 	}
@@ -160,59 +166,4 @@ func (e ECPart) ringsToRepo(r *api.ECRings) *repository.ECRings {
 		return nil
 	}
 	return &repository.ECRings{Material: r.Material, Thickness: r.Thickness}
-}
-
-func (e ECPart) purchaseToAPI(p repository.ECPartPurchase, isOwner bool, ownerPrefs repository.ProfilePreferences) (*api.ECPartPurchase, error) {
-	if p == (repository.ECPartPurchase{}) {
-		return nil, nil //nolint:nilnil // no purchase data is a valid, expected result
-	}
-
-	out := &api.ECPartPurchase{
-		Vendor:      p.Vendor,
-		OrderStatus: p.OrderStatus,
-		Quantity:    p.Quantity,
-	}
-	if ownerPrefs.ShowPriceSingle(isOwner) {
-		out.Price = p.Price
-	}
-	out.Currency = ownerPrefs.CurrencyFor(out.Price)
-	if p.OrderDate != nil {
-		d, err := parseAPIDate(*p.OrderDate)
-		if err != nil {
-			return nil, fmt.Errorf("parsing order_date: %w", err)
-		}
-		out.OrderDate = d
-	}
-	if p.DeliveryDate != nil {
-		d, err := parseAPIDate(*p.DeliveryDate)
-		if err != nil {
-			return nil, fmt.Errorf("parsing delivery_date: %w", err)
-		}
-		out.DeliveryDate = d
-	}
-
-	return out, nil
-}
-
-func (e ECPart) purchaseToRepo(p *api.ECPartPurchaseInput) repository.ECPartPurchase {
-	if p == nil {
-		return repository.ECPartPurchase{}
-	}
-
-	out := repository.ECPartPurchase{
-		Vendor:      p.Vendor,
-		Price:       p.Price,
-		OrderStatus: p.OrderStatus,
-		Quantity:    p.Quantity,
-	}
-	if p.OrderDate != nil {
-		str := p.OrderDate.Format(dateLayout)
-		out.OrderDate = &str
-	}
-	if p.DeliveryDate != nil {
-		str := p.DeliveryDate.Format(dateLayout)
-		out.DeliveryDate = &str
-	}
-
-	return out
 }

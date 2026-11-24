@@ -21,8 +21,8 @@ type ECPartSummary struct {
 	Brand       string   `json:"brand" jsonschema:"the part's brand"`
 	Name        string   `json:"name" jsonschema:"the part's name"`
 	PartType    string   `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings"`
-	OrderStatus *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
-	Price       *float64 `json:"price,omitempty" jsonschema:"purchase price; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
+	OrderStatus *string  `json:"order_status,omitempty" jsonschema:"derived from every purchase's order_status: the least-progressed status wins (Planned < Ordered < Shipped < Delivered); a Cancelled purchase is ignored unless every purchase is Cancelled; omitted if no purchase has a status set"`
+	Price       *float64 `json:"price,omitempty" jsonschema:"total paid across purchases with a known price; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
 	Currency    *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
 	Visibility  *string  `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
 	HasImage    bool     `json:"has_image" jsonschema:"whether this part has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
@@ -65,17 +65,17 @@ type UpdateECPartOutput struct {
 // ECPartInput is the writable half of an EC part, shared by create_ec_part
 // and update_ec_part.
 type ECPartInput struct {
-	Brand      string               `json:"brand" jsonschema:"the part's brand"`
-	Name       string               `json:"name" jsonschema:"the part's name"`
-	PartType   string               `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings; only the matching one of domes, sliders, housings, springs or rings may be set"`
-	Domes      *ECDomes             `json:"domes,omitempty" jsonschema:"dome details; only with part_type domes"`
-	Sliders    *ECSliders           `json:"sliders,omitempty" jsonschema:"slider details; only with part_type sliders"`
-	Housings   *ECHousings          `json:"housings,omitempty" jsonschema:"housing details; only with part_type housings"`
-	Springs    *ECSprings           `json:"springs,omitempty" jsonschema:"spring details; only with part_type springs"`
-	Rings      *ECRings             `json:"rings,omitempty" jsonschema:"silencing ring details; only with part_type rings"`
-	Purchase   *ECPartPurchaseInput `json:"purchase,omitempty" jsonschema:"where it was bought and the order's status"`
-	Notes      *string              `json:"notes,omitempty" jsonschema:"free-form notes"`
-	Visibility string               `json:"visibility" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\""`
+	Brand      string                `json:"brand" jsonschema:"the part's brand"`
+	Name       string                `json:"name" jsonschema:"the part's name"`
+	PartType   string                `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings; only the matching one of domes, sliders, housings, springs or rings may be set"`
+	Domes      *ECDomes              `json:"domes,omitempty" jsonschema:"dome details; only with part_type domes"`
+	Sliders    *ECSliders            `json:"sliders,omitempty" jsonschema:"slider details; only with part_type sliders"`
+	Housings   *ECHousings           `json:"housings,omitempty" jsonschema:"housing details; only with part_type housings"`
+	Springs    *ECSprings            `json:"springs,omitempty" jsonschema:"spring details; only with part_type springs"`
+	Rings      *ECRings              `json:"rings,omitempty" jsonschema:"silencing ring details; only with part_type rings"`
+	Purchases  []ECPartPurchaseInput `json:"purchases,omitempty" jsonschema:"every order of this part, each with where it was bought and the order's status"`
+	Notes      *string               `json:"notes,omitempty" jsonschema:"free-form notes"`
+	Visibility string                `json:"visibility" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\""`
 }
 
 // ECPart is one EC part. It reports HasImage rather than the image itself;
@@ -83,19 +83,20 @@ type ECPartInput struct {
 // fields are pointers so a recorded zero stays distinguishable from an
 // unset field, which is omitted entirely.
 type ECPart struct {
-	ID         string          `json:"id" jsonschema:"the EC part's unique id"`
-	Brand      string          `json:"brand" jsonschema:"the part's brand"`
-	Name       string          `json:"name" jsonschema:"the part's name"`
-	PartType   string          `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings"`
-	Domes      *ECDomes        `json:"domes,omitempty" jsonschema:"dome details"`
-	Sliders    *ECSliders      `json:"sliders,omitempty" jsonschema:"slider details"`
-	Housings   *ECHousings     `json:"housings,omitempty" jsonschema:"housing details"`
-	Springs    *ECSprings      `json:"springs,omitempty" jsonschema:"spring details"`
-	Rings      *ECRings        `json:"rings,omitempty" jsonschema:"silencing ring details"`
-	Purchase   *ECPartPurchase `json:"purchase,omitempty" jsonschema:"where it was bought and the order's status"`
-	Notes      *string         `json:"notes,omitempty" jsonschema:"free-form notes"`
-	Visibility *string         `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
-	HasImage   bool            `json:"has_image" jsonschema:"whether this part has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
+	ID            string           `json:"id" jsonschema:"the EC part's unique id"`
+	Brand         string           `json:"brand" jsonschema:"the part's brand"`
+	Name          string           `json:"name" jsonschema:"the part's name"`
+	PartType      string           `json:"part_type" jsonschema:"which building block this is: domes, sliders, housings, springs or rings"`
+	Domes         *ECDomes         `json:"domes,omitempty" jsonschema:"dome details"`
+	Sliders       *ECSliders       `json:"sliders,omitempty" jsonschema:"slider details"`
+	Housings      *ECHousings      `json:"housings,omitempty" jsonschema:"housing details"`
+	Springs       *ECSprings       `json:"springs,omitempty" jsonschema:"spring details"`
+	Rings         *ECRings         `json:"rings,omitempty" jsonschema:"silencing ring details"`
+	Purchases     []ECPartPurchase `json:"purchases,omitempty" jsonschema:"every order of this part, each with where it was bought and the order's status"`
+	TotalQuantity *int             `json:"total_quantity,omitempty" jsonschema:"the sum of purchases' quantities; omitted if no purchase has a quantity"`
+	Notes         *string          `json:"notes,omitempty" jsonschema:"free-form notes"`
+	Visibility    *string          `json:"visibility,omitempty" jsonschema:"who can read this part; one of \"public\", \"authenticated\", \"private\"; only ever present for the part's owner"`
+	HasImage      bool             `json:"has_image" jsonschema:"whether this part has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
 
 	ImageStatus          *string `json:"image_status,omitempty" jsonschema:"the image's moderation status: pending until it's checked, then approved or rejected; only ever present for the part's owner"`
 	ImageRejectionReason *string `json:"image_rejection_reason,omitempty" jsonschema:"why a rejected image was rejected: the moderation label; not_webp when the file isn't a WebP; too_large when its longest side is over 2560px; or unprocessable when the file couldn't be checked; only ever present for the part's owner"`

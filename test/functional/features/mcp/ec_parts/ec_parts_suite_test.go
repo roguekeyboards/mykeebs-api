@@ -28,9 +28,10 @@ type ecPart struct {
 	Housings *struct {
 		Size *string `json:"size"`
 	} `json:"housings"`
-	Purchase *struct {
+	Purchases []struct {
 		Vendor *string `json:"vendor"`
-	} `json:"purchase"`
+	} `json:"purchases"`
+	TotalQuantity *int `json:"total_quantity"`
 }
 
 func decodePart(result *sdkmcp.CallToolResult) ecPart {

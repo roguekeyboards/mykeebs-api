@@ -49,14 +49,14 @@ func fullRepoSwitch() repository.Switch {
 			TotalTravel: floatPtr(4),
 			Length:      floatPtr(22),
 		},
-		Purchase: repository.SwitchPurchase{
+		Purchases: repository.BulkPurchases{{
 			Vendor:       strPtr("CannonKeys"),
 			Price:        floatPtr(0.35),
 			OrderDate:    strPtr("2026-01-15"),
 			DeliveryDate: strPtr("2026-01-22"),
 			OrderStatus:  strPtr("Delivered"),
 			Quantity:     intPtr(90),
-		},
+		}},
 		Notes:      strPtr("smooth"),
 		Visibility: repository.VisibilityPrivate,
 	}
@@ -103,14 +103,14 @@ func (s *SwitchToAPISuite) TestFullRoundTrip_PreservesEveryField() {
 		s.Equal(sw.Spring.Length, out.Spring.Length)
 	}
 	if s.NotNil(out.Purchase) {
-		s.Equal(sw.Purchase.Vendor, out.Purchase.Vendor)
-		s.Equal(sw.Purchase.Price, out.Purchase.Price)
-		s.Equal(sw.Purchase.OrderStatus, out.Purchase.OrderStatus)
-		s.Equal(sw.Purchase.Quantity, out.Purchase.Quantity)
+		s.Equal(sw.Purchases[0].Vendor, out.Purchase.Vendor)
+		s.Equal(sw.Purchases[0].Price, out.Purchase.Price)
+		s.Equal(sw.Purchases[0].OrderStatus, out.Purchase.OrderStatus)
+		s.Equal(sw.Purchases[0].Quantity, out.Purchase.Quantity)
 		s.Require().NotNil(out.Purchase.OrderDate)
-		s.Equal(*sw.Purchase.OrderDate, out.Purchase.OrderDate.Format(dateLayout))
+		s.Equal(*sw.Purchases[0].OrderDate, out.Purchase.OrderDate.Format(dateLayout))
 		s.Require().NotNil(out.Purchase.DeliveryDate)
-		s.Equal(*sw.Purchase.DeliveryDate, out.Purchase.DeliveryDate.Format(dateLayout))
+		s.Equal(*sw.Purchases[0].DeliveryDate, out.Purchase.DeliveryDate.Format(dateLayout))
 	}
 }
 
@@ -176,7 +176,7 @@ func (s *SwitchToAPISuite) TestOnlySpringLengthSet_SpringPresent() {
 func (s *SwitchToAPISuite) TestMalformedStoredDate_ReturnsError() {
 	sw := repository.Switch{
 		ID: "sw1", Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: repository.VisibilityPrivate,
-		Purchase: repository.SwitchPurchase{OrderDate: strPtr("not-a-date")},
+		Purchases: repository.BulkPurchases{{OrderDate: strPtr("not-a-date")}},
 	}
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
@@ -194,13 +194,13 @@ func (s *SwitchToAPISuite) TestNonOwnerShowPriceToOthersFalse_OmitsPriceKeepsRes
 
 	s.Require().NotNil(out.Purchase)
 	s.Nil(out.Purchase.Price)
-	s.Equal(sw.Purchase.Vendor, out.Purchase.Vendor)
-	s.Equal(sw.Purchase.OrderStatus, out.Purchase.OrderStatus)
-	s.Equal(sw.Purchase.Quantity, out.Purchase.Quantity)
+	s.Equal(sw.Purchases[0].Vendor, out.Purchase.Vendor)
+	s.Equal(sw.Purchases[0].OrderStatus, out.Purchase.OrderStatus)
+	s.Equal(sw.Purchases[0].Quantity, out.Purchase.Quantity)
 	s.Require().NotNil(out.Purchase.OrderDate)
-	s.Equal(*sw.Purchase.OrderDate, out.Purchase.OrderDate.Format(dateLayout))
+	s.Equal(*sw.Purchases[0].OrderDate, out.Purchase.OrderDate.Format(dateLayout))
 	s.Require().NotNil(out.Purchase.DeliveryDate)
-	s.Equal(*sw.Purchase.DeliveryDate, out.Purchase.DeliveryDate.Format(dateLayout))
+	s.Equal(*sw.Purchases[0].DeliveryDate, out.Purchase.DeliveryDate.Format(dateLayout))
 	s.Nil(out.Purchase.Currency)
 }
 
@@ -212,7 +212,7 @@ func (s *SwitchToAPISuite) TestNonOwnerShowPriceToOthersTrue_IncludesPrice() {
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Purchase)
-	s.Equal(sw.Purchase.Price, out.Purchase.Price)
+	s.Equal(sw.Purchases[0].Price, out.Purchase.Price)
 	s.Require().NotNil(out.Purchase.Currency)
 	s.Equal("EUR", *out.Purchase.Currency)
 }
@@ -225,7 +225,7 @@ func (s *SwitchToAPISuite) TestOwner_AlwaysIncludesPriceRegardlessOfShowPriceToM
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Purchase)
-	s.Equal(sw.Purchase.Price, out.Purchase.Price)
+	s.Equal(sw.Purchases[0].Price, out.Purchase.Price)
 	s.Require().NotNil(out.Purchase.Currency)
 	s.Equal("EUR", *out.Purchase.Currency)
 }
@@ -334,14 +334,14 @@ func (s *SwitchToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 	s.Equal(in.Spring.PreTravel, sw.Spring.PreTravel)
 	s.Equal(in.Spring.TotalTravel, sw.Spring.TotalTravel)
 	s.Equal(in.Spring.Length, sw.Spring.Length)
-	s.Equal(in.Purchase.Vendor, sw.Purchase.Vendor)
-	s.Equal(in.Purchase.Price, sw.Purchase.Price)
-	s.Equal(in.Purchase.OrderStatus, sw.Purchase.OrderStatus)
-	s.Equal(in.Purchase.Quantity, sw.Purchase.Quantity)
-	s.Require().NotNil(sw.Purchase.OrderDate)
-	s.Equal(in.Purchase.OrderDate.Format(dateLayout), *sw.Purchase.OrderDate)
-	s.Require().NotNil(sw.Purchase.DeliveryDate)
-	s.Equal(in.Purchase.DeliveryDate.Format(dateLayout), *sw.Purchase.DeliveryDate)
+	s.Equal(in.Purchase.Vendor, sw.Purchases[0].Vendor)
+	s.Equal(in.Purchase.Price, sw.Purchases[0].Price)
+	s.Equal(in.Purchase.OrderStatus, sw.Purchases[0].OrderStatus)
+	s.Equal(in.Purchase.Quantity, sw.Purchases[0].Quantity)
+	s.Require().NotNil(sw.Purchases[0].OrderDate)
+	s.Equal(in.Purchase.OrderDate.Format(dateLayout), *sw.Purchases[0].OrderDate)
+	s.Require().NotNil(sw.Purchases[0].DeliveryDate)
+	s.Equal(in.Purchase.DeliveryDate.Format(dateLayout), *sw.Purchases[0].DeliveryDate)
 }
 
 func (s *SwitchToRepoSuite) TestNilSubStructs_ProduceZeroValueStructs() {
@@ -352,7 +352,7 @@ func (s *SwitchToRepoSuite) TestNilSubStructs_ProduceZeroValueStructs() {
 	s.Equal(repository.SwitchMaterial{}, sw.Material)
 	s.Equal(repository.SwitchForce{}, sw.Force)
 	s.Equal(repository.SwitchSpring{}, sw.Spring)
-	s.Equal(repository.SwitchPurchase{}, sw.Purchase)
+	s.Nil(sw.Purchases)
 }
 
 func (s *SwitchToAPISuite) TestStripPrices_ClearsPriceAndCurrencyKeepsRest() {
@@ -382,4 +382,82 @@ func (s *SwitchToAPISuite) TestStripPrices_NoPurchase_NoOp() {
 	Switch{}.StripPrices(&out)
 
 	s.Equal(api.Switch{Id: "sw1"}, out)
+}
+
+func (s *SwitchToRepoSuite) TestPurchasesSent_IgnoresLegacyPurchase() {
+	in := api.SwitchInput{
+		Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: api.VisibilityPrivate,
+		Purchase:  &api.SwitchPurchaseInput{Vendor: strPtr("Legacy")},
+		Purchases: &[]api.SwitchPurchaseInput{{Vendor: strPtr("CannonKeys")}, {Vendor: strPtr("Divinikey")}},
+	}
+
+	sw := Switch{}.ToRepo(in)
+
+	s.Equal(repository.BulkPurchases{{Vendor: strPtr("CannonKeys")}, {Vendor: strPtr("Divinikey")}}, sw.Purchases)
+}
+
+func (s *SwitchToRepoSuite) TestEmptyPurchasesSent_ClearsPurchases() {
+	in := api.SwitchInput{
+		Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: api.VisibilityPrivate,
+		Purchase:  &api.SwitchPurchaseInput{Vendor: strPtr("Legacy")},
+		Purchases: &[]api.SwitchPurchaseInput{},
+	}
+
+	s.Nil(Switch{}.ToRepo(in).Purchases)
+}
+
+func (s *SwitchToRepoSuite) TestEmptyLegacyPurchase_NoPurchases() {
+	in := api.SwitchInput{
+		Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: api.VisibilityPrivate,
+		Purchase: &api.SwitchPurchaseInput{},
+	}
+
+	s.Nil(Switch{}.ToRepo(in).Purchases)
+}
+
+func (s *SwitchToAPISuite) TestPurchases_LegacyPurchaseIsEarliestOrdered() {
+	sw := repository.Switch{ID: "sw1", Purchases: repository.BulkPurchases{
+		{Vendor: strPtr("Undated"), Quantity: intPtr(10)},
+		{Vendor: strPtr("Later"), OrderDate: strPtr("2026-11-23"), Quantity: intPtr(70)},
+		{Vendor: strPtr("Earlier"), OrderDate: strPtr("2026-03-01"), Quantity: intPtr(70)},
+	}}
+
+	out, err := Switch{}.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(out.Purchases)
+	s.Len(*out.Purchases, 3)
+	s.Require().NotNil(out.Purchase)
+	s.Equal(strPtr("Earlier"), out.Purchase.Vendor)
+	s.Equal(intPtr(150), out.TotalQuantity)
+}
+
+func (s *SwitchToAPISuite) TestPurchases_NoneDated_LegacyPurchaseIsFirst() {
+	sw := repository.Switch{ID: "sw1", Purchases: repository.BulkPurchases{{Vendor: strPtr("First")}, {Vendor: strPtr("Second")}}}
+
+	out, err := Switch{}.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(out.Purchase)
+	s.Equal(strPtr("First"), out.Purchase.Vendor)
+	s.Nil(out.TotalQuantity)
+}
+
+func (s *SwitchToAPISuite) TestStripPrices_ClearsEveryPurchaseDroppingEmptyOnes() {
+	out := api.Switch{Purchases: &[]api.SwitchPurchase{
+		{Price: floatPtr(8.5), Currency: strPtr("EUR"), Vendor: strPtr("CannonKeys")},
+		{Price: floatPtr(4.0), Currency: strPtr("EUR")},
+	}}
+
+	Switch{}.StripPrices(&out)
+
+	s.Equal(&[]api.SwitchPurchase{{Vendor: strPtr("CannonKeys")}}, out.Purchases)
+}
+
+func (s *SwitchToAPISuite) TestStripPrices_EveryPurchaseOnlyPriced_DropsPurchases() {
+	out := api.Switch{Purchases: &[]api.SwitchPurchase{{Price: floatPtr(8.5), Currency: strPtr("EUR")}}}
+
+	Switch{}.StripPrices(&out)
+
+	s.Nil(out.Purchases)
 }

@@ -18,8 +18,8 @@ func (in SwitchInput) Validate(v *validate.V) {
 	if in.Spring != nil {
 		in.Spring.Validate(v.At("spring"))
 	}
-	if in.Purchase != nil {
-		in.Purchase.Validate(v.At("purchase"))
+	for i, p := range in.Purchases {
+		p.Validate(v.Index("purchases", i))
 	}
 	checkVisibility(v, in.Visibility)
 }

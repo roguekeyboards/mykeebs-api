@@ -160,12 +160,12 @@ func (r *SwitchRepository) Update(ctx context.Context, sw repository.Switch) (*r
 		Set(expression.Name("material"), expression.Value(sw.Material)).
 		Set(expression.Name("force"), expression.Value(sw.Force)).
 		Set(expression.Name("spring"), expression.Value(sw.Spring)).
-		Set(expression.Name("purchase"), expression.Value(sw.Purchase)).
 		Set(expression.Name("visibility"), expression.Value(sw.Visibility))
 	update = setOrRemovePtr(update, "manufacturer", sw.Manufacturer)
 	update = setOrRemovePtr(update, "pins", sw.Pins)
 	update = setOrRemovePtr(update, "factory_lubed", sw.FactoryLubed)
 	update = setOrRemovePtr(update, "notes", sw.Notes)
+	update = setOrRemoveSlice(update, "purchases", sw.Purchases)
 
 	expr, err := expression.NewBuilder().
 		WithUpdate(update).
@@ -237,6 +237,14 @@ func setOrRemovePtr[T any](update expression.UpdateBuilder, name string, v *T) e
 		return update.Remove(expression.Name(name))
 	}
 	return update.Set(expression.Name(name), expression.Value(*v))
+}
+
+// setOrRemoveSlice is setOrRemovePtr for a list, REMOVEing it when empty.
+func setOrRemoveSlice[S ~[]E, E any](update expression.UpdateBuilder, name string, v S) expression.UpdateBuilder {
+	if len(v) == 0 {
+		return update.Remove(expression.Name(name))
+	}
+	return update.Set(expression.Name(name), expression.Value(v))
 }
 
 // SetImagePath implements repository.SwitchRepository.

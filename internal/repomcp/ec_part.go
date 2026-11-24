@@ -9,23 +9,24 @@ import (
 type ECPart struct{}
 
 // ToMCP maps a repository.ECPart to its MCP tool shape. The owner always
-// sees their own purchase.price; a non-owner sees it only if
+// sees their own purchases' prices; a non-owner sees them only if
 // ownerPrefs.ShowPriceToOthers.
 func (e ECPart) ToMCP(p repository.ECPart, isOwner bool, ownerPrefs repository.ProfilePreferences) schema.ECPart {
 	out := schema.ECPart{
-		ID:         p.ID,
-		Brand:      p.Brand,
-		Name:       p.Name,
-		PartType:   string(p.PartType),
-		Domes:      e.domesToMCP(p.Domes),
-		Sliders:    e.slidersToMCP(p.Sliders),
-		Housings:   e.housingsToMCP(p.Housings),
-		Springs:    e.springsToMCP(p.Springs),
-		Rings:      e.ringsToMCP(p.Rings),
-		Purchase:   e.purchaseToMCP(p.Purchase, isOwner, ownerPrefs),
-		Notes:      p.Notes,
-		Visibility: ownerVisibility(p.Visibility, isOwner),
-		HasImage:   p.ImagePath != nil && p.ImageStatus.VisibleTo(isOwner),
+		ID:            p.ID,
+		Brand:         p.Brand,
+		Name:          p.Name,
+		PartType:      string(p.PartType),
+		Domes:         e.domesToMCP(p.Domes),
+		Sliders:       e.slidersToMCP(p.Sliders),
+		Housings:      e.housingsToMCP(p.Housings),
+		Springs:       e.springsToMCP(p.Springs),
+		Rings:         e.ringsToMCP(p.Rings),
+		Purchases:     bulkPurchasesToMCP(p.Purchases, isOwner, ownerPrefs, func(p schema.SwitchPurchase) schema.ECPartPurchase { return schema.ECPartPurchase(p) }),
+		TotalQuantity: p.Purchases.TotalQuantity(),
+		Notes:         p.Notes,
+		Visibility:    ownerVisibility(p.Visibility, isOwner),
+		HasImage:      p.ImagePath != nil && p.ImageStatus.VisibleTo(isOwner),
 	}
 	out.ImageStatus, out.ImageRejectionReason = imageStatusToMCP(p.ImagePath != nil, p.ImageStatus, p.ImageRejectionReason, isOwner)
 
@@ -41,12 +42,12 @@ func (e ECPart) ToMCPSummary(p repository.ECPart, isOwner bool, ownerPrefs repos
 		Brand:       p.Brand,
 		Name:        p.Name,
 		PartType:    string(p.PartType),
-		OrderStatus: p.Purchase.OrderStatus,
+		OrderStatus: p.Purchases.OrderStatus(),
 		Visibility:  ownerVisibility(p.Visibility, isOwner),
 		HasImage:    p.ImagePath != nil && p.ImageStatus.VisibleTo(isOwner),
 	}
 	if ownerPrefs.ShowPriceSummary(isOwner) {
-		summary.Price = p.Purchase.Price
+		summary.Price = p.Purchases.TotalPrice()
 	}
 	summary.Currency = ownerPrefs.CurrencyFor(summary.Price)
 
@@ -65,7 +66,7 @@ func (e ECPart) FromMCP(in schema.ECPartInput) repository.ECPart {
 		Housings:   e.housingsFromMCP(in.Housings),
 		Springs:    e.springsFromMCP(in.Springs),
 		Rings:      e.ringsFromMCP(in.Rings),
-		Purchase:   e.purchaseFromMCP(in.Purchase),
+		Purchases:  bulkPurchasesFromMCP(in.Purchases, func(p schema.ECPartPurchaseInput) schema.SwitchPurchaseInput { return schema.SwitchPurchaseInput(p) }),
 		Notes:      in.Notes,
 		Visibility: repository.Visibility(in.Visibility),
 	}
@@ -143,39 +144,4 @@ func (e ECPart) ringsFromMCP(r *schema.ECRings) *repository.ECRings {
 		return nil
 	}
 	return &repository.ECRings{Material: r.Material, Thickness: r.Thickness}
-}
-
-func (e ECPart) purchaseToMCP(p repository.ECPartPurchase, isOwner bool, ownerPrefs repository.ProfilePreferences) *schema.ECPartPurchase {
-	if p == (repository.ECPartPurchase{}) {
-		return nil
-	}
-
-	out := &schema.ECPartPurchase{
-		Vendor:       p.Vendor,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
-		Quantity:     p.Quantity,
-	}
-	if ownerPrefs.ShowPriceSingle(isOwner) {
-		out.Price = p.Price
-	}
-	out.Currency = ownerPrefs.CurrencyFor(out.Price)
-
-	return out
-}
-
-func (e ECPart) purchaseFromMCP(p *schema.ECPartPurchaseInput) repository.ECPartPurchase {
-	if p == nil {
-		return repository.ECPartPurchase{}
-	}
-
-	return repository.ECPartPurchase{
-		Vendor:       p.Vendor,
-		Price:        p.Price,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
-		Quantity:     p.Quantity,
-	}
 }

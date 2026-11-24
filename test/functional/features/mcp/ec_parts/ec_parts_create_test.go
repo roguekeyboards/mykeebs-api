@@ -48,8 +48,11 @@ var _ = Describe("Creating an EC part over MCP", func() {
 				BeforeEach(func(ctx SpecContext) {
 					call(ctx, map[string]any{
 						"brand": "DynaCap", "name": "Rings", "part_type": "rings",
-						"rings":      map[string]any{"material": "Silicone", "thickness": 0.5},
-						"purchase":   map[string]any{"vendor": "Omnitype", "quantity": 140},
+						"rings": map[string]any{"material": "Silicone", "thickness": 0.5},
+						"purchases": []map[string]any{
+							{"vendor": "Omnitype", "quantity": 140},
+							{"vendor": "Omnitype", "quantity": 70},
+						},
 						"visibility": "private",
 					})
 				})
@@ -64,6 +67,10 @@ var _ = Describe("Creating an EC part over MCP", func() {
 					Expect(out.Rings).NotTo(BeNil())
 					Expect(*out.Rings.Thickness).To(Equal(0.5))
 					Expect(out.Visibility).To(Equal("private"))
+
+					By("keeping every purchase and totalling their quantities")
+					Expect(out.Purchases).To(HaveLen(2))
+					Expect(out.TotalQuantity).To(HaveValue(Equal(210)))
 				})
 			})
 		})

@@ -64,6 +64,39 @@ var _ = Describe("Creating an EC part", func() {
 					Expect(created.Domes).NotTo(BeNil())
 					Expect(*created.Domes.Weight).To(Equal(55.0))
 					Expect(*created.Domes.Material).To(Equal("Silicone"))
+
+					By("recording the deprecated purchase as the only purchase")
+					Expect(created.Purchases).To(HaveLen(1))
+					Expect(created.Purchases[0].Vendor).To(HaveValue(Equal("Omnitype")))
+					Expect(created.TotalQuantity).To(HaveValue(Equal(72)))
+				})
+			})
+		})
+
+		Context("given several purchases", func() {
+			When("creating an EC part", func() {
+				BeforeEach(func(ctx SpecContext) {
+					create(ctx, ownerID, ownerToken,
+						`{"brand":"DynaCap","name":"Heavy","part_type":"domes","visibility":"private","purchases":[`+
+							`{"vendor":"Omnitype","order_date":"2026-11-23","quantity":72},`+
+							`{"vendor":"Omnitype","order_date":"2026-09-21","quantity":72}]}`)
+				})
+
+				It("keeps every purchase", func() {
+					By("returning 201 Created")
+					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+
+					By("returning both purchases in order")
+					Expect(created.Purchases).To(HaveLen(2))
+					Expect(created.Purchases[0].OrderDate).To(HaveValue(Equal("2026-11-23")))
+					Expect(created.Purchases[1].OrderDate).To(HaveValue(Equal("2026-09-21")))
+
+					By("totalling their quantities")
+					Expect(created.TotalQuantity).To(HaveValue(Equal(144)))
+
+					By("returning the earliest as the deprecated purchase")
+					Expect(created.Purchase).NotTo(BeNil())
+					Expect(created.Purchase.OrderDate).To(HaveValue(Equal("2026-09-21")))
 				})
 			})
 		})

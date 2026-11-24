@@ -142,7 +142,7 @@ func (s *HandleCreateECPartSuite) TestInvalidInputs_ReturnErrorsWithoutCreating(
 		want string
 	}{
 		"other sub-object":  {func(in *schema.ECPartInput) { in.Rings = &schema.ECRings{} }, "rings"},
-		"unapproved vendor": {func(in *schema.ECPartInput) { in.Purchase = &schema.ECPartPurchaseInput{Vendor: new("Nowhere")} }, "purchase.vendor"},
+		"unapproved vendor": {func(in *schema.ECPartInput) { in.Purchases = []schema.ECPartPurchaseInput{{Vendor: new("Nowhere")}} }, "purchases[0].vendor"},
 	} {
 		in := validECPartInput()
 		tc.edit(&in)

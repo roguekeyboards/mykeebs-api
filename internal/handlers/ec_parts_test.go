@@ -90,7 +90,7 @@ func (s *ListECPartsSuite) TestPartTypeQuery_PassedToRepository() {
 func (s *ListECPartsSuite) TestOwnerShowPriceToMeFalse_OmitsPrice() {
 	s.mockRepo.EXPECT().
 		List(mock.Anything, "alice", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return([]repository.ECPart{{ID: "p1", Purchase: repository.ECPartPurchase{Price: new(36.0), Vendor: new("Omnitype")}}}, "", nil)
+		Return([]repository.ECPart{{ID: "p1", Purchases: repository.BulkPurchases{{Price: new(36.0), Vendor: new("Omnitype")}}}}, "", nil)
 
 	rec := httptest.NewRecorder()
 	s.handler(rec, newECPartRequest(apictx.WithUserID(s.T().Context(), "alice"), ecPartRequest{method: http.MethodGet, query: "limit=20"}))
@@ -186,7 +186,7 @@ func (s *GetECPartSuite) TestNotFound_Returns404() {
 
 func (s *GetECPartSuite) TestMalformedStoredDate_Returns500() {
 	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "p1").
-		Return(&repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, Purchase: repository.ECPartPurchase{OrderDate: new("bad")}}, nil)
+		Return(&repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, Purchases: repository.BulkPurchases{{OrderDate: new("bad")}}}, nil)
 
 	rec := httptest.NewRecorder()
 	s.handler(rec, newECPartRequest(s.T().Context(), ecPartRequest{method: http.MethodGet, pathID: "p1"}))

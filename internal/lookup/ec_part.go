@@ -2,6 +2,7 @@ package lookup
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -32,8 +33,10 @@ func ValidateECPart(ctx context.Context, p repository.ECPart) []FieldError {
 	if p.Rings != nil {
 		add("rings.material", p.Rings.Material, CategoryECRingMaterial)
 	}
-	add("purchase.vendor", p.Purchase.Vendor, CategoryVendor)
-	add("purchase.order_status", p.Purchase.OrderStatus, CategoryOrderStatus)
+	for i, pu := range p.Purchases {
+		add(fmt.Sprintf("purchases[%d].vendor", i), pu.Vendor, CategoryVendor)
+		add(fmt.Sprintf("purchases[%d].order_status", i), pu.OrderStatus, CategoryOrderStatus)
+	}
 
 	return validateFields(ctx, checks)
 }

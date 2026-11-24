@@ -85,15 +85,23 @@ var orderStatusProgression = map[string]int{
 // order_status isn't a recognized value (unvalidated/legacy data - callers
 // should not guess).
 func AggregateOrderStatus(kits map[string]KeycapKit) *string {
+	statuses := make([]*string, 0, len(kits))
+	for _, k := range kits {
+		statuses = append(statuses, k.Purchase.OrderStatus)
+	}
+	return leastProgressedOrderStatus(statuses)
+}
+
+func leastProgressedOrderStatus(statuses []*string) *string {
 	var least string
 	haveLeast := false
 	sawCancelled := false
 
-	for _, k := range kits {
-		if k.Purchase.OrderStatus == nil {
+	for _, s := range statuses {
+		if s == nil {
 			continue
 		}
-		status := *k.Purchase.OrderStatus
+		status := *s
 
 		if status == "Cancelled" {
 			sawCancelled = true

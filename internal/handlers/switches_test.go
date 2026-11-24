@@ -106,7 +106,7 @@ func (s *ListSwitchesSuite) TestListSwitches_OwnerShowPriceToMeTrue_IncludesPric
 
 	s.mockRepo.EXPECT().
 		List(mock.Anything, "alice", mock.Anything, 20, "").
-		Return([]repository.Switch{{ID: "sw1", Purchase: repository.SwitchPurchase{Price: &price}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.prefs = repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: true}
 
 	rec := httptest.NewRecorder()
@@ -130,7 +130,7 @@ func (s *ListSwitchesSuite) TestListSwitches_OwnerShowPriceToMeFalse_OmitsPrice(
 
 	s.mockRepo.EXPECT().
 		List(mock.Anything, "alice", mock.Anything, 20, "").
-		Return([]repository.Switch{{ID: "sw1", Purchase: repository.SwitchPurchase{Price: &price}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.prefs = repository.ProfilePreferences{ShowPriceToMe: false}
 
 	rec := httptest.NewRecorder()
@@ -150,7 +150,7 @@ func (s *ListSwitchesSuite) TestListSwitches_OwnerShowPriceToMeFalse_KeepsRestOf
 
 	s.mockRepo.EXPECT().
 		List(mock.Anything, "alice", mock.Anything, 20, "").
-		Return([]repository.Switch{{ID: "sw1", Purchase: repository.SwitchPurchase{Price: &price, Vendor: &vendor}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw1", Purchases: repository.BulkPurchases{{Price: &price, Vendor: &vendor}}}}, "", nil)
 	s.prefs = repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false}
 
 	rec := httptest.NewRecorder()
@@ -174,7 +174,7 @@ func (s *ListSwitchesSuite) TestListSwitches_NonOwnerShowPriceToOthersFalse_Omit
 
 	s.mockRepo.EXPECT().
 		List(mock.Anything, "alice", mock.Anything, 20, "").
-		Return([]repository.Switch{{ID: "sw1", Purchase: repository.SwitchPurchase{Price: &price}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.prefs = repository.ProfilePreferences{ShowPriceToOthers: false}
 
 	rec := httptest.NewRecorder()
@@ -193,7 +193,7 @@ func (s *ListSwitchesSuite) TestListSwitches_NonOwnerShowPriceToOthersTrue_Inclu
 
 	s.mockRepo.EXPECT().
 		List(mock.Anything, "alice", mock.Anything, 20, "").
-		Return([]repository.Switch{{ID: "sw1", Purchase: repository.SwitchPurchase{Price: &price}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.prefs = repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true}
 
 	rec := httptest.NewRecorder()
@@ -361,7 +361,7 @@ func (s *GetSwitchSuite) TestGetSwitch_NonOwnerShowPriceToOthersTrue_IncludesPri
 		Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			ID: "sw1", Visibility: repository.VisibilityPublic,
-			Purchase: repository.SwitchPurchase{Price: &price},
+			Purchases: repository.BulkPurchases{{Price: &price}},
 		}, nil)
 	s.prefs = repository.ProfilePreferences{ShowPriceToOthers: true}
 
@@ -383,7 +383,7 @@ func (s *GetSwitchSuite) TestGetSwitch_NonOwnerShowPriceToOthersFalse_OmitsPrice
 		Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			ID: "sw1", Visibility: repository.VisibilityPublic,
-			Purchase: repository.SwitchPurchase{Price: &price},
+			Purchases: repository.BulkPurchases{{Price: &price}},
 		}, nil)
 	s.prefs = repository.ProfilePreferences{ShowPriceToOthers: false}
 
@@ -404,7 +404,7 @@ func (s *GetSwitchSuite) TestGetSwitch_Owner_AlwaysIncludesPriceAndCurrency() {
 		Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			ID: "sw1", Visibility: repository.VisibilityPrivate,
-			Purchase: repository.SwitchPurchase{Price: &price},
+			Purchases: repository.BulkPurchases{{Price: &price}},
 		}, nil)
 	s.prefs = repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false}
 
@@ -465,7 +465,7 @@ func (s *GetSwitchSuite) TestGetSwitch_MalformedStoredDate_Returns500NotPanic() 
 		Return(&repository.Switch{
 			ID:         "sw1",
 			Visibility: repository.VisibilityPublic,
-			Purchase:   repository.SwitchPurchase{OrderDate: &malformedDate},
+			Purchases:  repository.BulkPurchases{{OrderDate: &malformedDate}},
 		}, nil)
 	s.prefs = repository.ProfilePreferences{}
 
@@ -550,8 +550,8 @@ func (s *CreateSwitchSuite) TestCreateSwitch_ValidatesOpenVocabularyFields() {
 		{"material.bottom_housing", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","material":{"bottom_housing":"NotApproved"}}`},
 		{"material.stem", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","material":{"stem":"NotApproved"}}`},
 		{"spring.material", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","spring":{"material":"NotApproved"}}`},
-		{"purchase.vendor", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchase":{"vendor":"NotApproved"}}`},
-		{"purchase.order_status", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchase":{"order_status":"NotApproved"}}`},
+		{"purchases[0].vendor", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchases":[{"vendor":"NotApproved"}]}`},
+		{"purchases[0].order_status", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchases":[{"order_status":"NotApproved"}]}`},
 	}
 
 	for _, tt := range tests {
@@ -679,7 +679,7 @@ func (s *CreateSwitchSuite) TestCreateSwitch_MalformedStoredDate_Returns500NotPa
 		Return(&repository.Switch{
 			ID:         "sw1",
 			Visibility: repository.VisibilityPrivate,
-			Purchase:   repository.SwitchPurchase{OrderDate: &malformedDate},
+			Purchases:  repository.BulkPurchases{{OrderDate: &malformedDate}},
 		}, nil)
 
 	req := s.newRequest(s.ownerCtx(), `{"brand":"Gateron","name":"Yellow","type":"Linear"}`)
@@ -765,8 +765,8 @@ func (s *UpdateSwitchSuite) TestUpdateSwitch_ValidatesOpenVocabularyFields() {
 		{"material.bottom_housing", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","material":{"bottom_housing":"NotApproved"}}`},
 		{"material.stem", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","material":{"stem":"NotApproved"}}`},
 		{"spring.material", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","spring":{"material":"NotApproved"}}`},
-		{"purchase.vendor", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchase":{"vendor":"NotApproved"}}`},
-		{"purchase.order_status", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchase":{"order_status":"NotApproved"}}`},
+		{"purchases[0].vendor", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchases":[{"vendor":"NotApproved"}]}`},
+		{"purchases[0].order_status", `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchases":[{"order_status":"NotApproved"}]}`},
 	}
 
 	for _, tt := range tests {
@@ -894,7 +894,7 @@ func (s *UpdateSwitchSuite) TestUpdateSwitch_MalformedStoredDate_Returns500NotPa
 		Return(&repository.Switch{
 			ID:         "sw1",
 			Visibility: repository.VisibilityPrivate,
-			Purchase:   repository.SwitchPurchase{OrderDate: &malformedDate},
+			Purchases:  repository.BulkPurchases{{OrderDate: &malformedDate}},
 		}, nil)
 
 	req := s.newRequest(s.ownerCtx(), `{"brand":"Gateron","name":"Yellow","type":"Linear"}`)
@@ -1434,7 +1434,7 @@ func (s *DeleteSwitchImageSuite) TestDeleteSwitchImage_S3DeleteError_Returns500_
 func (s *CreateSwitchSuite) TestCreateSwitch_ReturnsOwnersCurrencyWithPrice() {
 	price := 99.5
 	s.mockSwitchRepo.EXPECT().Create(mock.Anything, mock.Anything).
-		Return(&repository.Switch{UserID: "alice", ID: "sw1", Purchase: repository.SwitchPurchase{Price: &price}}, nil)
+		Return(&repository.Switch{UserID: "alice", ID: "sw1", Purchases: repository.BulkPurchases{{Price: &price}}}, nil)
 
 	rec := httptest.NewRecorder()
 	s.handler(rec, s.newRequest(s.ownerCtx(), `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private"}`))
@@ -1449,7 +1449,7 @@ func (s *CreateSwitchSuite) TestCreateSwitch_ReturnsOwnersCurrencyWithPrice() {
 func (s *UpdateSwitchSuite) TestUpdateSwitch_ReturnsOwnersCurrencyWithPrice() {
 	price := 99.5
 	s.mockSwitchRepo.EXPECT().Update(mock.Anything, mock.Anything).
-		Return(&repository.Switch{UserID: "alice", ID: "sw1", Purchase: repository.SwitchPurchase{Price: &price}}, nil)
+		Return(&repository.Switch{UserID: "alice", ID: "sw1", Purchases: repository.BulkPurchases{{Price: &price}}}, nil)
 
 	rec := httptest.NewRecorder()
 	s.handler(rec, s.newRequest(s.ownerCtx(), `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private"}`))

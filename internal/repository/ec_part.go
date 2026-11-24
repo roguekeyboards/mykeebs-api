@@ -96,18 +96,6 @@ type ECRings struct {
 	Thickness *float64 `dynamodbav:"thickness,omitempty" json:"thickness,omitempty"`
 }
 
-// ECPartPurchase is where/how much/how many of a part were bought, plus its
-// order lifecycle. Price is the total for Quantity units, as with
-// SwitchPurchase.
-type ECPartPurchase struct {
-	Vendor       *string  `dynamodbav:"vendor,omitempty" json:"vendor,omitempty"`
-	Price        *float64 `dynamodbav:"price,omitempty" json:"price,omitempty"`
-	OrderDate    *string  `dynamodbav:"order_date,omitempty" json:"order_date,omitempty"`
-	DeliveryDate *string  `dynamodbav:"delivery_date,omitempty" json:"delivery_date,omitempty"`
-	OrderStatus  *string  `dynamodbav:"order_status,omitempty" json:"order_status,omitempty"`
-	Quantity     *int     `dynamodbav:"quantity,omitempty" json:"quantity,omitempty"`
-}
-
 // ECPart is one electro-capacitive building block in a user's collection -
 // domes, sliders, housings, springs or silencing rings - bought on its own
 // so a build can mix parts from different purchases. UserID is the
@@ -125,7 +113,7 @@ type ECPart struct {
 	Housings   *ECHousings     `dynamodbav:"housings,omitempty" json:"housings,omitempty"`
 	Springs    *ECSprings      `dynamodbav:"springs,omitempty" json:"springs,omitempty"`
 	Rings      *ECRings        `dynamodbav:"rings,omitempty" json:"rings,omitempty"`
-	Purchase   ECPartPurchase  `dynamodbav:"purchase" json:"purchase"`
+	Purchases  BulkPurchases   `dynamodbav:"purchases,omitempty" json:"purchases,omitempty"`
 	Notes      *string         `dynamodbav:"notes,omitempty" json:"notes,omitempty"`
 	Visibility Visibility      `dynamodbav:"visibility" json:"visibility"`
 	ImagePath  *ECPartImageKey `dynamodbav:"image_path,omitempty" json:"-"`

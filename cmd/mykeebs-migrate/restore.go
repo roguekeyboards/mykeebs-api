@@ -265,7 +265,7 @@ func restoreSwitches(ctx context.Context, client *apiClient, dumpDir string, m *
 			Name:         full.Name,
 			Notes:        full.Notes,
 			Pins:         full.Pins,
-			Purchase:     switchPurchaseInput(full.Purchase),
+			Purchases:    switchPurchasesInput(full.Purchases),
 			Spring:       full.Spring,
 			Type:         full.Type,
 			Visibility:   visibility,
@@ -323,7 +323,7 @@ func restoreECParts(ctx context.Context, client *apiClient, dumpDir string, m *i
 			Name:       full.Name,
 			Notes:      full.Notes,
 			PartType:   full.PartType,
-			Purchase:   ecPartPurchaseInput(full.Purchase),
+			Purchases:  ecPartPurchasesInput(full.Purchases),
 			Rings:      full.Rings,
 			Sliders:    full.Sliders,
 			Springs:    full.Springs,
@@ -520,32 +520,40 @@ func purchaseInput(p *api.Purchase) *api.PurchaseInput {
 	}
 }
 
-func switchPurchaseInput(p *api.SwitchPurchase) *api.SwitchPurchaseInput {
-	if p == nil {
+func switchPurchasesInput(ps *[]api.SwitchPurchase) *[]api.SwitchPurchaseInput {
+	if ps == nil {
 		return nil
 	}
-	return &api.SwitchPurchaseInput{
-		Vendor:       p.Vendor,
-		Price:        p.Price,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
-		Quantity:     p.Quantity,
+	out := make([]api.SwitchPurchaseInput, len(*ps))
+	for i, p := range *ps {
+		out[i] = api.SwitchPurchaseInput{
+			Vendor:       p.Vendor,
+			Price:        p.Price,
+			OrderDate:    p.OrderDate,
+			DeliveryDate: p.DeliveryDate,
+			OrderStatus:  p.OrderStatus,
+			Quantity:     p.Quantity,
+		}
 	}
+	return &out
 }
 
-func ecPartPurchaseInput(p *api.ECPartPurchase) *api.ECPartPurchaseInput {
-	if p == nil {
+func ecPartPurchasesInput(ps *[]api.ECPartPurchase) *[]api.ECPartPurchaseInput {
+	if ps == nil {
 		return nil
 	}
-	return &api.ECPartPurchaseInput{
-		Vendor:       p.Vendor,
-		Price:        p.Price,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
-		Quantity:     p.Quantity,
+	out := make([]api.ECPartPurchaseInput, len(*ps))
+	for i, p := range *ps {
+		out[i] = api.ECPartPurchaseInput{
+			Vendor:       p.Vendor,
+			Price:        p.Price,
+			OrderDate:    p.OrderDate,
+			DeliveryDate: p.DeliveryDate,
+			OrderStatus:  p.OrderStatus,
+			Quantity:     p.Quantity,
+		}
 	}
+	return &out
 }
 
 func stabsInput(s *api.BuildStabs) *api.BuildStabsInput {

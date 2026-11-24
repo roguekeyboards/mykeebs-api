@@ -130,7 +130,7 @@ var _ = Describe("Creating a switch over MCP", func() {
 						"name":       "Yellow",
 						"type":       approvedType,
 						"visibility": "private",
-						"purchase":   map[string]any{"price": -1},
+						"purchases":  []map[string]any{{"price": -1}},
 					})
 					captureCreatedID(result)
 				})
@@ -138,7 +138,7 @@ var _ = Describe("Creating a switch over MCP", func() {
 				It("returns an MCP tool error result naming the price", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(result.IsError).To(BeTrue())
-					Expect(result.Content[0].(*sdkmcp.TextContent).Text).To(ContainSubstring("purchase.price"))
+					Expect(result.Content[0].(*sdkmcp.TextContent).Text).To(ContainSubstring("purchases[0].price"))
 				})
 			})
 		})
