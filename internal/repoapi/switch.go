@@ -18,7 +18,7 @@ type Switch struct {
 // ownerPrefs.ShowPriceToOthers. Returns an error if a stored purchase date
 // doesn't match dateLayout, or an image fails to sign.
 func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.Switch, error) {
-	purchases, purchase, err := bulkPurchasesToAPI(sw.Purchases, isOwner, ownerPrefs, func(p api.SwitchPurchase) api.SwitchPurchase { return p })
+	purchases, err := bulkPurchasesToAPI(sw.Purchases, isOwner, ownerPrefs, func(p api.SwitchPurchase) api.SwitchPurchase { return p })
 	if err != nil {
 		return api.Switch{}, err
 	}
@@ -47,7 +47,6 @@ func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, o
 		Material:      s.materialToAPI(sw.Material),
 		Force:         s.forceToAPI(sw.Force),
 		Spring:        s.springToAPI(sw.Spring),
-		Purchase:      purchase,
 		Purchases:     purchases,
 		TotalQuantity: sw.Purchases.TotalQuantity(),
 		OrderStatus:   sw.Purchases.OrderStatus(),
@@ -78,7 +77,7 @@ func (s Switch) ToRepo(in api.SwitchInput) repository.Switch {
 		Material:     s.materialToRepo(in.Material),
 		Force:        s.forceToRepo(in.Force),
 		Spring:       s.springToRepo(in.Spring),
-		Purchases:    bulkPurchasesToRepo(in.Purchases, in.Purchase, func(p api.SwitchPurchaseInput) api.SwitchPurchaseInput { return p }),
+		Purchases:    bulkPurchasesToRepo(in.Purchases, func(p api.SwitchPurchaseInput) api.SwitchPurchaseInput { return p }),
 		Notes:        in.Notes,
 		Visibility:   repository.Visibility(in.Visibility),
 	}
@@ -92,14 +91,6 @@ func (s Switch) StripPrices(out *api.Switch) {
 		p.Price = nil
 		p.Currency = nil
 	})
-	if out.Purchase == nil {
-		return
-	}
-	out.Purchase.Price = nil
-	out.Purchase.Currency = nil
-	if *out.Purchase == (api.SwitchPurchase{}) {
-		out.Purchase = nil
-	}
 }
 
 func (s Switch) materialToAPI(m repository.SwitchMaterial) *api.SwitchMaterial {

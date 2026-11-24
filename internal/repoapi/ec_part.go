@@ -18,7 +18,7 @@ type ECPart struct {
 // ownerPrefs.ShowPriceToOthers. Returns an error if a stored purchase date
 // doesn't match dateLayout, or the image fails to sign.
 func (e ECPart) ToAPI(ctx context.Context, p repository.ECPart, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.ECPart, error) {
-	purchases, purchase, err := bulkPurchasesToAPI(p.Purchases, isOwner, ownerPrefs, func(p api.SwitchPurchase) api.ECPartPurchase { return api.ECPartPurchase(p) })
+	purchases, err := bulkPurchasesToAPI(p.Purchases, isOwner, ownerPrefs, func(p api.SwitchPurchase) api.ECPartPurchase { return api.ECPartPurchase(p) })
 	if err != nil {
 		return api.ECPart{}, err
 	}
@@ -46,7 +46,6 @@ func (e ECPart) ToAPI(ctx context.Context, p repository.ECPart, isOwner bool, ow
 		Housings:      e.housingsToAPI(p.Housings),
 		Springs:       e.springsToAPI(p.Springs),
 		Rings:         e.ringsToAPI(p.Rings),
-		Purchase:      purchase,
 		Purchases:     purchases,
 		TotalQuantity: p.Purchases.TotalQuantity(),
 		OrderStatus:   p.Purchases.OrderStatus(),
@@ -75,7 +74,7 @@ func (e ECPart) ToRepo(in api.ECPartInput) repository.ECPart {
 		Housings:   e.housingsToRepo(in.Housings),
 		Springs:    e.springsToRepo(in.Springs),
 		Rings:      e.ringsToRepo(in.Rings),
-		Purchases:  bulkPurchasesToRepo(in.Purchases, in.Purchase, func(p api.ECPartPurchaseInput) api.SwitchPurchaseInput { return api.SwitchPurchaseInput(p) }),
+		Purchases:  bulkPurchasesToRepo(in.Purchases, func(p api.ECPartPurchaseInput) api.SwitchPurchaseInput { return api.SwitchPurchaseInput(p) }),
 		Notes:      in.Notes,
 		Visibility: repository.Visibility(in.Visibility),
 	}
@@ -89,14 +88,6 @@ func (e ECPart) StripPrices(out *api.ECPart) {
 		p.Price = nil
 		p.Currency = nil
 	})
-	if out.Purchase == nil {
-		return
-	}
-	out.Purchase.Price = nil
-	out.Purchase.Currency = nil
-	if *out.Purchase == (api.ECPartPurchase{}) {
-		out.Purchase = nil
-	}
 }
 
 func (e ECPart) domesToAPI(d *repository.ECDomes) *api.ECDomes {

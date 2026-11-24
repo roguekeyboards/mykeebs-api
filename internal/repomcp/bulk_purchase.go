@@ -56,5 +56,5 @@ func bulkPurchasesFromMCP[T any](in []T, conv func(T) schema.SwitchPurchaseInput
 		}
 	}
 
-	return out
+	return out.WithoutEmpty()
 }

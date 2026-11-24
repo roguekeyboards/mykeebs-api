@@ -46,7 +46,6 @@ func (s *ECPartSuite) TestToAPI_MapsSubObjectAndPurchase() {
 	s.Equal(api.ECPart{
 		Id: "p1", Brand: "DynaCap", Name: "Sliders", PartType: api.ECPartTypeSliders,
 		Sliders:       &api.ECSliders{Size: new(api.ECPartSizeN2U), Stem: new(api.ECSliderStemOEM), Material: new("POM")},
-		Purchase:      &purchase,
 		Purchases:     &[]api.ECPartPurchase{purchase},
 		TotalQuantity: new(72),
 		OrderStatus:   new("Delivered"),
@@ -61,7 +60,7 @@ func (s *ECPartSuite) TestToAPI_EmptyPurchase_Omitted() {
 	out, err := ECPart{}.ToAPI(s.T().Context(), repository.ECPart{ID: "p1", PartType: repository.ECPartTypeDomes}, true, repository.ProfilePreferences{})
 
 	s.Require().NoError(err)
-	s.Nil(out.Purchase)
+	s.Nil(out.Purchases)
 	s.Nil(out.Domes)
 }
 
@@ -71,13 +70,15 @@ func (s *ECPartSuite) TestToAPI_NonOwner_HidesVisibilityAndPriceUnlessShared() {
 	hidden, err := ECPart{}.ToAPI(s.T().Context(), p, false, repository.ProfilePreferences{})
 	s.Require().NoError(err)
 	s.Nil(hidden.Visibility)
-	s.Require().NotNil(hidden.Purchase)
-	s.Nil(hidden.Purchase.Price)
+	s.Require().NotNil(hidden.Purchases)
+	s.Require().Len(*hidden.Purchases, 1)
+	s.Nil((*hidden.Purchases)[0].Price)
 
 	shown, err := ECPart{}.ToAPI(s.T().Context(), p, false, repository.ProfilePreferences{ShowPriceToOthers: true, Currency: "USD"})
 	s.Require().NoError(err)
-	s.Require().NotNil(shown.Purchase)
-	s.Equal(new(36.0), shown.Purchase.Price)
+	s.Require().NotNil(shown.Purchases)
+	s.Require().Len(*shown.Purchases, 1)
+	s.Equal(new(36.0), (*shown.Purchases)[0].Price)
 }
 
 func (s *ECPartSuite) TestToAPI_MalformedStoredDate_ReturnsError() {
@@ -131,19 +132,19 @@ func (s *ECPartSuite) TestToRepo_EverySubObject() {
 }
 
 func (s *ECPartSuite) TestStripPrices_DropsPurchaseLeftEmpty() {
-	out := api.ECPart{Purchase: &api.ECPartPurchase{Price: new(6.0), Currency: new("USD")}}
+	out := api.ECPart{Purchases: &[]api.ECPartPurchase{{Price: new(6.0), Currency: new("USD")}}}
 
 	ECPart{}.StripPrices(&out)
 
-	s.Nil(out.Purchase)
+	s.Nil(out.Purchases)
 }
 
 func (s *ECPartSuite) TestStripPrices_KeepsRestOfPurchase() {
-	out := api.ECPart{Purchase: &api.ECPartPurchase{Price: new(6.0), Currency: new("USD"), Vendor: new("Omnitype")}}
+	out := api.ECPart{Purchases: &[]api.ECPartPurchase{{Price: new(6.0), Currency: new("USD"), Vendor: new("Omnitype")}}}
 
 	ECPart{}.StripPrices(&out)
 
-	s.Equal(&api.ECPartPurchase{Vendor: new("Omnitype")}, out.Purchase)
+	s.Equal(&[]api.ECPartPurchase{{Vendor: new("Omnitype")}}, out.Purchases)
 }
 
 func (s *ECPartSuite) TestToAPI_RejectedImage_OwnerSeesReasonWithoutURL() {

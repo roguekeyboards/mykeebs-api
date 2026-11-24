@@ -51,7 +51,7 @@ var _ = Describe("Creating an EC part", func() {
 					create(ctx, ownerID, ownerToken,
 						`{"brand":"DynaCap","name":"Heavy","part_type":"domes",`+
 							`"domes":{"weight":55,"material":"Silicone","color":"black"},`+
-							`"purchase":{"vendor":"Omnitype","price":36,"quantity":72},"visibility":"private"}`)
+							`"purchases":[{"vendor":"Omnitype","price":36,"quantity":72}],"visibility":"private"}`)
 				})
 
 				It("creates the part with its dome details", func() {
@@ -65,7 +65,7 @@ var _ = Describe("Creating an EC part", func() {
 					Expect(*created.Domes.Weight).To(Equal(55.0))
 					Expect(*created.Domes.Material).To(Equal("Silicone"))
 
-					By("recording the deprecated purchase as the only purchase")
+					By("recording the purchase")
 					Expect(created.Purchases).To(HaveLen(1))
 					Expect(created.Purchases[0].Vendor).To(HaveValue(Equal("Omnitype")))
 					Expect(created.TotalQuantity).To(HaveValue(Equal(72)))
@@ -99,10 +99,6 @@ var _ = Describe("Creating an EC part", func() {
 
 					By("totalling their prices")
 					Expect(created.TotalCost).To(HaveValue(Equal(64.8)))
-
-					By("returning the earliest as the deprecated purchase")
-					Expect(created.Purchase).NotTo(BeNil())
-					Expect(created.Purchase.OrderDate).To(HaveValue(Equal("2026-09-21")))
 				})
 			})
 		})

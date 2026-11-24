@@ -80,7 +80,7 @@ var _ = Describe("Creating a switch", func() {
 						`{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private",`+
 							`"material":{"stem":"`+approvedStem+`"},`+
 							`"spring":{"material":"`+approvedSpringMaterial+`"},`+
-							`"purchase":{"vendor":"`+approvedVendor+`"}}`)
+							`"purchases":[{"vendor":"`+approvedVendor+`"}]}`)
 					Expect(err).NotTo(HaveOccurred())
 					if resp.StatusCode == http.StatusCreated {
 						captureCreatedID(resp)
@@ -199,7 +199,7 @@ var _ = Describe("Creating a switch", func() {
 				BeforeEach(func(ctx SpecContext) {
 					var err error
 					resp, err = client.Create(ctx, ownerID, ownerToken,
-						`{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchase":{"price":1e15}}`)
+						`{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchases":[{"price":1e15}]}`)
 					Expect(err).NotTo(HaveOccurred())
 					if resp.StatusCode == http.StatusCreated {
 						captureCreatedID(resp)
@@ -218,7 +218,7 @@ var _ = Describe("Creating a switch", func() {
 				BeforeEach(func(ctx SpecContext) {
 					var err error
 					resp, err = client.Create(ctx, ownerID, ownerToken,
-						`{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchase":{"price":-1}}`)
+						`{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private","purchases":[{"price":-1}]}`)
 					Expect(err).NotTo(HaveOccurred())
 					if resp.StatusCode == http.StatusCreated {
 						captureCreatedID(resp)

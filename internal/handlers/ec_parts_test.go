@@ -98,7 +98,7 @@ func (s *ListECPartsSuite) TestOwnerShowPriceToMeFalse_OmitsPrice() {
 	var got api.ECPartListPage
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
 	s.Require().Len(*got.Items, 1)
-	s.Equal(&api.ECPartPurchase{Vendor: new("Omnitype")}, (*got.Items)[0].Purchase)
+	s.Equal(&[]api.ECPartPurchase{{Vendor: new("Omnitype")}}, (*got.Items)[0].Purchases)
 }
 
 func (s *ListECPartsSuite) TestInvalidCursor_Returns400() {

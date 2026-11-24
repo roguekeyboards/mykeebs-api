@@ -14,21 +14,21 @@ import (
 )
 
 type listItem struct {
-	ID       string `json:"id"`
-	Brand    string `json:"brand"`
-	Purchase *struct {
+	ID        string `json:"id"`
+	Brand     string `json:"brand"`
+	Purchases []struct {
 		Vendor      *string  `json:"vendor"`
 		OrderStatus *string  `json:"order_status"`
 		Price       *float64 `json:"price"`
-	} `json:"purchase"`
+	} `json:"purchases"`
 }
 
 func (i listItem) price() *float64 {
-	if i.Purchase == nil {
+	if len(i.Purchases) == 0 {
 		return nil
 	}
 
-	return i.Purchase.Price
+	return i.Purchases[0].Price
 }
 
 func itemByID(items []listItem, id string) *listItem {
@@ -130,10 +130,9 @@ var _ = Describe("Listing switches", func() {
 					publicItem := itemByID(page.Items, publicID)
 					Expect(publicItem).NotTo(BeNil())
 					Expect(publicItem.Brand).NotTo(BeEmpty())
-					Expect(publicItem.Purchase).NotTo(BeNil())
-					Expect(publicItem.Purchase.Vendor).NotTo(BeNil())
-					Expect(publicItem.Purchase.OrderStatus).NotTo(BeNil())
-					Expect(*publicItem.Purchase.OrderStatus).To(Equal("Delivered"))
+					Expect(publicItem.Purchases).To(HaveLen(1))
+					Expect(publicItem.Purchases[0].Vendor).NotTo(BeNil())
+					Expect(publicItem.Purchases[0].OrderStatus).To(HaveValue(Equal("Delivered")))
 
 					By("omitting the image key on image-less switches rather than emitting it as null")
 					var raw struct {

@@ -92,7 +92,7 @@ type SwitchInput struct {
 	Material     *SwitchMaterial       `json:"material,omitempty" jsonschema:"housing and stem materials; each must be an approved switch_material lookup value"`
 	Force        *SwitchForce          `json:"force,omitempty" jsonschema:"actuation and bottom-out force, in grams"`
 	Spring       *SwitchSpring         `json:"spring,omitempty" jsonschema:"spring material, plus its length and travel distances in mm"`
-	Purchases    []SwitchPurchaseInput `json:"purchases,omitempty" jsonschema:"every order of this switch, each with where it was bought and the order's status"`
+	Purchases    []SwitchPurchaseInput `json:"purchases,omitempty" jsonschema:"every order of this switch, each with where it was bought and the order's status; an empty purchase is dropped"`
 	Notes        *string               `json:"notes,omitempty" jsonschema:"free-form notes"`
 	Visibility   string                `json:"visibility" jsonschema:"who can read this switch; one of \"public\", \"authenticated\", \"private\""`
 }

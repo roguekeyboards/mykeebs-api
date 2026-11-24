@@ -11,48 +11,23 @@ import (
 // api.SwitchPurchase/api.SwitchPurchaseInput, which ECPart converts to and
 // from its identically-shaped api.ECPartPurchase/api.ECPartPurchaseInput.
 
-// bulkPurchasesToAPI maps every purchase, and returns the earliest
-// separately as the deprecated single purchase.
 func bulkPurchasesToAPI[T any](
 	ps repository.BulkPurchases, isOwner bool, ownerPrefs repository.ProfilePreferences, conv func(api.SwitchPurchase) T,
-) (*[]T, *T, error) {
+) (*[]T, error) {
 	if len(ps) == 0 {
-		return nil, nil, nil
+		return nil, nil //nolint:nilnil // no purchases is a valid, expected result
 	}
 
 	out := make([]T, len(ps))
-	var earliest *T
-	earliestIdx := earliestPurchase(ps)
 	for i, p := range ps {
 		mapped, err := bulkPurchaseToAPI(p, isOwner, ownerPrefs)
 		if err != nil {
-			return nil, nil, fmt.Errorf("purchases[%d]: %w", i, err)
+			return nil, fmt.Errorf("purchases[%d]: %w", i, err)
 		}
 		out[i] = conv(mapped)
-		if i == earliestIdx && p != (repository.BulkPurchase{}) {
-			e := out[i]
-			earliest = &e
-		}
 	}
 
-	return &out, earliest, nil
-}
-
-// earliestPurchase is the index of the purchase with the oldest
-// order_date, or 0 when none has one.
-func earliestPurchase(ps repository.BulkPurchases) int {
-	earliest := 0
-	dated := false
-	for i, p := range ps {
-		if p.OrderDate == nil {
-			continue
-		}
-		if !dated || *p.OrderDate < *ps[earliest].OrderDate {
-			earliest = i
-			dated = true
-		}
-	}
-	return earliest
+	return &out, nil
 }
 
 func bulkPurchaseToAPI(p repository.BulkPurchase, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.SwitchPurchase, error) {
@@ -83,24 +58,15 @@ func bulkPurchaseToAPI(p repository.BulkPurchase, isOwner bool, ownerPrefs repos
 	return out, nil
 }
 
-// bulkPurchasesToRepo maps purchases when sent, otherwise the deprecated
-// single purchase as the only one.
-func bulkPurchasesToRepo[T any](purchases *[]T, legacy *T, conv func(T) api.SwitchPurchaseInput) repository.BulkPurchases {
-	if purchases != nil {
-		if len(*purchases) == 0 {
-			return nil
-		}
-		out := make(repository.BulkPurchases, len(*purchases))
-		for i, p := range *purchases {
-			out[i] = bulkPurchaseToRepo(conv(p))
-		}
-		return out
-	}
-
-	if legacy == nil || conv(*legacy) == (api.SwitchPurchaseInput{}) {
+func bulkPurchasesToRepo[T any](purchases *[]T, conv func(T) api.SwitchPurchaseInput) repository.BulkPurchases {
+	if purchases == nil || len(*purchases) == 0 {
 		return nil
 	}
-	return repository.BulkPurchases{bulkPurchaseToRepo(conv(*legacy))}
+	out := make(repository.BulkPurchases, len(*purchases))
+	for i, p := range *purchases {
+		out[i] = bulkPurchaseToRepo(conv(p))
+	}
+	return out.WithoutEmpty()
 }
 
 func bulkPurchaseToRepo(p api.SwitchPurchaseInput) repository.BulkPurchase {

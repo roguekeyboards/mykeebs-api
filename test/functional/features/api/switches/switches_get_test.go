@@ -54,25 +54,25 @@ var _ = Describe("Getting a switch", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("returns the switch without purchase.price", func() {
+				It("returns the switch without purchase prices", func() {
 					Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 					var got struct {
-						ID       string `json:"id"`
-						Purchase struct {
+						ID        string `json:"id"`
+						Purchases []struct {
 							Vendor *string  `json:"vendor"`
 							Price  *float64 `json:"price"`
-						} `json:"purchase"`
+						} `json:"purchases"`
 					}
 					Expect(json.NewDecoder(resp.Body).Decode(&got)).To(Succeed())
 					Expect(got.ID).To(Equal(switchID))
 
 					By("still including non-price purchase fields")
-					Expect(got.Purchase.Vendor).NotTo(BeNil())
-					Expect(*got.Purchase.Vendor).To(Equal("NovelKeys"))
+					Expect(got.Purchases).To(HaveLen(1))
+					Expect(got.Purchases[0].Vendor).To(HaveValue(Equal("NovelKeys")))
 
 					By("omitting price")
-					Expect(got.Purchase.Price).To(BeNil())
+					Expect(got.Purchases[0].Price).To(BeNil())
 				})
 			})
 		})
@@ -85,18 +85,18 @@ var _ = Describe("Getting a switch", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("returns the switch with purchase.price", func() {
+				It("returns the switch with purchase prices", func() {
 					Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 					var got struct {
-						Purchase struct {
+						Purchases []struct {
 							Price *float64 `json:"price"`
-						} `json:"purchase"`
+						} `json:"purchases"`
 					}
 					Expect(json.NewDecoder(resp.Body).Decode(&got)).To(Succeed())
 
-					Expect(got.Purchase.Price).NotTo(BeNil())
-					Expect(*got.Purchase.Price).To(Equal(0.35))
+					Expect(got.Purchases).To(HaveLen(1))
+					Expect(got.Purchases[0].Price).To(HaveValue(Equal(0.35)))
 				})
 			})
 		})
@@ -137,18 +137,18 @@ var _ = Describe("Getting a switch", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("returns the switch with purchase.price", func() {
+				It("returns the switch with purchase prices", func() {
 					Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 					var got struct {
-						Purchase struct {
+						Purchases []struct {
 							Price *float64 `json:"price"`
-						} `json:"purchase"`
+						} `json:"purchases"`
 					}
 					Expect(json.NewDecoder(resp.Body).Decode(&got)).To(Succeed())
 
-					Expect(got.Purchase.Price).NotTo(BeNil())
-					Expect(*got.Purchase.Price).To(Equal(0.35))
+					Expect(got.Purchases).To(HaveLen(1))
+					Expect(got.Purchases[0].Price).To(HaveValue(Equal(0.35)))
 				})
 			})
 		})
@@ -181,18 +181,18 @@ var _ = Describe("Getting a switch", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("still returns the switch with purchase.price - single-item GET always shows the owner their own price", func() {
+				It("still returns the switch with purchase prices - single-item GET always shows the owner their own price", func() {
 					Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 					var got struct {
-						Purchase struct {
+						Purchases []struct {
 							Price *float64 `json:"price"`
-						} `json:"purchase"`
+						} `json:"purchases"`
 					}
 					Expect(json.NewDecoder(resp.Body).Decode(&got)).To(Succeed())
 
-					Expect(got.Purchase.Price).NotTo(BeNil())
-					Expect(*got.Purchase.Price).To(Equal(0.35))
+					Expect(got.Purchases).To(HaveLen(1))
+					Expect(got.Purchases[0].Price).To(HaveValue(Equal(0.35)))
 				})
 			})
 		})

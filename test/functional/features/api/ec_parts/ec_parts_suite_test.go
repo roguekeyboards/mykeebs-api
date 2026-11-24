@@ -27,15 +27,11 @@ type ecPart struct {
 		Size *string `json:"size"`
 		Stem *string `json:"stem"`
 	} `json:"sliders"`
-	Purchase *struct {
+	Purchases []struct {
 		Vendor    *string  `json:"vendor"`
 		Price     *float64 `json:"price"`
 		OrderDate *string  `json:"order_date"`
-	} `json:"purchase"`
-	Purchases []struct {
-		Vendor    *string `json:"vendor"`
-		OrderDate *string `json:"order_date"`
-		Quantity  *int    `json:"quantity"`
+		Quantity  *int     `json:"quantity"`
 	} `json:"purchases"`
 	TotalQuantity *int     `json:"total_quantity"`
 	OrderStatus   *string  `json:"order_status"`
