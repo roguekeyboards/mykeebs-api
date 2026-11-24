@@ -24,10 +24,15 @@ func (e ECPart) ToMCP(p repository.ECPart, isOwner bool, ownerPrefs repository.P
 		Rings:         e.ringsToMCP(p.Rings),
 		Purchases:     bulkPurchasesToMCP(p.Purchases, isOwner, ownerPrefs, func(p schema.SwitchPurchase) schema.ECPartPurchase { return schema.ECPartPurchase(p) }),
 		TotalQuantity: p.Purchases.TotalQuantity(),
+		OrderStatus:   p.Purchases.OrderStatus(),
 		Notes:         p.Notes,
 		Visibility:    ownerVisibility(p.Visibility, isOwner),
 		HasImage:      p.ImagePath != nil && p.ImageStatus.VisibleTo(isOwner),
 	}
+	if ownerPrefs.ShowPriceSingle(isOwner) {
+		out.TotalCost = p.Purchases.TotalPrice()
+	}
+	out.Currency = ownerPrefs.CurrencyFor(out.TotalCost)
 	out.ImageStatus, out.ImageRejectionReason = imageStatusToMCP(p.ImagePath != nil, p.ImageStatus, p.ImageRejectionReason, isOwner)
 
 	return out

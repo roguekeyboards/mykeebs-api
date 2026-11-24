@@ -50,8 +50,8 @@ var _ = Describe("Creating an EC part over MCP", func() {
 						"brand": "DynaCap", "name": "Rings", "part_type": "rings",
 						"rings": map[string]any{"material": "Silicone", "thickness": 0.5},
 						"purchases": []map[string]any{
-							{"vendor": "Omnitype", "quantity": 140},
-							{"vendor": "Omnitype", "quantity": 70},
+							{"vendor": "Omnitype", "quantity": 140, "price": 6, "order_status": "Delivered"},
+							{"vendor": "Omnitype", "quantity": 70, "price": 4.8, "order_status": "Ordered"},
 						},
 						"visibility": "private",
 					})
@@ -71,6 +71,10 @@ var _ = Describe("Creating an EC part over MCP", func() {
 					By("keeping every purchase and totalling their quantities")
 					Expect(out.Purchases).To(HaveLen(2))
 					Expect(out.TotalQuantity).To(HaveValue(Equal(210)))
+
+					By("deriving the least-progressed order status and totalling their prices")
+					Expect(out.OrderStatus).To(HaveValue(Equal("Ordered")))
+					Expect(out.TotalCost).To(HaveValue(Equal(10.8)))
 				})
 			})
 		})

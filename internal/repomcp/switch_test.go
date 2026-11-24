@@ -154,7 +154,7 @@ func (s *SwitchToMCPSuite) TestRecordedZero_SurvivesRoundTrip() {
 	raw, err := json.Marshal(out)
 	s.Require().NoError(err)
 	s.JSONEq(
-		`{"id":"","brand":"","name":"","type":"","pins":0,"purchases":[{"price":0,"currency":"USD","quantity":0}],"total_quantity":0,"visibility":"","has_image":false}`,
+		`{"id":"","brand":"","name":"","type":"","pins":0,"purchases":[{"price":0,"currency":"USD","quantity":0}],"total_quantity":0,"total_cost":0,"currency":"USD","visibility":"","has_image":false}`,
 		string(raw),
 	)
 }
