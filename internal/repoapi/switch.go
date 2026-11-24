@@ -14,11 +14,11 @@ type Switch struct {
 }
 
 // ToAPI maps a repository.Switch to its wire representation. The owner
-// always sees their own purchase.price; a non-owner sees it only if
-// ownerPrefs.ShowPriceToOthers. Returns an error if a stored Purchase date
+// always sees their own purchases' prices; a non-owner sees them only if
+// ownerPrefs.ShowPriceToOthers. Returns an error if a stored purchase date
 // doesn't match dateLayout, or an image fails to sign.
 func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.Switch, error) {
-	purchase, err := s.purchaseToAPI(sw.Purchase, isOwner, ownerPrefs)
+	purchases, purchase, err := bulkPurchasesToAPI(sw.Purchases, isOwner, ownerPrefs, func(p api.SwitchPurchase) api.SwitchPurchase { return p })
 	if err != nil {
 		return api.Switch{}, err
 	}
@@ -37,20 +37,22 @@ func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, o
 	}
 
 	return api.Switch{
-		Id:           sw.ID,
-		Brand:        sw.Brand,
-		Manufacturer: sw.Manufacturer,
-		Name:         sw.Name,
-		Type:         sw.Type,
-		Pins:         sw.Pins,
-		FactoryLubed: sw.FactoryLubed,
-		Material:     s.materialToAPI(sw.Material),
-		Force:        s.forceToAPI(sw.Force),
-		Spring:       s.springToAPI(sw.Spring),
-		Purchase:     purchase,
-		Notes:        sw.Notes,
-		Visibility:   ownerVisibility(sw.Visibility, isOwner),
-		Image:        image,
+		Id:            sw.ID,
+		Brand:         sw.Brand,
+		Manufacturer:  sw.Manufacturer,
+		Name:          sw.Name,
+		Type:          sw.Type,
+		Pins:          sw.Pins,
+		FactoryLubed:  sw.FactoryLubed,
+		Material:      s.materialToAPI(sw.Material),
+		Force:         s.forceToAPI(sw.Force),
+		Spring:        s.springToAPI(sw.Spring),
+		Purchase:      purchase,
+		Purchases:     purchases,
+		TotalQuantity: sw.Purchases.TotalQuantity(),
+		Notes:         sw.Notes,
+		Visibility:    ownerVisibility(sw.Visibility, isOwner),
+		Image:         image,
 	}, nil
 }
 
@@ -69,7 +71,7 @@ func (s Switch) ToRepo(in api.SwitchInput) repository.Switch {
 		Material:     s.materialToRepo(in.Material),
 		Force:        s.forceToRepo(in.Force),
 		Spring:       s.springToRepo(in.Spring),
-		Purchase:     s.purchaseToRepo(in.Purchase),
+		Purchases:    bulkPurchasesToRepo(in.Purchases, in.Purchase, func(p api.SwitchPurchaseInput) api.SwitchPurchaseInput { return p }),
 		Notes:        in.Notes,
 		Visibility:   repository.Visibility(in.Visibility),
 	}
@@ -77,6 +79,10 @@ func (s Switch) ToRepo(in api.SwitchInput) repository.Switch {
 
 // StripPrices clears the prices [Switch.ToAPI] sets on out.
 func (s Switch) StripPrices(out *api.Switch) {
+	out.Purchases = stripBulkPurchasePrices(out.Purchases, func(p *api.SwitchPurchase) {
+		p.Price = nil
+		p.Currency = nil
+	})
 	if out.Purchase == nil {
 		return
 	}
@@ -157,60 +163,4 @@ func (s Switch) springToRepo(sp *api.SwitchSpring) repository.SwitchSpring {
 		TotalTravel: sp.TotalTravel,
 		Length:      sp.Length,
 	}
-}
-
-func (s Switch) purchaseToAPI(p repository.SwitchPurchase, isOwner bool, ownerPrefs repository.ProfilePreferences) (*api.SwitchPurchase, error) {
-	if p.Vendor == nil && p.Price == nil && p.OrderDate == nil && p.DeliveryDate == nil &&
-		p.OrderStatus == nil && p.Quantity == nil {
-		return nil, nil //nolint:nilnil // no purchase data is a valid, expected result
-	}
-
-	out := &api.SwitchPurchase{
-		Vendor:      p.Vendor,
-		OrderStatus: p.OrderStatus,
-		Quantity:    p.Quantity,
-	}
-	if ownerPrefs.ShowPriceSingle(isOwner) {
-		out.Price = p.Price
-	}
-	out.Currency = ownerPrefs.CurrencyFor(out.Price)
-	if p.OrderDate != nil {
-		d, err := parseAPIDate(*p.OrderDate)
-		if err != nil {
-			return nil, fmt.Errorf("parsing order_date: %w", err)
-		}
-		out.OrderDate = d
-	}
-	if p.DeliveryDate != nil {
-		d, err := parseAPIDate(*p.DeliveryDate)
-		if err != nil {
-			return nil, fmt.Errorf("parsing delivery_date: %w", err)
-		}
-		out.DeliveryDate = d
-	}
-
-	return out, nil
-}
-
-func (s Switch) purchaseToRepo(p *api.SwitchPurchaseInput) repository.SwitchPurchase {
-	if p == nil {
-		return repository.SwitchPurchase{}
-	}
-
-	out := repository.SwitchPurchase{
-		Vendor:      p.Vendor,
-		Price:       p.Price,
-		OrderStatus: p.OrderStatus,
-		Quantity:    p.Quantity,
-	}
-	if p.OrderDate != nil {
-		str := p.OrderDate.Format(dateLayout)
-		out.OrderDate = &str
-	}
-	if p.DeliveryDate != nil {
-		str := p.DeliveryDate.Format(dateLayout)
-		out.DeliveryDate = &str
-	}
-
-	return out
 }

@@ -27,8 +27,8 @@ func (s *ValidateSwitchSuite) TestOptionalFieldsUnset_SkipsValidation() {
 func (s *ValidateSwitchSuite) TestValidFields_ReturnsNoErrors() {
 	vendor := "Amazon"
 	sw := repository.Switch{
-		Type:     "Linear",
-		Purchase: repository.SwitchPurchase{Vendor: &vendor},
+		Type:      "Linear",
+		Purchases: repository.BulkPurchases{{Vendor: &vendor}},
 	}
 
 	errs := lookup.ValidateSwitch(s.T().Context(), sw)
@@ -47,12 +47,12 @@ func (s *ValidateSwitchSuite) TestInvalidType_ReturnsFieldError() {
 func (s *ValidateSwitchSuite) TestInvalidOrderStatus_ReturnsFieldError() {
 	status := "NotAStatus"
 	sw := repository.Switch{
-		Type:     "Linear",
-		Purchase: repository.SwitchPurchase{OrderStatus: &status},
+		Type:      "Linear",
+		Purchases: repository.BulkPurchases{{OrderStatus: &status}},
 	}
 
 	errs := lookup.ValidateSwitch(s.T().Context(), sw)
 	s.Equal([]lookup.FieldError{
-		{Field: "purchase.order_status", Value: "NotAStatus", Reason: `"NotAStatus" is not an approved order_status value`},
+		{Field: "purchases[0].order_status", Value: "NotAStatus", Reason: `"NotAStatus" is not an approved order_status value`},
 	}, errs)
 }

@@ -24,11 +24,11 @@ func SeedSwitch(ctx context.Context, ownerID, id, visibility string) error {
 		"type":       "Linear",
 		"visibility": visibility,
 		"version":    0,
-		"purchase": map[string]any{
+		"purchases": []map[string]any{{
 			"vendor":       "NovelKeys",
 			"price":        0.35,
 			"order_status": "Delivered",
-		},
+		}},
 	})
 }
 
@@ -60,10 +60,10 @@ func switchWithImage(ownerID, id, visibility string) map[string]any {
 		"type":       "Linear",
 		"visibility": visibility,
 		"version":    0,
-		"purchase": map[string]any{
+		"purchases": []map[string]any{{
 			"vendor": "NovelKeys",
 			"price":  0.35,
-		},
+		}},
 		"image_path": fmt.Sprintf("switches/%s/%s/image/up1", ownerID, id),
 	}
 }

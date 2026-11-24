@@ -560,7 +560,7 @@ func (s *BuildToAPISuite) TestTotalCost_SumsKeyboardSwitchesKitsAndStabs() {
 	d.switchRepo.EXPECT().Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45), Quantity: intPtr(90)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45), Quantity: intPtr(90)}},
 		}, nil)
 	d.keycapSetRepo.EXPECT().Get(mock.Anything, "alice", "ks1").
 		Return(&repository.KeycapSet{
@@ -639,7 +639,7 @@ func (s *BuildToAPISuite) TestTotalCost_RoundedToCents() {
 	d.switchRepo.EXPECT().Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(10), Quantity: intPtr(3)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(10), Quantity: intPtr(3)}},
 		}, nil)
 	d.keycapSetRepo.EXPECT().Get(mock.Anything, "alice", "ks1").
 		Return(&repository.KeycapSet{
@@ -654,6 +654,34 @@ func (s *BuildToAPISuite) TestTotalCost_RoundedToCents() {
 	s.InDelta(233.33, *out.TotalCost, 1e-9, "70 of 3 switches bought for 10")
 }
 
+func (s *BuildToAPISuite) TestTotalCost_SwitchesCostedAtAverageAcrossPurchases() {
+	b := fullRepoBuild()
+	b.Stabs = nil
+
+	d := newBuildToAPIDeps(s.T())
+	d.keyboardRepo.EXPECT().Get(mock.Anything, "alice", "kb1").
+		Return(&repository.Keyboard{UserID: "alice", ID: "kb1", Brand: "Keychron", Name: "Q1"}, nil)
+	d.switchRepo.EXPECT().Get(mock.Anything, "alice", "sw1").
+		Return(&repository.Switch{
+			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
+			Purchases: repository.BulkPurchases{
+				{Price: floatPtr(36), Quantity: intPtr(90)},
+				{Price: floatPtr(54), Quantity: intPtr(90)},
+			},
+		}, nil)
+	d.keycapSetRepo.EXPECT().Get(mock.Anything, "alice", "ks1").
+		Return(&repository.KeycapSet{
+			UserID: "alice", ID: "ks1", Brand: "GMK", Name: "Olivia",
+			Kits: map[string]repository.KeycapKit{"kit1": {KitID: "kit1", Name: "Base"}},
+		}, nil)
+
+	out, err := d.call(context.Background(), b)
+	s.Require().NoError(err)
+
+	s.Require().NotNil(out.TotalCost)
+	s.InDelta(35.0, *out.TotalCost, 1e-9)
+}
+
 func (s *BuildToAPISuite) TestTotalCost_SwitchPriceWithoutQuantity_ExcludedFromSum() {
 	b := fullRepoBuild()
 	b.Stabs = nil
@@ -664,7 +692,7 @@ func (s *BuildToAPISuite) TestTotalCost_SwitchPriceWithoutQuantity_ExcludedFromS
 	d.switchRepo.EXPECT().Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45)}},
 		}, nil)
 	d.keycapSetRepo.EXPECT().Get(mock.Anything, "alice", "ks1").
 		Return(&repository.KeycapSet{
@@ -688,7 +716,7 @@ func (s *BuildToAPISuite) TestTotalCost_UnknownComponentsExcludedNotZeroed() {
 	d.switchRepo.EXPECT().Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45), Quantity: intPtr(90)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45), Quantity: intPtr(90)}},
 		}, nil)
 	d.keycapSetRepo.EXPECT().Get(mock.Anything, "alice", "ks1").
 		Return(&repository.KeycapSet{
@@ -729,7 +757,7 @@ func (s *BuildToAPISuite) TestNonOwnerShowPriceToOthersFalse_OmitsStabsPriceAndT
 	d.switchRepo.EXPECT().Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45), Quantity: intPtr(90)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45), Quantity: intPtr(90)}},
 		}, nil)
 	d.keycapSetRepo.EXPECT().Get(mock.Anything, "alice", "ks1").
 		Return(&repository.KeycapSet{
@@ -764,7 +792,7 @@ func (s *BuildToAPISuite) TestNonOwnerShowPriceToOthersTrue_IncludesStabsPriceAn
 	d.switchRepo.EXPECT().Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45), Quantity: intPtr(90)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45), Quantity: intPtr(90)}},
 		}, nil)
 	d.keycapSetRepo.EXPECT().Get(mock.Anything, "alice", "ks1").
 		Return(&repository.KeycapSet{
@@ -800,7 +828,7 @@ func (s *BuildToAPISuite) TestOwner_AlwaysIncludesStabsPriceAndTotalCostRegardle
 	d.switchRepo.EXPECT().Get(mock.Anything, "alice", "sw1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw1", Brand: "Gateron", Name: "Oil King", Type: "Linear",
-			Purchase: repository.SwitchPurchase{Price: floatPtr(45), Quantity: intPtr(90)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(45), Quantity: intPtr(90)}},
 		}, nil)
 	d.keycapSetRepo.EXPECT().Get(mock.Anything, "alice", "ks1").
 		Return(&repository.KeycapSet{
@@ -956,7 +984,7 @@ func (s *BuildToAPISuite) TestECBuild_ResolvesPartsSignsImagesAndPricesThem() {
 		Return(&repository.ECPart{
 			ID: "domes", Brand: "DynaCap", Name: "Heavy", PartType: repository.ECPartTypeDomes,
 			ImagePath: &domesImage, ImageStatus: repository.ImageStatusApproved,
-			Purchase: repository.ECPartPurchase{Price: floatPtr(36), Quantity: intPtr(72)},
+			Purchases: repository.BulkPurchases{{Price: floatPtr(36), Quantity: intPtr(72)}},
 		}, nil)
 	d.ecPartRepo.EXPECT().Get(mock.Anything, "alice", "sliders").
 		Return(&repository.ECPart{ID: "sliders", Brand: "DynaCap", Name: "Sliders", PartType: repository.ECPartTypeSliders}, nil)

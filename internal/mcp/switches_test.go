@@ -68,7 +68,7 @@ func (s *HandleListSwitchesSuite) TestOwnCollectionShowPriceToMeTrue_IncludesPri
 	price := 8.50
 	s.mockRepo.EXPECT().
 		List(mock.Anything, callerID, mock.Anything, mock.Anything, mock.Anything).
-		Return([]repository.Switch{{ID: "sw-1", Purchase: repository.SwitchPurchase{Price: &price}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{ShowPriceToMe: true}, nil)
 
 	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
@@ -84,7 +84,7 @@ func (s *HandleListSwitchesSuite) TestOwnCollectionShowPriceToMeFalse_OmitsPrice
 	price := 8.50
 	s.mockRepo.EXPECT().
 		List(mock.Anything, callerID, mock.Anything, mock.Anything, mock.Anything).
-		Return([]repository.Switch{{ID: "sw-1", Purchase: repository.SwitchPurchase{Price: &price}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{ShowPriceToMe: false}, nil)
 
 	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
@@ -99,7 +99,7 @@ func (s *HandleListSwitchesSuite) TestOtherUsersCollectionShowPriceToOthersFalse
 	price := 8.50
 	s.mockRepo.EXPECT().
 		List(mock.Anything, otherID, mock.Anything, mock.Anything, mock.Anything).
-		Return([]repository.Switch{{ID: "sw-1", Purchase: repository.SwitchPurchase{Price: &price}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: false}, nil)
 
 	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
@@ -114,7 +114,7 @@ func (s *HandleListSwitchesSuite) TestOtherUsersCollectionShowPriceToOthersTrue_
 	price := 8.50
 	s.mockRepo.EXPECT().
 		List(mock.Anything, otherID, mock.Anything, mock.Anything, mock.Anything).
-		Return([]repository.Switch{{ID: "sw-1", Purchase: repository.SwitchPurchase{Price: &price}}}, "", nil)
+		Return([]repository.Switch{{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: true}, nil)
 
 	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
@@ -284,7 +284,7 @@ func (s *HandleGetSwitchSuite) TestOtherUsersPublicSwitchShowPriceToOthersTrue_I
 		Get(mock.Anything, otherID, "sw-1").
 		Return(&repository.Switch{
 			ID: "sw-1", Visibility: repository.VisibilityPublic,
-			Purchase: repository.SwitchPurchase{Price: &price},
+			Purchases: repository.BulkPurchases{{Price: &price}},
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: true}, nil)
 
@@ -292,9 +292,9 @@ func (s *HandleGetSwitchSuite) TestOtherUsersPublicSwitchShowPriceToOthersTrue_I
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1", UserID: otherID})
 
 	s.Require().NoError(err)
-	s.Require().NotNil(out.Switch.Purchase)
-	s.Require().NotNil(out.Switch.Purchase.Price)
-	s.InDelta(price, *out.Switch.Purchase.Price, 0.0001)
+	s.Require().Len(out.Switch.Purchases, 1)
+	s.Require().NotNil(out.Switch.Purchases[0].Price)
+	s.InDelta(price, *out.Switch.Purchases[0].Price, 0.0001)
 }
 
 func (s *HandleGetSwitchSuite) TestOtherUsersPublicSwitchShowPriceToOthersFalse_OmitsPrice() {
@@ -303,7 +303,7 @@ func (s *HandleGetSwitchSuite) TestOtherUsersPublicSwitchShowPriceToOthersFalse_
 		Get(mock.Anything, otherID, "sw-1").
 		Return(&repository.Switch{
 			ID: "sw-1", Visibility: repository.VisibilityPublic,
-			Purchase: repository.SwitchPurchase{Price: &price},
+			Purchases: repository.BulkPurchases{{Price: &price}},
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: false}, nil)
 
@@ -311,8 +311,8 @@ func (s *HandleGetSwitchSuite) TestOtherUsersPublicSwitchShowPriceToOthersFalse_
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1", UserID: otherID})
 
 	s.Require().NoError(err)
-	s.Require().NotNil(out.Switch.Purchase)
-	s.Nil(out.Switch.Purchase.Price)
+	s.Require().Len(out.Switch.Purchases, 1)
+	s.Nil(out.Switch.Purchases[0].Price)
 }
 
 func (s *HandleGetSwitchSuite) TestOwner_AlwaysIncludesPriceAndCurrency() {
@@ -321,7 +321,7 @@ func (s *HandleGetSwitchSuite) TestOwner_AlwaysIncludesPriceAndCurrency() {
 		Get(mock.Anything, callerID, "sw-1").
 		Return(&repository.Switch{
 			ID: "sw-1", Visibility: repository.VisibilityPrivate,
-			Purchase: repository.SwitchPurchase{Price: &price},
+			Purchases: repository.BulkPurchases{{Price: &price}},
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).
 		Return(repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false}, nil)
@@ -330,11 +330,11 @@ func (s *HandleGetSwitchSuite) TestOwner_AlwaysIncludesPriceAndCurrency() {
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1"})
 
 	s.Require().NoError(err)
-	s.Require().NotNil(out.Switch.Purchase)
-	s.Require().NotNil(out.Switch.Purchase.Price)
-	s.InDelta(price, *out.Switch.Purchase.Price, 0.0001)
-	s.Require().NotNil(out.Switch.Purchase.Currency)
-	s.Equal("EUR", *out.Switch.Purchase.Currency)
+	s.Require().Len(out.Switch.Purchases, 1)
+	s.Require().NotNil(out.Switch.Purchases[0].Price)
+	s.InDelta(price, *out.Switch.Purchases[0].Price, 0.0001)
+	s.Require().NotNil(out.Switch.Purchases[0].Currency)
+	s.Equal("EUR", *out.Switch.Purchases[0].Currency)
 }
 
 func (s *HandleGetSwitchSuite) TestRepositoryError_ReturnsError() {
@@ -428,7 +428,7 @@ func (s *HandleCreateSwitchSuite) TestRepositoryError_ReturnsError() {
 func (s *HandleCreateSwitchSuite) TestWellFormedDates_Succeed() {
 	ordered, delivered := "2026-01-15", "2026-02-01"
 	in := validInput()
-	in.Purchase = &schema.SwitchPurchaseInput{OrderDate: &ordered, DeliveryDate: &delivered}
+	in.Purchases = []schema.SwitchPurchaseInput{{OrderDate: &ordered, DeliveryDate: &delivered}}
 
 	s.mockSwitches.EXPECT().
 		Create(mock.Anything, mock.Anything).
@@ -839,14 +839,14 @@ func (s *HandleDeleteSwitchImageSuite) TestS3DeleteError_ReturnsError_DoesNotCle
 func (s *HandleCreateSwitchSuite) TestReturnsOwnersCurrencyWithPrice() {
 	price := 99.5
 	s.mockSwitches.EXPECT().Create(mock.Anything, mock.Anything).
-		Return(&repository.Switch{ID: "sw-1", Purchase: repository.SwitchPurchase{Price: &price}}, nil)
+		Return(&repository.Switch{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}, nil)
 
 	handler := handleCreateSwitch(s.mockSwitches, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.CreateSwitchInput{SwitchInput: validInput()})
 
 	s.Require().NoError(err)
-	s.Require().NotNil(out.Switch.Purchase.Currency)
-	s.Equal("EUR", *out.Switch.Purchase.Currency)
+	s.Require().NotNil(out.Switch.Purchases[0].Currency)
+	s.Equal("EUR", *out.Switch.Purchases[0].Currency)
 }
 
 func (s *HandleCreateSwitchSuite) TestPreferencesError_ReturnsErrorBeforeWrite() {
@@ -862,14 +862,14 @@ func (s *HandleCreateSwitchSuite) TestPreferencesError_ReturnsErrorBeforeWrite()
 func (s *HandleUpdateSwitchSuite) TestReturnsOwnersCurrencyWithPrice() {
 	price := 99.5
 	s.mockSwitches.EXPECT().Update(mock.Anything, mock.Anything).
-		Return(&repository.Switch{ID: "sw-1", Purchase: repository.SwitchPurchase{Price: &price}}, nil)
+		Return(&repository.Switch{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}, nil)
 
 	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{SwitchID: "sw-1", SwitchInput: validInput()})
 
 	s.Require().NoError(err)
-	s.Require().NotNil(out.Switch.Purchase.Currency)
-	s.Equal("EUR", *out.Switch.Purchase.Currency)
+	s.Require().NotNil(out.Switch.Purchases[0].Currency)
+	s.Equal("EUR", *out.Switch.Purchases[0].Currency)
 }
 
 func (s *HandleUpdateSwitchSuite) TestPreferencesError_ReturnsErrorBeforeWrite() {

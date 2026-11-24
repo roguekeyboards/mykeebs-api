@@ -26,7 +26,7 @@ func (s *SwitchValidateSuite) TestValidInput_NoErrors() {
 	in.Pins = new(5)
 	in.Force = &schema.SwitchForce{Actuation: new(0.0), BottomOut: new(67.0)}
 	in.Spring = &schema.SwitchSpring{PreTravel: new(2.0), TotalTravel: new(4.0), Length: new(22.0)}
-	in.Purchase = &schema.SwitchPurchaseInput{Price: new(0.0), Quantity: new(1), OrderDate: new("2026-09-21")}
+	in.Purchases = []schema.SwitchPurchaseInput{{Price: new(0.0), Quantity: new(1), OrderDate: new("2026-09-21")}}
 
 	s.Empty(validate.Check(schema.CreateSwitchInput{SwitchInput: in}))
 	s.Empty(validate.Check(schema.UpdateSwitchInput{SwitchID: "sw-1", SwitchInput: in}))
@@ -38,7 +38,7 @@ func (s *SwitchValidateSuite) TestInvalidInput_ReportsEveryField() {
 		Pins:       new(0),
 		Force:      &schema.SwitchForce{Actuation: new(-1.0), BottomOut: new(-1.0)},
 		Spring:     &schema.SwitchSpring{PreTravel: new(-1.0), TotalTravel: new(-1.0), Length: new(-1.0)},
-		Purchase:   &schema.SwitchPurchaseInput{Price: new(-1.0), Quantity: new(0), OrderDate: new("21/09/2026"), DeliveryDate: new("soon")},
+		Purchases:  []schema.SwitchPurchaseInput{{Price: new(-1.0), Quantity: new(0), OrderDate: new("21/09/2026"), DeliveryDate: new("soon")}},
 		Visibility: "everyone",
 	}
 
@@ -52,10 +52,10 @@ func (s *SwitchValidateSuite) TestInvalidInput_ReportsEveryField() {
 		{Field: "spring.pre_travel", Reason: "must be at least 0"},
 		{Field: "spring.total_travel", Reason: "must be at least 0"},
 		{Field: "spring.length", Reason: "must be at least 0"},
-		{Field: "purchase.price", Reason: "must be at least 0"},
-		{Field: "purchase.order_date", Reason: `"21/09/2026" must be a date in YYYY-MM-DD form`},
-		{Field: "purchase.delivery_date", Reason: `"soon" must be a date in YYYY-MM-DD form`},
-		{Field: "purchase.quantity", Reason: "must be at least 1"},
+		{Field: "purchases[0].price", Reason: "must be at least 0"},
+		{Field: "purchases[0].order_date", Reason: `"21/09/2026" must be a date in YYYY-MM-DD form`},
+		{Field: "purchases[0].delivery_date", Reason: `"soon" must be a date in YYYY-MM-DD form`},
+		{Field: "purchases[0].quantity", Reason: "must be at least 1"},
 		{Field: "visibility", Reason: "must be one of: public, authenticated, private"},
 	}, validate.Check(schema.UpdateSwitchInput{SwitchInput: in}))
 }

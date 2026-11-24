@@ -352,7 +352,7 @@ func (s *BuildToMCPSummarySuite) TestPriceShown_SumsComponentCosts() {
 		Get(mock.Anything, "alice", "sw-1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw-1",
-			Purchase: repository.SwitchPurchase{Price: &switchPrice, Quantity: &quantity},
+			Purchases: repository.BulkPurchases{{Price: &switchPrice, Quantity: &quantity}},
 		}, nil)
 
 	sets := mocks.NewMockKeycapSetRepository(s.T())
@@ -413,7 +413,7 @@ func (s *BuildToMCPSummarySuite) TestSwitchWithoutQuantity_ExcludedFromTotalRath
 		Get(mock.Anything, "alice", "sw-1").
 		Return(&repository.Switch{
 			UserID: "alice", ID: "sw-1",
-			Purchase: repository.SwitchPurchase{Price: &switchPrice},
+			Purchases: repository.BulkPurchases{{Price: &switchPrice}},
 		}, nil)
 
 	out, err := Build{KeyboardRepo: keyboards, SwitchRepo: switches}.ToMCPSummary(
@@ -556,9 +556,9 @@ func (s *BuildToMCPSummarySuite) TestPriceShown_IncludesECParts() {
 		Return(&repository.Keyboard{UserID: "alice", ID: "kb-1", Purchase: repository.KeyboardPurchase{Price: floatPtr(300)}}, nil)
 	parts := mocks.NewMockECPartRepository(s.T())
 	parts.EXPECT().Get(mock.Anything, "alice", "p-1").
-		Return(&repository.ECPart{ID: "p-1", Purchase: repository.ECPartPurchase{Price: floatPtr(36), Quantity: new(72)}}, nil)
+		Return(&repository.ECPart{ID: "p-1", Purchases: repository.BulkPurchases{{Price: floatPtr(36), Quantity: new(72)}}}, nil)
 	parts.EXPECT().Get(mock.Anything, "alice", "p-2").
-		Return(&repository.ECPart{ID: "p-2", Purchase: repository.ECPartPurchase{Price: floatPtr(20)}}, nil)
+		Return(&repository.ECPart{ID: "p-2", Purchases: repository.BulkPurchases{{Price: floatPtr(20)}}}, nil)
 
 	out, err := Build{KeyboardRepo: keyboards, ECPartRepo: parts}.ToMCPSummary(
 		context.Background(), b, true, repository.ProfilePreferences{ShowPriceToMe: true})

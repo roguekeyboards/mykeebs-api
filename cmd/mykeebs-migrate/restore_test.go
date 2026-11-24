@@ -109,7 +109,7 @@ func (s *RestoreSuite) TestRestoreECParts_CreatesPartAndUploadsImage() {
 	s.Require().NoError(os.MkdirAll(itemDir, 0o750))
 	s.Require().NoError(os.WriteFile(filepath.Join(itemDir, "item.json"), []byte(
 		`{"id":"ec-old","brand":"DynaCap","name":"Medium Doems","part_type":"domes","visibility":"public",`+
-			`"domes":{"weight":45},"purchase":{"price":40,"quantity":110,"currency":"USD"},"image":{"url":"x"}}`,
+			`"domes":{"weight":45},"purchases":[{"price":40,"quantity":110,"currency":"USD"}],"image":{"url":"x"}}`,
 	), 0o600))
 	img := []byte("ec part image bytes")
 	s.Require().NoError(os.WriteFile(filepath.Join(itemDir, "image.webp"), img, 0o600))
@@ -148,8 +148,8 @@ func (s *RestoreSuite) TestRestoreECParts_CreatesPartAndUploadsImage() {
 	s.Equal("ec-new", m.ECParts["ec-old"].NewID)
 	s.Equal(map[string]any{
 		"brand": "DynaCap", "name": "Medium Doems", "part_type": "domes", "visibility": "public",
-		"domes":    map[string]any{"weight": float64(45)},
-		"purchase": map[string]any{"price": float64(40), "quantity": float64(110)},
+		"domes":     map[string]any{"weight": float64(45)},
+		"purchases": []any{map[string]any{"price": float64(40), "quantity": float64(110)}},
 	}, created)
 	s.Equal([]string{
 		"POST /v1/users/u-1/ec-parts",

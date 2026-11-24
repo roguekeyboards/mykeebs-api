@@ -44,7 +44,7 @@ var _ = Describe("Updating an EC part over MCP", func() {
 				})
 			})
 
-			It("replaces every field, clearing the omitted purchase", func() {
+			It("replaces every field, clearing the omitted purchases", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.IsError).To(BeFalse())
 
@@ -52,7 +52,7 @@ var _ = Describe("Updating an EC part over MCP", func() {
 				Expect(out.PartType).To(Equal("housings"))
 				Expect(out.Housings).NotTo(BeNil())
 				Expect(*out.Housings.Size).To(Equal("1U"))
-				Expect(out.Purchase).To(BeNil())
+				Expect(out.Purchases).To(BeNil())
 			})
 		})
 	})

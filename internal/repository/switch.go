@@ -29,24 +29,12 @@ type SwitchSpring struct {
 	Length      *float64 `dynamodbav:"length,omitempty" json:"length,omitempty"`
 }
 
-// SwitchPurchase is where/how much/how many of a switch were bought, plus
-// its order lifecycle. Same shape as KeyboardPurchase, plus Quantity since
-// switches are bought in bulk.
-type SwitchPurchase struct {
-	Vendor       *string  `dynamodbav:"vendor,omitempty" json:"vendor,omitempty"`
-	Price        *float64 `dynamodbav:"price,omitempty" json:"price,omitempty"`
-	OrderDate    *string  `dynamodbav:"order_date,omitempty" json:"order_date,omitempty"`
-	DeliveryDate *string  `dynamodbav:"delivery_date,omitempty" json:"delivery_date,omitempty"`
-	OrderStatus  *string  `dynamodbav:"order_status,omitempty" json:"order_status,omitempty"`
-	Quantity     *int     `dynamodbav:"quantity,omitempty" json:"quantity,omitempty"`
-}
-
 // Switch is a mechanical keyboard switch in a user's collection, or shared
 // with the caller. UserID is the DynamoDB partition key (the owner's
 // IdP-issued user ID); ID is the sort key. Only Brand, Name, Type, and
 // Visibility are required, per api/openapi.yaml's SwitchInput schema; every
 // other field (here and in SwitchMaterial/SwitchForce/SwitchSpring/
-// SwitchPurchase) is a pointer so nil ("not provided") round-trips
+// BulkPurchase) is a pointer so nil ("not provided") round-trips
 // distinctly from an explicit zero value.
 type Switch struct {
 	UserID       string          `dynamodbav:"user_id" json:"-"`
@@ -60,7 +48,7 @@ type Switch struct {
 	Material     SwitchMaterial  `dynamodbav:"material" json:"material"`
 	Force        SwitchForce     `dynamodbav:"force" json:"force"`
 	Spring       SwitchSpring    `dynamodbav:"spring" json:"spring"`
-	Purchase     SwitchPurchase  `dynamodbav:"purchase" json:"purchase"`
+	Purchases    BulkPurchases   `dynamodbav:"purchases,omitempty" json:"purchases,omitempty"`
 	Notes        *string         `dynamodbav:"notes,omitempty" json:"notes,omitempty"`
 	Visibility   Visibility      `dynamodbav:"visibility" json:"visibility"`
 	ImagePath    *SwitchImageKey `dynamodbav:"image_path,omitempty" json:"-"`

@@ -166,7 +166,6 @@ func (r *ECPartRepository) Update(ctx context.Context, p repository.ECPart) (*re
 		Set(expression.Name("brand"), expression.Value(p.Brand)).
 		Set(expression.Name("name"), expression.Value(p.Name)).
 		Set(expression.Name("part_type"), expression.Value(p.PartType)).
-		Set(expression.Name("purchase"), expression.Value(p.Purchase)).
 		Set(expression.Name("visibility"), expression.Value(p.Visibility))
 	update = setOrRemovePtr(update, "domes", p.Domes)
 	update = setOrRemovePtr(update, "sliders", p.Sliders)
@@ -174,6 +173,7 @@ func (r *ECPartRepository) Update(ctx context.Context, p repository.ECPart) (*re
 	update = setOrRemovePtr(update, "springs", p.Springs)
 	update = setOrRemovePtr(update, "rings", p.Rings)
 	update = setOrRemovePtr(update, "notes", p.Notes)
+	update = setOrRemoveSlice(update, "purchases", p.Purchases)
 
 	expr, err := expression.NewBuilder().
 		WithUpdate(update).

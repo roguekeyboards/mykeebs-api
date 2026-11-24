@@ -14,26 +14,27 @@ type Switch struct{}
 // pass through as pointers rather than being dereferenced, so a recorded
 // zero survives the round trip instead of being indistinguishable from
 // unset - the same reason [repoapi.Switch.ToAPI] keeps them. The nested
-// material/force/spring/purchase groups still collapse to nil when every
-// field in them is unset, so an all-empty group is omitted entirely. The
-// owner always sees their own purchase.price; a non-owner sees it only if
+// material/force/spring groups still collapse to nil when every field in
+// them is unset, so an all-empty group is omitted entirely. The owner
+// always sees their own purchases' prices; a non-owner sees them only if
 // ownerPrefs.ShowPriceToOthers.
 func (s Switch) ToMCP(sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences) schema.Switch {
 	out := schema.Switch{
-		ID:           sw.ID,
-		Brand:        sw.Brand,
-		Manufacturer: sw.Manufacturer,
-		Name:         sw.Name,
-		Type:         sw.Type,
-		Pins:         sw.Pins,
-		FactoryLubed: sw.FactoryLubed,
-		Material:     s.materialToMCP(sw.Material),
-		Force:        s.forceToMCP(sw.Force),
-		Spring:       s.springToMCP(sw.Spring),
-		Purchase:     s.purchaseToMCP(sw.Purchase, isOwner, ownerPrefs),
-		Notes:        sw.Notes,
-		Visibility:   ownerVisibility(sw.Visibility, isOwner),
-		HasImage:     sw.ImagePath != nil && sw.ImageStatus.VisibleTo(isOwner),
+		ID:            sw.ID,
+		Brand:         sw.Brand,
+		Manufacturer:  sw.Manufacturer,
+		Name:          sw.Name,
+		Type:          sw.Type,
+		Pins:          sw.Pins,
+		FactoryLubed:  sw.FactoryLubed,
+		Material:      s.materialToMCP(sw.Material),
+		Force:         s.forceToMCP(sw.Force),
+		Spring:        s.springToMCP(sw.Spring),
+		Purchases:     bulkPurchasesToMCP(sw.Purchases, isOwner, ownerPrefs, func(p schema.SwitchPurchase) schema.SwitchPurchase { return p }),
+		TotalQuantity: sw.Purchases.TotalQuantity(),
+		Notes:         sw.Notes,
+		Visibility:    ownerVisibility(sw.Visibility, isOwner),
+		HasImage:      sw.ImagePath != nil && sw.ImageStatus.VisibleTo(isOwner),
 	}
 	out.ImageStatus, out.ImageRejectionReason = imageStatusToMCP(sw.ImagePath != nil, sw.ImageStatus, sw.ImageRejectionReason, isOwner)
 
@@ -41,8 +42,8 @@ func (s Switch) ToMCP(sw repository.Switch, isOwner bool, ownerPrefs repository.
 }
 
 // ToMCPSummary maps a repository.Switch to the abbreviated shape
-// list_switches returns. Lifts order_status out of purchase, so a switch
-// still on order is visible while browsing a list. Price is shown per
+// list_switches returns. Lifts the purchases' order_status into it, so a
+// switch still on order is visible while browsing a list. Price is shown per
 // ownerPrefs.ShowPriceToMe (owner) or ownerPrefs.ShowPriceToOthers
 // (non-owner) - unlike [Switch.ToMCP], the owner isn't unconditionally
 // shown price here.
@@ -52,11 +53,11 @@ func (s Switch) ToMCPSummary(sw repository.Switch, isOwner bool, ownerPrefs repo
 		Brand:       sw.Brand,
 		Name:        sw.Name,
 		Type:        sw.Type,
-		OrderStatus: sw.Purchase.OrderStatus,
+		OrderStatus: sw.Purchases.OrderStatus(),
 		HasImage:    sw.ImagePath != nil && sw.ImageStatus.VisibleTo(isOwner),
 	}
 	if ownerPrefs.ShowPriceSummary(isOwner) {
-		summary.Price = sw.Purchase.Price
+		summary.Price = sw.Purchases.TotalPrice()
 	}
 	summary.Currency = ownerPrefs.CurrencyFor(summary.Price)
 	if isOwner {
@@ -103,29 +104,6 @@ func (s Switch) springToMCP(sp repository.SwitchSpring) *schema.SwitchSpring {
 	}
 }
 
-// Dates pass through as strings, unlike [repoapi.Switch.ToAPI], so this
-// can't fail on a malformed one.
-func (s Switch) purchaseToMCP(p repository.SwitchPurchase, isOwner bool, ownerPrefs repository.ProfilePreferences) *schema.SwitchPurchase {
-	if p.Vendor == nil && p.Price == nil && p.OrderDate == nil &&
-		p.DeliveryDate == nil && p.OrderStatus == nil && p.Quantity == nil {
-		return nil
-	}
-
-	out := &schema.SwitchPurchase{
-		Vendor:       p.Vendor,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
-		Quantity:     p.Quantity,
-	}
-	if ownerPrefs.ShowPriceSingle(isOwner) {
-		out.Price = p.Price
-	}
-	out.Currency = ownerPrefs.CurrencyFor(out.Price)
-
-	return out
-}
-
 // FromMCP maps a create_switch/update_switch tool argument to its
 // repository shape. ID and UserID are left unset: the caller sets ID
 // (fresh for a create, the target's for an update), and UserID comes from
@@ -141,7 +119,7 @@ func (s Switch) FromMCP(in schema.SwitchInput) repository.Switch {
 		Material:     s.materialFromMCP(in.Material),
 		Force:        s.forceFromMCP(in.Force),
 		Spring:       s.springFromMCP(in.Spring),
-		Purchase:     s.purchaseFromMCP(in.Purchase),
+		Purchases:    bulkPurchasesFromMCP(in.Purchases, func(p schema.SwitchPurchaseInput) schema.SwitchPurchaseInput { return p }),
 		Notes:        in.Notes,
 		Visibility:   repository.Visibility(in.Visibility),
 	}
@@ -180,20 +158,5 @@ func (s Switch) springFromMCP(sp *schema.SwitchSpring) repository.SwitchSpring {
 		PreTravel:   sp.PreTravel,
 		TotalTravel: sp.TotalTravel,
 		Length:      sp.Length,
-	}
-}
-
-func (s Switch) purchaseFromMCP(p *schema.SwitchPurchaseInput) repository.SwitchPurchase {
-	if p == nil {
-		return repository.SwitchPurchase{}
-	}
-
-	return repository.SwitchPurchase{
-		Vendor:       p.Vendor,
-		Price:        p.Price,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
-		Quantity:     p.Quantity,
 	}
 }

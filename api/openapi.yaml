@@ -2339,8 +2339,8 @@ components:
           type: integer
           minimum: 1
           description: >
-            How many switches price paid for. Needed for this switch's cost
-            to count toward a build's total_cost.
+            How many switches price paid for. Needed for this purchase's
+            cost to count toward a build's total_cost.
 
     SwitchPurchase:
       type: object
@@ -2370,8 +2370,8 @@ components:
           type: integer
           minimum: 1
           description: >
-            How many switches price paid for. Needed for this switch's cost
-            to count toward a build's total_cost.
+            How many switches price paid for. Needed for this purchase's
+            cost to count toward a build's total_cost.
 
     SwitchInput:
       type: object
@@ -2406,6 +2406,16 @@ components:
           $ref: "#/components/schemas/SwitchSpring"
         purchase:
           $ref: "#/components/schemas/SwitchPurchaseInput"
+          deprecated: true
+          description: >
+            Replaced by purchases. Ignored when purchases is sent; otherwise
+            it replaces every purchase with this one.
+        purchases:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwitchPurchaseInput"
+          description: >
+            Every order of this switch, e.g. a restock bought later.
         notes:
           type: string
         visibility:
@@ -2475,6 +2485,23 @@ components:
           $ref: "#/components/schemas/SwitchSpring"
         purchase:
           $ref: "#/components/schemas/SwitchPurchase"
+          deprecated: true
+          description: >
+            Replaced by purchases. The purchase with the earliest
+            order_date, or the first purchase when none has one.
+        purchases:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwitchPurchase"
+          description: >
+            Every order of this switch. A build's switches are costed at
+            the average price per switch across those not Cancelled.
+        total_quantity:
+          type: integer
+          minimum: 0
+          description: >
+            The sum of the quantities of purchases not Cancelled. Absent
+            when none has a quantity.
         notes:
           type: string
         visibility:
@@ -2665,6 +2692,16 @@ components:
           $ref: "#/components/schemas/ECRings"
         purchase:
           $ref: "#/components/schemas/ECPartPurchaseInput"
+          deprecated: true
+          description: >
+            Replaced by purchases. Ignored when purchases is sent; otherwise
+            it replaces every purchase with this one.
+        purchases:
+          type: array
+          items:
+            $ref: "#/components/schemas/ECPartPurchaseInput"
+          description: >
+            Every order of this part, e.g. a second kit bought later.
         notes:
           type: string
         visibility:
@@ -2729,6 +2766,23 @@ components:
           $ref: "#/components/schemas/ECRings"
         purchase:
           $ref: "#/components/schemas/ECPartPurchase"
+          deprecated: true
+          description: >
+            Replaced by purchases. The purchase with the earliest
+            order_date, or the first purchase when none has one.
+        purchases:
+          type: array
+          items:
+            $ref: "#/components/schemas/ECPartPurchase"
+          description: >
+            Every order of this part. A build's EC parts are costed at the
+            average price per part across those not Cancelled.
+        total_quantity:
+          type: integer
+          minimum: 0
+          description: >
+            The sum of the quantities of purchases not Cancelled. Absent
+            when none has a quantity.
         notes:
           type: string
         visibility:

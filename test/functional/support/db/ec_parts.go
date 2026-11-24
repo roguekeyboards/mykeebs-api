@@ -23,12 +23,12 @@ func SeedECPartOfType(ctx context.Context, ownerID, id, visibility, partType str
 		"name":       "Heavy",
 		"part_type":  partType,
 		"visibility": visibility,
-		"purchase": map[string]any{
+		"purchases": []map[string]any{{
 			"vendor":       "Omnitype",
 			"price":        36.0,
 			"quantity":     72,
 			"order_status": "Delivered",
-		},
+		}},
 	})
 }
 

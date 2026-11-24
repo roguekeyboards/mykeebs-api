@@ -21,32 +21,33 @@ func (s *ECPartSuite) TestToMCP_MapsSubObjectAndPurchase() {
 	p := repository.ECPart{
 		ID: "p1", Brand: "DynaCap", Name: "Housings", PartType: repository.ECPartTypeHousings,
 		Housings:   &repository.ECHousings{Size: new(repository.ECPartSize1U), Material: new("POM")},
-		Purchase:   repository.ECPartPurchase{Vendor: new("Omnitype"), Price: new(10.0), Quantity: new(72), OrderDate: new("2026-09-21")},
+		Purchases:  repository.BulkPurchases{{Vendor: new("Omnitype"), Price: new(10.0), Quantity: new(72), OrderDate: new("2026-09-21")}},
 		Visibility: repository.VisibilityPrivate,
 	}
 
 	s.Equal(schema.ECPart{
 		ID: "p1", Brand: "DynaCap", Name: "Housings", PartType: "housings",
-		Housings:   &schema.ECHousings{Size: new("1U"), Material: new("POM")},
-		Purchase:   &schema.ECPartPurchase{Vendor: new("Omnitype"), Price: new(10.0), Currency: new("USD"), Quantity: new(72), OrderDate: new("2026-09-21")},
-		Visibility: new("private"),
+		Housings:      &schema.ECHousings{Size: new("1U"), Material: new("POM")},
+		Purchases:     []schema.ECPartPurchase{{Vendor: new("Omnitype"), Price: new(10.0), Currency: new("USD"), Quantity: new(72), OrderDate: new("2026-09-21")}},
+		TotalQuantity: new(72),
+		Visibility:    new("private"),
 	}, ECPart{}.ToMCP(p, true, repository.ProfilePreferences{Currency: "USD"}))
 }
 
 func (s *ECPartSuite) TestToMCP_NonOwner_HidesVisibilityAndUnsharedPrice() {
-	p := repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, Purchase: repository.ECPartPurchase{Price: new(36.0)}}
+	p := repository.ECPart{ID: "p1", Visibility: repository.VisibilityPublic, Purchases: repository.BulkPurchases{{Price: new(36.0)}}}
 
 	out := ECPart{}.ToMCP(p, false, repository.ProfilePreferences{})
 
 	s.Nil(out.Visibility)
-	s.Require().NotNil(out.Purchase)
-	s.Nil(out.Purchase.Price)
+	s.Require().Len(out.Purchases, 1)
+	s.Nil(out.Purchases[0].Price)
 }
 
 func (s *ECPartSuite) TestToMCPSummary_LiftsOrderStatusAndFollowsSummaryPricePreference() {
 	p := repository.ECPart{
 		ID: "p1", Brand: "DynaCap", Name: "Heavy", PartType: repository.ECPartTypeDomes,
-		Purchase:   repository.ECPartPurchase{Price: new(36.0), OrderStatus: new("Delivered")},
+		Purchases:  repository.BulkPurchases{{Price: new(36.0), OrderStatus: new("Delivered")}},
 		Visibility: repository.VisibilityPublic,
 	}
 
@@ -66,7 +67,7 @@ func (s *ECPartSuite) TestFromMCP_MapsEveryField() {
 		Housings:   &schema.ECHousings{Size: new("1U")},
 		Springs:    &schema.ECSprings{Material: new("Nickel-Plated")},
 		Rings:      &schema.ECRings{Thickness: new(0.5)},
-		Purchase:   &schema.ECPartPurchaseInput{Vendor: new("Omnitype"), DeliveryDate: new("2026-09-25")},
+		Purchases:  []schema.ECPartPurchaseInput{{Vendor: new("Omnitype"), DeliveryDate: new("2026-09-25")}},
 		Notes:      new("n"),
 		Visibility: "public",
 	}
@@ -78,7 +79,7 @@ func (s *ECPartSuite) TestFromMCP_MapsEveryField() {
 		Housings:   &repository.ECHousings{Size: new(repository.ECPartSize1U)},
 		Springs:    &repository.ECSprings{Material: new("Nickel-Plated")},
 		Rings:      &repository.ECRings{Thickness: new(0.5)},
-		Purchase:   repository.ECPartPurchase{Vendor: new("Omnitype"), DeliveryDate: new("2026-09-25")},
+		Purchases:  repository.BulkPurchases{{Vendor: new("Omnitype"), DeliveryDate: new("2026-09-25")}},
 		Notes:      new("n"),
 		Visibility: repository.VisibilityPublic,
 	}, ECPart{}.FromMCP(in))

@@ -18,7 +18,7 @@ func TestECPartValidateSuite(t *testing.T) {
 }
 
 func (s *ECPartValidateSuite) TestValidInputForEveryType_NoErrors() {
-	purchase := &schema.ECPartPurchaseInput{Price: new(30.0), Quantity: new(90), OrderDate: new("2026-11-01")}
+	purchases := []schema.ECPartPurchaseInput{{Price: new(30.0), Quantity: new(90), OrderDate: new("2026-11-01")}}
 
 	for _, in := range []schema.ECPartInput{
 		{PartType: "domes", Domes: &schema.ECDomes{Weight: new(0.0)}},
@@ -27,7 +27,7 @@ func (s *ECPartValidateSuite) TestValidInputForEveryType_NoErrors() {
 		{PartType: "springs", Springs: &schema.ECSprings{}},
 		{PartType: "rings", Rings: &schema.ECRings{Thickness: new(0.0)}},
 	} {
-		in.Brand, in.Name, in.Visibility, in.Purchase = "Deskthority", "Part", "public", purchase
+		in.Brand, in.Name, in.Visibility, in.Purchases = "Deskthority", "Part", "public", purchases
 		s.Empty(validate.Check(schema.CreateECPartInput{ECPartInput: in}), in.PartType)
 	}
 }
@@ -39,7 +39,7 @@ func (s *ECPartValidateSuite) TestInvalidInput_ReportsEveryField() {
 		Sliders:    &schema.ECSliders{Size: new("3U"), Stem: new("Alps")},
 		Housings:   &schema.ECHousings{Size: new("1u")},
 		Rings:      &schema.ECRings{Thickness: new(-0.2)},
-		Purchase:   &schema.ECPartPurchaseInput{Price: new(-1.0), Quantity: new(0)},
+		Purchases:  []schema.ECPartPurchaseInput{{Price: new(-1.0), Quantity: new(0)}},
 		Visibility: "friends",
 	}
 
@@ -53,8 +53,8 @@ func (s *ECPartValidateSuite) TestInvalidInput_ReportsEveryField() {
 		{Field: "sliders.stem", Reason: "must be one of: MX, OEM"},
 		{Field: "housings.size", Reason: "must be one of: 1U, 2U"},
 		{Field: "rings.thickness", Reason: "must be at least 0"},
-		{Field: "purchase.price", Reason: "must be at least 0"},
-		{Field: "purchase.quantity", Reason: "must be at least 1"},
+		{Field: "purchases[0].price", Reason: "must be at least 0"},
+		{Field: "purchases[0].quantity", Reason: "must be at least 1"},
 		{Field: "visibility", Reason: "must be one of: public, authenticated, private"},
 	}, validate.Check(schema.UpdateECPartInput{ECPartInput: in}))
 }

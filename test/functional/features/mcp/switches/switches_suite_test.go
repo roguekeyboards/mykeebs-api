@@ -36,10 +36,11 @@ type getOutput struct {
 		Spring     *struct {
 			Length *float64 `json:"length"`
 		} `json:"spring"`
-		Purchase *struct {
+		Purchases []struct {
 			Vendor *string  `json:"vendor"`
 			Price  *float64 `json:"price"`
-		} `json:"purchase"`
+		} `json:"purchases"`
+		TotalQuantity *int `json:"total_quantity"`
 	} `json:"switch"`
 }
 

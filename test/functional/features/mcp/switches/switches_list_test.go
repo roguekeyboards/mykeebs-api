@@ -101,7 +101,7 @@ var _ = Describe("Listing switches over MCP", func() {
 					out := decodeListOutput(result)
 					Expect(idsOf(out)).To(ContainElement(switchID))
 
-					By("carrying order_status, which the summary lifts out of purchase")
+					By("carrying order_status, which the summary lifts out of purchases")
 					seeded := seededBy(out, switchID)
 					Expect(seeded).NotTo(BeNil())
 					Expect(seeded.OrderStatus).NotTo(BeNil())
