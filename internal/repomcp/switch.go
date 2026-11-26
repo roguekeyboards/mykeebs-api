@@ -1,6 +1,7 @@
 package repomcp
 
 import (
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -17,25 +18,27 @@ type Switch struct{}
 // material/force/spring groups still collapse to nil when every field in
 // them is unset, so an all-empty group is omitted entirely. The owner
 // always sees their own purchases' prices; a non-owner sees them only if
-// ownerPrefs.ShowPriceToOthers.
-func (s Switch) ToMCP(sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences) schema.Switch {
+// ownerPrefs.ShowPriceToOthers. usage is what the owner's current builds
+// use.
+func (s Switch) ToMCP(sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences, usage availability.Usage) schema.Switch {
 	out := schema.Switch{
-		ID:            sw.ID,
-		Brand:         sw.Brand,
-		Manufacturer:  sw.Manufacturer,
-		Name:          sw.Name,
-		Type:          sw.Type,
-		Pins:          sw.Pins,
-		FactoryLubed:  sw.FactoryLubed,
-		Material:      s.materialToMCP(sw.Material),
-		Force:         s.forceToMCP(sw.Force),
-		Spring:        s.springToMCP(sw.Spring),
-		Purchases:     bulkPurchasesToMCP(sw.Purchases, isOwner, ownerPrefs, func(p schema.SwitchPurchase) schema.SwitchPurchase { return p }),
-		TotalQuantity: sw.Purchases.TotalQuantity(),
-		OrderStatus:   sw.Purchases.OrderStatus(),
-		Notes:         sw.Notes,
-		Visibility:    ownerVisibility(sw.Visibility, isOwner),
-		HasImage:      sw.ImagePath != nil && sw.ImageStatus.VisibleTo(isOwner),
+		ID:                sw.ID,
+		Brand:             sw.Brand,
+		Manufacturer:      sw.Manufacturer,
+		Name:              sw.Name,
+		Type:              sw.Type,
+		Pins:              sw.Pins,
+		FactoryLubed:      sw.FactoryLubed,
+		Material:          s.materialToMCP(sw.Material),
+		Force:             s.forceToMCP(sw.Force),
+		Spring:            s.springToMCP(sw.Spring),
+		Purchases:         bulkPurchasesToMCP(sw.Purchases, isOwner, ownerPrefs, func(p schema.SwitchPurchase) schema.SwitchPurchase { return p }),
+		TotalQuantity:     sw.Purchases.TotalQuantity(),
+		AvailableQuantity: usage.SwitchQuantity(sw),
+		OrderStatus:       sw.Purchases.OrderStatus(),
+		Notes:             sw.Notes,
+		Visibility:        ownerVisibility(sw.Visibility, isOwner),
+		HasImage:          sw.ImagePath != nil && sw.ImageStatus.VisibleTo(isOwner),
 	}
 	if ownerPrefs.ShowPriceSingle(isOwner) {
 		out.TotalCost = sw.Purchases.TotalPrice()
@@ -52,14 +55,15 @@ func (s Switch) ToMCP(sw repository.Switch, isOwner bool, ownerPrefs repository.
 // ownerPrefs.ShowPriceToMe (owner) or ownerPrefs.ShowPriceToOthers
 // (non-owner) - unlike [Switch.ToMCP], the owner isn't unconditionally
 // shown price here.
-func (s Switch) ToMCPSummary(sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences) schema.SwitchSummary {
+func (s Switch) ToMCPSummary(sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences, usage availability.Usage) schema.SwitchSummary {
 	summary := schema.SwitchSummary{
-		ID:          sw.ID,
-		Brand:       sw.Brand,
-		Name:        sw.Name,
-		Type:        sw.Type,
-		OrderStatus: sw.Purchases.OrderStatus(),
-		HasImage:    sw.ImagePath != nil && sw.ImageStatus.VisibleTo(isOwner),
+		ID:                sw.ID,
+		Brand:             sw.Brand,
+		Name:              sw.Name,
+		Type:              sw.Type,
+		AvailableQuantity: usage.SwitchQuantity(sw),
+		OrderStatus:       sw.Purchases.OrderStatus(),
+		HasImage:          sw.ImagePath != nil && sw.ImageStatus.VisibleTo(isOwner),
 	}
 	if ownerPrefs.ShowPriceSummary(isOwner) {
 		summary.Price = sw.Purchases.TotalPrice()

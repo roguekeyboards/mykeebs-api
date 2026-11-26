@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -15,9 +16,10 @@ type Switch struct {
 
 // ToAPI maps a repository.Switch to its wire representation. The owner
 // always sees their own purchases' prices; a non-owner sees them only if
-// ownerPrefs.ShowPriceToOthers. Returns an error if a stored purchase date
-// doesn't match dateLayout, or an image fails to sign.
-func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.Switch, error) {
+// ownerPrefs.ShowPriceToOthers. usage is what the owner's current builds
+// use. Returns an error if a stored purchase date doesn't match dateLayout,
+// or an image fails to sign.
+func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, ownerPrefs repository.ProfilePreferences, usage availability.Usage) (api.Switch, error) {
 	purchases, err := bulkPurchasesToAPI(sw.Purchases, isOwner, ownerPrefs, func(p api.SwitchPurchase) api.SwitchPurchase { return p })
 	if err != nil {
 		return api.Switch{}, err
@@ -37,22 +39,23 @@ func (s Switch) ToAPI(ctx context.Context, sw repository.Switch, isOwner bool, o
 	}
 
 	out := api.Switch{
-		Id:            sw.ID,
-		Brand:         sw.Brand,
-		Manufacturer:  sw.Manufacturer,
-		Name:          sw.Name,
-		Type:          sw.Type,
-		Pins:          sw.Pins,
-		FactoryLubed:  sw.FactoryLubed,
-		Material:      s.materialToAPI(sw.Material),
-		Force:         s.forceToAPI(sw.Force),
-		Spring:        s.springToAPI(sw.Spring),
-		Purchases:     purchases,
-		TotalQuantity: sw.Purchases.TotalQuantity(),
-		OrderStatus:   sw.Purchases.OrderStatus(),
-		Notes:         sw.Notes,
-		Visibility:    ownerVisibility(sw.Visibility, isOwner),
-		Image:         image,
+		Id:                sw.ID,
+		Brand:             sw.Brand,
+		Manufacturer:      sw.Manufacturer,
+		Name:              sw.Name,
+		Type:              sw.Type,
+		Pins:              sw.Pins,
+		FactoryLubed:      sw.FactoryLubed,
+		Material:          s.materialToAPI(sw.Material),
+		Force:             s.forceToAPI(sw.Force),
+		Spring:            s.springToAPI(sw.Spring),
+		Purchases:         purchases,
+		TotalQuantity:     sw.Purchases.TotalQuantity(),
+		AvailableQuantity: usage.SwitchQuantity(sw),
+		OrderStatus:       sw.Purchases.OrderStatus(),
+		Notes:             sw.Notes,
+		Visibility:        ownerVisibility(sw.Visibility, isOwner),
+		Image:             image,
 	}
 	if ownerPrefs.ShowPriceSingle(isOwner) {
 		out.TotalCost = sw.Purchases.TotalPrice()

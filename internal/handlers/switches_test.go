@@ -24,6 +24,9 @@ import (
 
 type ListSwitchesSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockRepo   *mocks.MockSwitchRepository
 	mockImages *mocks.MockSwitchImageStore
@@ -39,7 +42,13 @@ func (s *ListSwitchesSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockSwitchRepository(s.T())
 	s.mockImages = mocks.NewMockSwitchImageStore(s.T())
 	s.prefs = repository.ProfilePreferences{}
-	s.handler = ListSwitches(s.mockRepo, repoapi.Switch{Images: s.mockImages})
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, "alice", mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
+	s.handler = ListSwitches(s.mockRepo, s.mockBuilds, repoapi.Switch{Images: s.mockImages})
 }
 
 func (s *ListSwitchesSuite) newRequest(ctx context.Context, query string) *http.Request {
@@ -265,8 +274,41 @@ func (s *ListSwitchesSuite) TestListSwitches_InvalidCursor_Returns400() {
 	s.Equal("application/problem+json", rec.Header().Get("Content-Type"))
 }
 
+func (s *ListSwitchesSuite) TestListSwitches_AnonymousCaller_SubtractsCurrentBuilds() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, "alice", mock.Anything, 20, "").
+		Return([]repository.Switch{{ID: "sw1", Visibility: repository.VisibilityPublic, Purchases: repository.BulkPurchases{
+			{Quantity: new(90), OrderStatus: new("Delivered")},
+		}}}, "", nil)
+	s.builds = []repository.Build{{Keyboard: "kb1", Visibility: repository.VisibilityPrivate, Switches: []repository.BuildSwitchEntry{{Switch: "sw1", Count: 65}}}}
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, s.newRequest(s.T().Context(), "limit=20"))
+
+	s.Equal(http.StatusOK, rec.Code)
+	var got api.SwitchListPage
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Require().Len(*got.Items, 1)
+	s.Equal(25, (*got.Items)[0].AvailableQuantity)
+}
+
+func (s *ListSwitchesSuite) TestListSwitches_BuildsError_Returns500() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, "alice", mock.Anything, 20, "").
+		Return([]repository.Switch{{ID: "sw1"}}, "", nil)
+	s.buildsErr = errors.New("query failed")
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, s.newRequest(s.T().Context(), "limit=20"))
+
+	s.Equal(http.StatusInternalServerError, rec.Code)
+}
+
 type GetSwitchSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockRepo   *mocks.MockSwitchRepository
 	mockImages *mocks.MockSwitchImageStore
@@ -282,7 +324,13 @@ func (s *GetSwitchSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockSwitchRepository(s.T())
 	s.mockImages = mocks.NewMockSwitchImageStore(s.T())
 	s.prefs = repository.ProfilePreferences{}
-	s.handler = GetSwitch(s.mockRepo, repoapi.Switch{Images: s.mockImages})
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, "alice", mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
+	s.handler = GetSwitch(s.mockRepo, s.mockBuilds, repoapi.Switch{Images: s.mockImages})
 }
 
 func (s *GetSwitchSuite) newRequest(ctx context.Context) *http.Request {
@@ -324,6 +372,34 @@ func (s *GetSwitchSuite) TestGetSwitch_AnonymousReadingPublicSwitch_Succeeds() {
 	s.handler(rec, s.newRequest(s.T().Context()))
 
 	s.Equal(http.StatusOK, rec.Code)
+}
+
+func (s *GetSwitchSuite) TestGetSwitch_SubtractsCurrentBuilds() {
+	sw := repository.Switch{ID: "sw1", Visibility: repository.VisibilityPublic, Purchases: repository.BulkPurchases{
+		{Quantity: new(90), OrderStatus: new("Delivered")},
+	}}
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "sw1").Return(&sw, nil)
+	s.builds = []repository.Build{{Keyboard: "kb1", Switches: []repository.BuildSwitchEntry{{Switch: "sw1", Count: 65}}}}
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, s.newRequest(s.T().Context()))
+
+	s.Equal(http.StatusOK, rec.Code)
+	var got api.Switch
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Equal(25, got.AvailableQuantity)
+}
+
+func (s *GetSwitchSuite) TestGetSwitch_BuildsError_Returns500() {
+	s.mockRepo.EXPECT().
+		Get(mock.Anything, "alice", "sw1").
+		Return(&repository.Switch{ID: "sw1", Visibility: repository.VisibilityPublic}, nil)
+	s.buildsErr = errors.New("query failed")
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, s.newRequest(s.T().Context()))
+
+	s.Equal(http.StatusInternalServerError, rec.Code)
 }
 
 func (s *GetSwitchSuite) TestGetSwitch_AnonymousReadingPrivateSwitch_Returns404() {
@@ -698,6 +774,9 @@ func (s *CreateSwitchSuite) TestCreateSwitch_MalformedStoredDate_Returns500NotPa
 
 type UpdateSwitchSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	prefs          repository.ProfilePreferences
 	mockSwitchRepo *mocks.MockSwitchRepository
@@ -713,7 +792,13 @@ func (s *UpdateSwitchSuite) SetupTest() {
 	s.prefs = repository.ProfilePreferences{Currency: "EUR"}
 	s.mockSwitchRepo = mocks.NewMockSwitchRepository(s.T())
 	s.mockImages = mocks.NewMockSwitchImageStore(s.T())
-	s.handler = UpdateSwitch(s.mockSwitchRepo, repoapi.Switch{Images: s.mockImages})
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, "alice", mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
+	s.handler = UpdateSwitch(s.mockSwitchRepo, s.mockBuilds, repoapi.Switch{Images: s.mockImages})
 }
 
 func (s *UpdateSwitchSuite) newRequest(ctx context.Context, body string) *http.Request {
@@ -745,6 +830,34 @@ func (s *UpdateSwitchSuite) TestUpdateSwitch_Succeeds() {
 	var got repository.Switch
 	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
 	s.Equal("sw1", got.ID)
+}
+
+func (s *UpdateSwitchSuite) TestUpdateSwitch_SubtractsCurrentBuilds() {
+	s.mockSwitchRepo.EXPECT().
+		Update(mock.Anything, mock.Anything).
+		Return(&repository.Switch{UserID: "alice", ID: "sw1", Purchases: repository.BulkPurchases{
+			{Quantity: new(90), OrderStatus: new("Delivered")},
+		}}, nil)
+	s.builds = []repository.Build{{Keyboard: "kb1", Switches: []repository.BuildSwitchEntry{{Switch: "sw1", Count: 65}}}}
+
+	req := s.newRequest(s.ownerCtx(), `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private"}`)
+	rec := httptest.NewRecorder()
+	s.handler(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+	var got api.Switch
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Equal(25, got.AvailableQuantity)
+}
+
+func (s *UpdateSwitchSuite) TestUpdateSwitch_BuildsError_Returns500WithoutUpdating() {
+	s.buildsErr = errors.New("query failed")
+
+	req := s.newRequest(s.ownerCtx(), `{"brand":"Gateron","name":"Yellow","type":"Linear","visibility":"private"}`)
+	rec := httptest.NewRecorder()
+	s.handler(rec, req)
+
+	s.Equal(http.StatusInternalServerError, rec.Code)
 }
 
 func (s *UpdateSwitchSuite) TestUpdateSwitch_Visibility_Preserved() {

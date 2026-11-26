@@ -69,4 +69,5 @@ func (in DeleteSwitchImageInput) Validate(v *validate.V) {
 // Validate implements [validate.Validatable].
 func (in ListSwitchesInput) Validate(v *validate.V) {
 	checkListLimit(v, in.Limit)
+	v.Positive("min_available_quantity", in.MinAvailableQuantity)
 }

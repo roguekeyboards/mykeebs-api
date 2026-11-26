@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/authz"
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/cascadedelete"
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
@@ -37,7 +38,7 @@ func parseListLimit(r *http.Request) int {
 // caller (if any) may read, per [authz.ReadableVisibilities]. Prices follow
 // [repository.ProfilePreferences.ShowPriceSummary], which only ever hides
 // prices [repoapi.Switch.ToAPI] shows.
-func ListSwitches(repo repository.SwitchRepository, sr repoapi.Switch) http.HandlerFunc {
+func ListSwitches(repo repository.SwitchRepository, buildRepo repository.BuildRepository, sr repoapi.Switch) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := r.PathValue("userId")
 
@@ -64,6 +65,13 @@ func ListSwitches(repo repository.SwitchRepository, sr repoapi.Switch) http.Hand
 			return
 		}
 
+		usage, err := availability.Load(r.Context(), buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(r.Context()).Error("loading build usage", log.Error, err)
+			problem.Internal(w, "failed to list switches")
+			return
+		}
+
 		items := make([]api.Switch, len(switches))
 		errs := make([]error, len(switches))
 
@@ -76,7 +84,7 @@ func ListSwitches(repo repository.SwitchRepository, sr repoapi.Switch) http.Hand
 			go func(i int, sw repository.Switch) {
 				defer wg.Done()
 
-				item, err := sr.ToAPI(ctx, sw, isOwner, ownerPrefs)
+				item, err := sr.ToAPI(ctx, sw, isOwner, ownerPrefs, usage)
 				if err != nil {
 					errs[i] = fmt.Errorf("mapping switch %q to API: %w", sw.ID, err)
 					return
@@ -111,7 +119,7 @@ func ListSwitches(repo repository.SwitchRepository, sr repoapi.Switch) http.Hand
 // 404, not 403, to avoid revealing it exists. The owner always sees their
 // own price; a non-owner's visibility is gated by the owner's Profile
 // preferences - see [repoapi.Switch.ToAPI].
-func GetSwitch(repo repository.SwitchRepository, sr repoapi.Switch) http.HandlerFunc {
+func GetSwitch(repo repository.SwitchRepository, buildRepo repository.BuildRepository, sr repoapi.Switch) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := r.PathValue("userId")
 		id := r.PathValue("switchId")
@@ -141,7 +149,14 @@ func GetSwitch(repo repository.SwitchRepository, sr repoapi.Switch) http.Handler
 			return
 		}
 
-		out, err := sr.ToAPI(r.Context(), *sw, isOwner, ownerPrefs)
+		usage, err := availability.Load(r.Context(), buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(r.Context()).Error("loading build usage", log.Error, err, log.SwitchID, id)
+			problem.Internal(w, "failed to get switch")
+			return
+		}
+
+		out, err := sr.ToAPI(r.Context(), *sw, isOwner, ownerPrefs, usage)
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping switch to API", log.Error, err, log.SwitchID, id)
 			problem.Internal(w, "failed to get switch")
@@ -214,7 +229,8 @@ func CreateSwitch(switchRepo repository.SwitchRepository, sr repoapi.Switch) htt
 		}
 
 		// isOwner: true, already gated above - owner sees price unconditionally.
-		out, err := sr.ToAPI(r.Context(), *created, true, ownerPrefs)
+		// No build can use a switch that didn't exist until now.
+		out, err := sr.ToAPI(r.Context(), *created, true, ownerPrefs, availability.Usage{})
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping switch to API", log.Error, err, log.SwitchID, created.ID)
 			problem.Internal(w, "failed to create switch")
@@ -231,7 +247,7 @@ func CreateSwitch(switchRepo repository.SwitchRepository, sr repoapi.Switch) htt
 // authenticated caller. userId must be the caller's own subject; updating
 // another user's switch, or one that doesn't exist, both return 404, to
 // avoid revealing it exists.
-func UpdateSwitch(switchRepo repository.SwitchRepository, sr repoapi.Switch) http.HandlerFunc {
+func UpdateSwitch(switchRepo repository.SwitchRepository, buildRepo repository.BuildRepository, sr repoapi.Switch) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := r.PathValue("userId")
 		id := r.PathValue("switchId")
@@ -262,13 +278,20 @@ func UpdateSwitch(switchRepo repository.SwitchRepository, sr repoapi.Switch) htt
 			return
 		}
 
+		usage, err := availability.Load(r.Context(), buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(r.Context()).Error("loading build usage", log.Error, err, log.SwitchID, sw.ID)
+			problem.Internal(w, "failed to update switch")
+			return
+		}
+
 		updated, err := switchRepo.Update(r.Context(), sw)
 		if handleMutationError(w, r, err, log.SwitchID, id) {
 			return
 		}
 
 		// isOwner: true, already gated above - owner sees price unconditionally.
-		out, err := sr.ToAPI(r.Context(), *updated, true, ownerPrefs)
+		out, err := sr.ToAPI(r.Context(), *updated, true, ownerPrefs, usage)
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping switch to API", log.Error, err, log.SwitchID, updated.ID)
 			problem.Internal(w, "failed to update switch")

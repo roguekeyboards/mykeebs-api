@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository/mocks"
@@ -74,7 +75,7 @@ func TestSwitchToAPISuite(t *testing.T) {
 func (s *SwitchToAPISuite) TestFullRoundTrip_PreservesEveryField() {
 	sw := fullRepoSwitch()
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Equal(sw.ID, out.Id)
@@ -121,7 +122,7 @@ func (s *SwitchToAPISuite) TestNonOwner_OmitsVisibility() {
 	sw := repository.Switch{ID: "sw1", Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: repository.VisibilityPublic}
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{})
+	out, err := sr.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Nil(out.Visibility)
@@ -131,7 +132,7 @@ func (s *SwitchToAPISuite) TestAllOptionalFieldsNil_SubStructsOmitted() {
 	sw := repository.Switch{ID: "sw1", Brand: "Gateron", Name: "Yellow", Type: "Linear", Visibility: repository.VisibilityPrivate}
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Nil(out.Manufacturer)
@@ -151,7 +152,7 @@ func (s *SwitchToAPISuite) TestOneFieldSetInSubStruct_SubStructPresent() {
 	}
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 
 	if s.NotNil(out.Material) {
@@ -168,7 +169,7 @@ func (s *SwitchToAPISuite) TestOnlySpringLengthSet_SpringPresent() {
 	}
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 
 	if s.NotNil(out.Spring) {
@@ -183,7 +184,7 @@ func (s *SwitchToAPISuite) TestMalformedStoredDate_ReturnsError() {
 	}
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	_, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	_, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Require().Error(err)
 }
@@ -192,7 +193,7 @@ func (s *SwitchToAPISuite) TestNonOwnerShowPriceToOthersFalse_OmitsPriceKeepsRes
 	sw := fullRepoSwitch()
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{ShowPriceToOthers: false})
+	out, err := sr.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{ShowPriceToOthers: false}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Purchases)
@@ -212,7 +213,7 @@ func (s *SwitchToAPISuite) TestNonOwnerShowPriceToOthersTrue_IncludesPrice() {
 	sw := fullRepoSwitch()
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true})
+	out, err := sr.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Purchases)
@@ -226,7 +227,7 @@ func (s *SwitchToAPISuite) TestOwner_AlwaysIncludesPriceRegardlessOfShowPriceToM
 	sw := fullRepoSwitch()
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false})
+	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Purchases)
@@ -243,7 +244,7 @@ func (s *SwitchToAPISuite) TestImagePresent_ReturnsSignedURL() {
 	images := mocks.NewMockSwitchImageStore(s.T())
 	images.EXPECT().SignGet(mock.Anything, *sw.ImagePath).Return("https://example.com/img", nil)
 	sr := Switch{Images: images}
-	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Require().NotNil(out.Image)
@@ -254,7 +255,7 @@ func (s *SwitchToAPISuite) TestNoImage_ImageFieldNil() {
 	sw := fullRepoSwitch()
 
 	sr := Switch{Images: mocks.NewMockSwitchImageStore(s.T())}
-	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	out, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Nil(out.Image)
@@ -268,7 +269,7 @@ func (s *SwitchToAPISuite) TestImageSignError_Propagates() {
 	images.EXPECT().SignGet(mock.Anything, *sw.ImagePath).Return("", errors.New("s3: access denied"))
 
 	sr := Switch{Images: images}
-	_, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	_, err := sr.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Require().Error(err)
 }
@@ -389,7 +390,7 @@ func (s *SwitchToAPISuite) TestPurchases_KeepsOrderAndTotalsQuantity() {
 		{Vendor: strPtr("Earlier"), OrderDate: strPtr("2026-03-01"), Quantity: intPtr(70)},
 	}}
 
-	out, err := Switch{}.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{})
+	out, err := Switch{}.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Require().NoError(err)
 	s.Require().NotNil(out.Purchases)
@@ -424,7 +425,7 @@ func (s *SwitchToAPISuite) TestPurchases_DerivesOrderStatusAndTotalCostSkippingC
 		{Price: floatPtr(50.0), OrderStatus: strPtr("Cancelled")},
 	}}
 
-	out, err := Switch{}.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{Currency: "USD"})
+	out, err := Switch{}.ToAPI(s.T().Context(), sw, true, repository.ProfilePreferences{Currency: "USD"}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Equal(strPtr("Ordered"), out.OrderStatus)
@@ -435,7 +436,7 @@ func (s *SwitchToAPISuite) TestPurchases_DerivesOrderStatusAndTotalCostSkippingC
 func (s *SwitchToAPISuite) TestNonOwnerShowPriceToOthersFalse_OmitsTotalCostKeepsOrderStatus() {
 	sw := repository.Switch{Purchases: repository.BulkPurchases{{Price: floatPtr(36.0), OrderStatus: strPtr("Delivered")}}}
 
-	out, err := Switch{}.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{Currency: "USD"})
+	out, err := Switch{}.ToAPI(s.T().Context(), sw, false, repository.ProfilePreferences{Currency: "USD"}, availability.Usage{})
 	s.Require().NoError(err)
 
 	s.Equal(strPtr("Delivered"), out.OrderStatus)

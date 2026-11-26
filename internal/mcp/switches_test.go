@@ -15,8 +15,19 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
 )
 
+func deliveredSwitch(id string, quantity int) repository.Switch {
+	return repository.Switch{ID: id, Visibility: repository.VisibilityPublic, Purchases: repository.BulkPurchases{
+		{Quantity: new(quantity), OrderStatus: new("Delivered")},
+	}}
+}
+
+var sw1On65SwitchBuild = repository.Build{Keyboard: "kb-1", Switches: []repository.BuildSwitchEntry{{Switch: "sw-1", Count: 65}}}
+
 type HandleListSwitchesSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockRepo  *mocks.MockSwitchRepository
 	mockPrefs *mocks.MockPreferencesReader
@@ -29,6 +40,12 @@ func TestHandleListSwitchesSuite(t *testing.T) {
 func (s *HandleListSwitchesSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockSwitchRepository(s.T())
 	s.mockPrefs = mocks.NewMockPreferencesReader(s.T())
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, mock.Anything, mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
 }
 
 func (s *HandleListSwitchesSuite) TestBlankUserID_DefaultsToCaller() {
@@ -37,13 +54,57 @@ func (s *HandleListSwitchesSuite) TestBlankUserID_DefaultsToCaller() {
 		Return([]repository.Switch{{ID: "sw-1", Brand: "Gateron", Name: "Oil King", Type: "linear"}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{})
 
 	s.Require().NoError(err)
 	s.Require().Len(out.Switches, 1)
 	s.Equal("sw-1", out.Switches[0].ID)
 	s.Empty(out.NextCursor)
+}
+
+func (s *HandleListSwitchesSuite) TestSubtractsCurrentBuilds() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, callerID, mock.Anything, mock.Anything, mock.Anything).
+		Return([]repository.Switch{deliveredSwitch("sw-1", 90)}, "", nil)
+	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
+	s.builds = []repository.Build{sw1On65SwitchBuild}
+
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
+	_, out, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{})
+
+	s.Require().NoError(err)
+	s.Require().Len(out.Switches, 1)
+	s.Equal(25, out.Switches[0].AvailableQuantity)
+}
+
+func (s *HandleListSwitchesSuite) TestMinAvailableQuantity_DropsSwitchesBelowIt() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, callerID, mock.Anything, mock.Anything, mock.Anything).
+		Return([]repository.Switch{deliveredSwitch("sw-1", 90), deliveredSwitch("sw-2", 120)}, "next", nil)
+	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
+	s.builds = []repository.Build{sw1On65SwitchBuild}
+
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
+	_, out, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{MinAvailableQuantity: new(90)})
+
+	s.Require().NoError(err)
+	s.Require().Len(out.Switches, 1)
+	s.Equal("sw-2", out.Switches[0].ID)
+	s.Equal("next", out.NextCursor)
+}
+
+func (s *HandleListSwitchesSuite) TestBuildsError_ReturnsError() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, callerID, mock.Anything, mock.Anything, mock.Anything).
+		Return([]repository.Switch{{ID: "sw-1"}}, "", nil)
+	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
+	s.buildsErr = errors.New("boom")
+
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
+	_, _, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{})
+
+	s.Require().EqualError(err, "failed to list switches")
 }
 
 // The caller reading their own collection may see every tier; reading
@@ -58,7 +119,7 @@ func (s *HandleListSwitchesSuite) TestOwnCollection_ReadsAllVisibilityTiers() {
 		Return(nil, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{})
 
 	s.Require().NoError(err)
@@ -71,7 +132,7 @@ func (s *HandleListSwitchesSuite) TestOwnCollectionShowPriceToMeTrue_IncludesPri
 		Return([]repository.Switch{{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{ShowPriceToMe: true}, nil)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{})
 
 	s.Require().NoError(err)
@@ -87,7 +148,7 @@ func (s *HandleListSwitchesSuite) TestOwnCollectionShowPriceToMeFalse_OmitsPrice
 		Return([]repository.Switch{{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{ShowPriceToMe: false}, nil)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{})
 
 	s.Require().NoError(err)
@@ -102,7 +163,7 @@ func (s *HandleListSwitchesSuite) TestOtherUsersCollectionShowPriceToOthersFalse
 		Return([]repository.Switch{{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: false}, nil)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{UserID: otherID})
 
 	s.Require().NoError(err)
@@ -117,7 +178,7 @@ func (s *HandleListSwitchesSuite) TestOtherUsersCollectionShowPriceToOthersTrue_
 		Return([]repository.Switch{{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: true}, nil)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{UserID: otherID})
 
 	s.Require().NoError(err)
@@ -135,7 +196,7 @@ func (s *HandleListSwitchesSuite) TestOtherUsersCollection_ExcludesPrivate() {
 		Return(nil, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{UserID: otherID})
 
 	s.Require().NoError(err)
@@ -147,7 +208,7 @@ func (s *HandleListSwitchesSuite) TestCursorIsPropagated() {
 		Return(nil, "page-3", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, mock.Anything).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{Cursor: "page-2"})
 
 	s.Require().NoError(err)
@@ -155,7 +216,7 @@ func (s *HandleListSwitchesSuite) TestCursorIsPropagated() {
 }
 
 func (s *HandleListSwitchesSuite) TestNoCallerIdentity_ReturnsError() {
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(s.T().Context(), nil, schema.ListSwitchesInput{})
 
 	s.Require().ErrorIs(err, errNoCallerIdentity)
@@ -166,7 +227,7 @@ func (s *HandleListSwitchesSuite) TestRepositoryError_ReturnsError() {
 		List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, "", errors.New("query failed"))
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{})
 
 	s.Require().ErrorContains(err, "failed to list switches")
@@ -177,7 +238,7 @@ func (s *HandleListSwitchesSuite) TestInvalidCursor_ReturnsError() {
 		List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, "stale").
 		Return(nil, "", repository.ErrInvalidCursor)
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{Cursor: "stale"})
 
 	s.Require().Error(err)
@@ -189,7 +250,7 @@ func (s *HandleListSwitchesSuite) TestPreferencesError_ReturnsError() {
 		Return(nil, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, mock.Anything).Return(repository.ProfilePreferences{}, errors.New("dynamo down"))
 
-	handler := handleListSwitches(s.mockRepo, s.mockPrefs)
+	handler := handleListSwitches(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListSwitchesInput{})
 
 	s.Require().ErrorContains(err, "failed to list switches")
@@ -197,6 +258,9 @@ func (s *HandleListSwitchesSuite) TestPreferencesError_ReturnsError() {
 
 type HandleGetSwitchSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockRepo  *mocks.MockSwitchRepository
 	mockPrefs *mocks.MockPreferencesReader
@@ -209,6 +273,12 @@ func TestHandleGetSwitchSuite(t *testing.T) {
 func (s *HandleGetSwitchSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockSwitchRepository(s.T())
 	s.mockPrefs = mocks.NewMockPreferencesReader(s.T())
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, mock.Anything, mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
 }
 
 func (s *HandleGetSwitchSuite) TestSucceeds() {
@@ -223,7 +293,7 @@ func (s *HandleGetSwitchSuite) TestSucceeds() {
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.DefaultProfilePreferences(), nil)
 
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1"})
 
 	s.Require().NoError(err)
@@ -233,12 +303,25 @@ func (s *HandleGetSwitchSuite) TestSucceeds() {
 	s.Equal("private", *out.Switch.Visibility)
 }
 
+func (s *HandleGetSwitchSuite) TestSubtractsCurrentBuilds() {
+	sw := deliveredSwitch("sw-1", 90)
+	s.mockRepo.EXPECT().Get(mock.Anything, callerID, "sw-1").Return(&sw, nil)
+	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
+	s.builds = []repository.Build{sw1On65SwitchBuild}
+
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
+	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1"})
+
+	s.Require().NoError(err)
+	s.Equal(25, out.Switch.AvailableQuantity)
+}
+
 func (s *HandleGetSwitchSuite) TestNotFound_ReturnsNotFound() {
 	s.mockRepo.EXPECT().
 		Get(mock.Anything, mock.Anything, "missing").
 		Return(nil, repository.ErrNotFound)
 
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "missing"})
 
 	s.Require().ErrorIs(err, errSwitchNotFound)
@@ -254,7 +337,7 @@ func (s *HandleGetSwitchSuite) TestOtherUsersPrivateSwitch_ReturnsNotFound() {
 			Visibility: repository.VisibilityPrivate,
 		}, nil)
 
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1", UserID: otherID})
 
 	s.Require().ErrorIs(err, errSwitchNotFound)
@@ -270,7 +353,7 @@ func (s *HandleGetSwitchSuite) TestOtherUsersPublicSwitch_Succeeds() {
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1", UserID: otherID})
 
 	s.Require().NoError(err)
@@ -288,7 +371,7 @@ func (s *HandleGetSwitchSuite) TestOtherUsersPublicSwitchShowPriceToOthersTrue_I
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: true}, nil)
 
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1", UserID: otherID})
 
 	s.Require().NoError(err)
@@ -307,7 +390,7 @@ func (s *HandleGetSwitchSuite) TestOtherUsersPublicSwitchShowPriceToOthersFalse_
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: false}, nil)
 
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1", UserID: otherID})
 
 	s.Require().NoError(err)
@@ -326,7 +409,7 @@ func (s *HandleGetSwitchSuite) TestOwner_AlwaysIncludesPriceAndCurrency() {
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).
 		Return(repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false}, nil)
 
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1"})
 
 	s.Require().NoError(err)
@@ -342,7 +425,7 @@ func (s *HandleGetSwitchSuite) TestRepositoryError_ReturnsError() {
 		Get(mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, errors.New("get failed"))
 
-	handler := handleGetSwitch(s.mockRepo, s.mockPrefs)
+	handler := handleGetSwitch(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.GetSwitchInput{SwitchID: "sw-1"})
 
 	s.Require().ErrorContains(err, "failed to get switch")
@@ -444,6 +527,9 @@ func (s *HandleCreateSwitchSuite) TestWellFormedDates_Succeed() {
 
 type HandleUpdateSwitchSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockPrefs    *mocks.MockPreferencesReader
 	mockSwitches *mocks.MockSwitchRepository
@@ -458,6 +544,12 @@ func (s *HandleUpdateSwitchSuite) SetupTest() {
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).
 		Return(repository.ProfilePreferences{Currency: "EUR"}, nil).Maybe()
 	s.mockSwitches = mocks.NewMockSwitchRepository(s.T())
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, mock.Anything, mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
 }
 
 func (s *HandleUpdateSwitchSuite) TestSucceeds() {
@@ -467,7 +559,7 @@ func (s *HandleUpdateSwitchSuite) TestSucceeds() {
 			return &sw, nil
 		})
 
-	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
+	handler := handleUpdateSwitch(s.mockSwitches, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{
 		SwitchID:    "sw-1",
 		SwitchInput: validInput(),
@@ -477,12 +569,33 @@ func (s *HandleUpdateSwitchSuite) TestSucceeds() {
 	s.Equal("sw-1", out.Switch.ID, "update must target the requested id")
 }
 
+func (s *HandleUpdateSwitchSuite) TestSubtractsCurrentBuilds() {
+	sw := deliveredSwitch("sw-1", 90)
+	s.mockSwitches.EXPECT().Update(mock.Anything, mock.Anything).Return(&sw, nil)
+	s.builds = []repository.Build{sw1On65SwitchBuild}
+
+	handler := handleUpdateSwitch(s.mockSwitches, s.mockBuilds, s.mockPrefs)
+	_, out, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{SwitchID: "sw-1", SwitchInput: validInput()})
+
+	s.Require().NoError(err)
+	s.Equal(25, out.Switch.AvailableQuantity)
+}
+
+func (s *HandleUpdateSwitchSuite) TestBuildsError_ReturnsErrorBeforeWrite() {
+	s.buildsErr = errors.New("boom")
+
+	handler := handleUpdateSwitch(s.mockSwitches, s.mockBuilds, s.mockPrefs)
+	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{SwitchID: "sw-1", SwitchInput: validInput()})
+
+	s.Require().EqualError(err, "failed to update switch")
+}
+
 func (s *HandleUpdateSwitchSuite) TestNotFound_ReturnsNotFound() {
 	s.mockSwitches.EXPECT().
 		Update(mock.Anything, mock.Anything).
 		Return(nil, repository.ErrNotFound)
 
-	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
+	handler := handleUpdateSwitch(s.mockSwitches, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{
 		SwitchID:    "missing",
 		SwitchInput: validInput(),
@@ -864,7 +977,7 @@ func (s *HandleUpdateSwitchSuite) TestReturnsOwnersCurrencyWithPrice() {
 	s.mockSwitches.EXPECT().Update(mock.Anything, mock.Anything).
 		Return(&repository.Switch{ID: "sw-1", Purchases: repository.BulkPurchases{{Price: &price}}}, nil)
 
-	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
+	handler := handleUpdateSwitch(s.mockSwitches, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{SwitchID: "sw-1", SwitchInput: validInput()})
 
 	s.Require().NoError(err)
@@ -876,7 +989,7 @@ func (s *HandleUpdateSwitchSuite) TestPreferencesError_ReturnsErrorBeforeWrite()
 	s.mockPrefs.ExpectedCalls = nil
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, errors.New("boom"))
 
-	handler := handleUpdateSwitch(s.mockSwitches, s.mockPrefs)
+	handler := handleUpdateSwitch(s.mockSwitches, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateSwitchInput{SwitchID: "sw-1", SwitchInput: validInput()})
 
 	s.Require().EqualError(err, "failed to update switch")

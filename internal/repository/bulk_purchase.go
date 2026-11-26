@@ -55,6 +55,17 @@ func (ps BulkPurchases) TotalQuantity() *int {
 	return &total
 }
 
+// DeliveredQuantity sums the quantities of the Delivered purchases.
+func (ps BulkPurchases) DeliveredQuantity() int {
+	var total int
+	for _, p := range ps {
+		if p.Quantity != nil && p.OrderStatus != nil && *p.OrderStatus == "Delivered" {
+			total += *p.Quantity
+		}
+	}
+	return total
+}
+
 // TotalPrice sums the non-Cancelled purchases with a known price, rounded
 // to cents, or returns nil if none has one.
 func (ps BulkPurchases) TotalPrice() *float64 {

@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository/mocks"
@@ -170,25 +171,25 @@ func (s *ImageModerationSuite) switchWith(key string, status repository.ImageSta
 }
 
 func (s *ImageModerationSuite) TestSwitch_Owner_Pending_URLAndStatus() {
-	out, err := s.switchMapper(pendingKey).ToAPI(s.T().Context(), s.switchWith(pendingKey, repository.ImageStatusPending, nil), true, repository.ProfilePreferences{})
+	out, err := s.switchMapper(pendingKey).ToAPI(s.T().Context(), s.switchWith(pendingKey, repository.ImageStatusPending, nil), true, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 	s.Equal(&api.SwitchImage{Url: strPtr("https://example.com/" + pendingKey), Status: statusPtr(api.ImageStatusPending)}, out.Image)
 }
 
 func (s *ImageModerationSuite) TestSwitch_Owner_Rejected_ReasonNoURL() {
-	out, err := s.switchMapper().ToAPI(s.T().Context(), s.switchWith(rejectedKey, repository.ImageStatusRejected, strPtr("Violence")), true, repository.ProfilePreferences{})
+	out, err := s.switchMapper().ToAPI(s.T().Context(), s.switchWith(rejectedKey, repository.ImageStatusRejected, strPtr("Violence")), true, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 	s.Equal(&api.SwitchImage{Status: statusPtr(api.ImageStatusRejected), RejectionReason: strPtr("Violence")}, out.Image)
 }
 
 func (s *ImageModerationSuite) TestSwitch_NonOwner_Pending_NoImage() {
-	out, err := s.switchMapper().ToAPI(s.T().Context(), s.switchWith(pendingKey, repository.ImageStatusPending, nil), false, repository.ProfilePreferences{})
+	out, err := s.switchMapper().ToAPI(s.T().Context(), s.switchWith(pendingKey, repository.ImageStatusPending, nil), false, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 	s.Nil(out.Image)
 }
 
 func (s *ImageModerationSuite) TestSwitch_NonOwner_Approved_URLOnly() {
-	out, err := s.switchMapper(approvedKey).ToAPI(s.T().Context(), s.switchWith(approvedKey, repository.ImageStatusApproved, nil), false, repository.ProfilePreferences{})
+	out, err := s.switchMapper(approvedKey).ToAPI(s.T().Context(), s.switchWith(approvedKey, repository.ImageStatusApproved, nil), false, repository.ProfilePreferences{}, availability.Usage{})
 	s.Require().NoError(err)
 	s.Equal(&api.SwitchImage{Url: strPtr("https://example.com/" + approvedKey)}, out.Image)
 }

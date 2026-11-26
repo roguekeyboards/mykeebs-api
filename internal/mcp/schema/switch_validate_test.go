@@ -84,3 +84,9 @@ func (s *SwitchValidateSuite) TestSetImage_RejectsSizeOutsideTheCap() {
 		s.Equal("size_bytes", errs[0].Field, size)
 	}
 }
+
+func (s *SwitchValidateSuite) TestList_RejectsMinAvailableQuantityBelowOne() {
+	s.Empty(validate.Check(schema.ListSwitchesInput{MinAvailableQuantity: new(1)}))
+	s.Equal([]validate.FieldError{{Field: "min_available_quantity", Reason: "must be at least 1"}},
+		validate.Check(schema.ListSwitchesInput{MinAvailableQuantity: new(0)}))
+}

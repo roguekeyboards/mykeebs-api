@@ -106,13 +106,13 @@ func New(
 	// security: [{}, BearerAuth] in api/openapi.yaml - anonymous callers see
 	// only public switches (see [github.com/roguekeyboards/mykeebs-api/internal/authz.ReadableVisibilities]).
 	mux.Handle("GET /v1/users/{userId}/switches",
-		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.ListSwitches(switchRepo, sr)))))
+		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.ListSwitches(switchRepo, buildRepo, sr)))))
 	mux.Handle("GET /v1/users/{userId}/switches/{switchId}",
-		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.GetSwitch(switchRepo, sr)))))
+		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.GetSwitch(switchRepo, buildRepo, sr)))))
 	mux.Handle("POST /v1/users/{userId}/switches",
 		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.CreateSwitch(switchRepo, sr)))))
 	mux.Handle("PUT /v1/users/{userId}/switches/{switchId}",
-		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.UpdateSwitch(switchRepo, sr)))))
+		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.UpdateSwitch(switchRepo, buildRepo, sr)))))
 	mux.Handle("DELETE /v1/users/{userId}/switches/{switchId}",
 		middleware.RequireAuthorizerIdentity(validate(handlers.DeleteSwitch(switchRepo, buildRepo, buildImageStore, switchImageStore))))
 	mux.Handle("POST /v1/users/{userId}/switches/{switchId}/image",
