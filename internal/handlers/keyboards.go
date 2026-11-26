@@ -16,6 +16,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/ownerprefs"
 	"github.com/roguekeyboards/mykeebs-api/internal/problem"
+	"github.com/roguekeyboards/mykeebs-api/internal/purchasevalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/repoapi"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
@@ -176,6 +177,9 @@ func CreateKeyboard(keyboardRepo repository.KeyboardRepository, kr repoapi.Keybo
 		if !writeLookupErrors(w, lookup.ValidateKeyboard(r.Context(), kb)) {
 			return
 		}
+		if !writePurchaseErrors(w, purchasevalidate.KeyboardPurchase(kb.Purchase)) {
+			return
+		}
 
 		kb.ID = uuid.NewString()
 
@@ -234,6 +238,9 @@ func UpdateKeyboard(keyboardRepo repository.KeyboardRepository, kr repoapi.Keybo
 		}
 
 		if !writeLookupErrors(w, lookup.ValidateKeyboard(r.Context(), kb)) {
+			return
+		}
+		if !writePurchaseErrors(w, purchasevalidate.KeyboardPurchase(kb.Purchase)) {
 			return
 		}
 

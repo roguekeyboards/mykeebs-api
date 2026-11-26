@@ -13,6 +13,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
+	"github.com/roguekeyboards/mykeebs-api/internal/purchasevalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/repomcp"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -217,6 +218,9 @@ func validatedKeyboardPlate(ctx context.Context, in schema.KeyboardPlateInput) (
 	if err := lookupErrors(lookup.ValidateKeyboardPlate(ctx, plate)); err != nil {
 		return repository.KeyboardPlate{}, err
 	}
+	if err := purchaseErrors(purchasevalidate.KeyboardPurchase(plate.Purchase)); err != nil {
+		return repository.KeyboardPlate{}, err
+	}
 
 	return plate, nil
 }
@@ -224,6 +228,9 @@ func validatedKeyboardPlate(ctx context.Context, in schema.KeyboardPlateInput) (
 func validatedKeyboardPCB(ctx context.Context, in schema.KeyboardPCBInput) (repository.KeyboardPCB, error) {
 	pcb := repomcp.Keyboard{}.PCBFromMCP(in)
 	if err := lookupErrors(lookup.ValidateKeyboardPCB(ctx, pcb)); err != nil {
+		return repository.KeyboardPCB{}, err
+	}
+	if err := purchaseErrors(purchasevalidate.KeyboardPurchase(pcb.Purchase)); err != nil {
 		return repository.KeyboardPCB{}, err
 	}
 

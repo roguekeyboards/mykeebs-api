@@ -74,21 +74,23 @@ type KeycapKit struct {
 // Dates are strings, not a date type - see
 // [github.com/roguekeyboards/mykeebs-api/internal/repomcp.KeycapKitToMCP].
 type KeycapKitPurchase struct {
-	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the kit was bought"`
-	Price        *float64 `json:"price,omitempty" jsonschema:"price paid"`
-	Currency     *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
-	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
-	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
-	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Vendor                *string  `json:"vendor,omitempty" jsonschema:"where the kit was bought"`
+	Price                 *float64 `json:"price,omitempty" jsonschema:"price paid"`
+	Currency              *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
+	OrderDate             *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate          *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
+	EstimatedDeliveryDate *string  `json:"estimated_delivery_date,omitempty" jsonschema:"when it's expected to arrive (YYYY-MM-DD)"`
+	OrderStatus           *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
 }
 
 // KeycapKitPurchaseInput is the writable form of KeycapKitPurchase.
 type KeycapKitPurchaseInput struct {
-	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the kit was bought"`
-	Price        *float64 `json:"price,omitempty" jsonschema:"price paid"`
-	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
-	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
-	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Vendor                *string  `json:"vendor,omitempty" jsonschema:"where the kit was bought"`
+	Price                 *float64 `json:"price,omitempty" jsonschema:"price paid"`
+	OrderDate             *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate          *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD); can't be before order_date"`
+	EstimatedDeliveryDate *string  `json:"estimated_delivery_date,omitempty" jsonschema:"when it's expected to arrive (YYYY-MM-DD), e.g. the last day of the quarter a group buy lists; can't be before order_date"`
+	OrderStatus           *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
 }
 
 // KeycapSetInput is the writable half of a keycap set, shared by

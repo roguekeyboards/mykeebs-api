@@ -625,6 +625,16 @@ func (s *HandleCreateKeyboardSuite) TestWellFormedDates_Succeed() {
 	s.Require().NoError(err)
 }
 
+func (s *HandleCreateKeyboardSuite) TestEstimatedDeliveryDateBeforeOrderDate_ReturnsErrorWithoutCreating() {
+	in := validKeyboardInput()
+	in.Purchase = &schema.KeyboardPurchaseInput{OrderDate: new("2026-03-01"), EstimatedDeliveryDate: new("2026-02-28")}
+
+	handler := handleCreateKeyboard(s.mockKeyboards, s.mockPrefs)
+	_, _, err := handler(callerContext(s.T()), nil, schema.CreateKeyboardInput{KeyboardInput: in})
+
+	s.Require().EqualError(err, "purchase.estimated_delivery_date: can't be before order_date")
+}
+
 type HandleListKeyboardImagesSuite struct {
 	suite.Suite
 

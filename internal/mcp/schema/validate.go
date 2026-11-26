@@ -38,8 +38,9 @@ func checkImageSize(v *validate.V, size int64) {
 	}
 }
 
-func checkPurchase(v *validate.V, price *float64, orderDate, deliveryDate *string) {
+func checkPurchase(v *validate.V, price *float64, orderDate, deliveryDate, estimatedDeliveryDate *string) {
 	v.Money("price", price)
 	v.Date("order_date", orderDate)
 	v.Date("delivery_date", deliveryDate)
+	v.Date("estimated_delivery_date", estimatedDeliveryDate)
 }

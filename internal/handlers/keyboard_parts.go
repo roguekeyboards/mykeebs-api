@@ -14,6 +14,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/ownerprefs"
 	"github.com/roguekeyboards/mykeebs-api/internal/problem"
+	"github.com/roguekeyboards/mykeebs-api/internal/purchasevalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/repoapi"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -48,6 +49,9 @@ func CreateKeyboardPlate(keyboardRepo repository.KeyboardRepository, kr repoapi.
 
 		plate := kr.PlateToRepo(in)
 		if !writeLookupErrors(w, lookup.ValidateKeyboardPlate(r.Context(), plate)) {
+			return
+		}
+		if !writePurchaseErrors(w, purchasevalidate.KeyboardPurchase(plate.Purchase)) {
 			return
 		}
 
@@ -100,6 +104,9 @@ func UpdateKeyboardPlate(keyboardRepo repository.KeyboardRepository, kr repoapi.
 
 		plate := kr.PlateToRepo(in)
 		if !writeLookupErrors(w, lookup.ValidateKeyboardPlate(r.Context(), plate)) {
+			return
+		}
+		if !writePurchaseErrors(w, purchasevalidate.KeyboardPurchase(plate.Purchase)) {
 			return
 		}
 
@@ -183,6 +190,9 @@ func CreateKeyboardPCB(keyboardRepo repository.KeyboardRepository, kr repoapi.Ke
 		if !writeLookupErrors(w, lookup.ValidateKeyboardPCB(r.Context(), pcb)) {
 			return
 		}
+		if !writePurchaseErrors(w, purchasevalidate.KeyboardPurchase(pcb.Purchase)) {
+			return
+		}
 
 		pcb.ID = uuid.NewString()
 
@@ -230,6 +240,9 @@ func UpdateKeyboardPCB(keyboardRepo repository.KeyboardRepository, kr repoapi.Ke
 
 		pcb := kr.PCBToRepo(in)
 		if !writeLookupErrors(w, lookup.ValidateKeyboardPCB(r.Context(), pcb)) {
+			return
+		}
+		if !writePurchaseErrors(w, purchasevalidate.KeyboardPurchase(pcb.Purchase)) {
 			return
 		}
 

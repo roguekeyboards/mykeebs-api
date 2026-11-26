@@ -39,7 +39,7 @@ func (in SwitchSpring) Validate(v *validate.V) {
 
 // Validate implements [validate.Validatable].
 func (in SwitchPurchaseInput) Validate(v *validate.V) {
-	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate)
+	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate, in.EstimatedDeliveryDate)
 	v.Positive("quantity", in.Quantity)
 }
 

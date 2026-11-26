@@ -19,7 +19,7 @@ func (in KeyboardInput) Validate(v *validate.V) {
 
 // Validate implements [validate.Validatable].
 func (in KeyboardPurchaseInput) Validate(v *validate.V) {
-	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate)
+	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate, in.EstimatedDeliveryDate)
 }
 
 // Validate implements [validate.Validatable].
@@ -70,7 +70,7 @@ func (in KeyboardPCBInput) Validate(v *validate.V) {
 
 // Validate implements [validate.Validatable].
 func (in KeyboardPartPurchaseInput) Validate(v *validate.V) {
-	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate)
+	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate, in.EstimatedDeliveryDate)
 }
 
 // Validate implements [validate.Validatable].

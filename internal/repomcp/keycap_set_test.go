@@ -316,6 +316,17 @@ func (s *KeycapSetToMCPSuite) TestKeycapKitToMCP_NoPurchaseFields_OmitsPurchase(
 	s.Nil(out.Purchase)
 }
 
+func (s *KeycapSetToMCPSuite) TestKeycapKitToMCP_OnlyEstimatedDeliveryDate_KeepsPurchase() {
+	out := KeycapSet{}.KitToMCP(repository.KeycapKit{
+		KitID:    "kit-1",
+		Name:     "Base",
+		Purchase: repository.KeycapKitPurchase{EstimatedDeliveryDate: new("2026-12-31")},
+	}, true, repository.ProfilePreferences{})
+
+	s.Require().NotNil(out.Purchase)
+	s.Equal(new("2026-12-31"), out.Purchase.EstimatedDeliveryDate)
+}
+
 func (s *KeycapSetToMCPSuite) TestKeycapKitToMCP_NonOwnerShowPriceToOthersFalse_OmitsPriceKeepsRestOfPurchase() {
 	vendor := "Amazon"
 	price := 120.0
@@ -379,13 +390,15 @@ func (s *KeycapSetToMCPSuite) TestKeycapKitFromMCP_MapsAllFields() {
 	out := KeycapSet{}.KitFromMCP(schema.KeycapKitInput{
 		Name: "Base",
 		Purchase: &schema.KeycapKitPurchaseInput{
-			Vendor:    &vendor,
-			Price:     &price,
-			OrderDate: &orderDate,
+			Vendor:                &vendor,
+			Price:                 &price,
+			OrderDate:             &orderDate,
+			EstimatedDeliveryDate: new("2026-06-30"),
 		},
 	})
 
 	s.Equal("Base", out.Name)
+	s.Equal(new("2026-06-30"), out.Purchase.EstimatedDeliveryDate)
 	s.Require().NotNil(out.Purchase.Vendor)
 	s.Equal("Amazon", *out.Purchase.Vendor)
 	s.Require().NotNil(out.Purchase.Price)

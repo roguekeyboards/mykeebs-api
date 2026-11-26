@@ -36,7 +36,7 @@ func (in KeycapKitInput) Validate(v *validate.V) {
 
 // Validate implements [validate.Validatable].
 func (in KeycapKitPurchaseInput) Validate(v *validate.V) {
-	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate)
+	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate, in.EstimatedDeliveryDate)
 }
 
 // Validate implements [validate.Validatable].

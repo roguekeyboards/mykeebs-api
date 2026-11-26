@@ -54,6 +54,13 @@ func bulkPurchaseToAPI(p repository.BulkPurchase, isOwner bool, ownerPrefs repos
 		}
 		out.DeliveryDate = d
 	}
+	if p.EstimatedDeliveryDate != nil {
+		d, err := parseAPIDate(*p.EstimatedDeliveryDate)
+		if err != nil {
+			return api.SwitchPurchase{}, fmt.Errorf("parsing estimated_delivery_date: %w", err)
+		}
+		out.EstimatedDeliveryDate = d
+	}
 
 	return out, nil
 }
@@ -83,6 +90,10 @@ func bulkPurchaseToRepo(p api.SwitchPurchaseInput) repository.BulkPurchase {
 	if p.DeliveryDate != nil {
 		str := p.DeliveryDate.Format(dateLayout)
 		out.DeliveryDate = &str
+	}
+	if p.EstimatedDeliveryDate != nil {
+		str := p.EstimatedDeliveryDate.Format(dateLayout)
+		out.EstimatedDeliveryDate = &str
 	}
 
 	return out

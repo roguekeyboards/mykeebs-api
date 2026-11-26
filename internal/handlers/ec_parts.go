@@ -17,6 +17,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/ownerprefs"
 	"github.com/roguekeyboards/mykeebs-api/internal/problem"
+	"github.com/roguekeyboards/mykeebs-api/internal/purchasevalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/repoapi"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
@@ -144,6 +145,9 @@ func decodeECPartInput(w http.ResponseWriter, r *http.Request) (repository.ECPar
 
 	p := repoapi.ECPart{}.ToRepo(in)
 	if !writeLookupErrors(w, lookup.ValidateECPart(r.Context(), p)) {
+		return repository.ECPart{}, false
+	}
+	if !writePurchaseErrors(w, purchasevalidate.BulkPurchases(p.Purchases)) {
 		return repository.ECPart{}, false
 	}
 

@@ -139,23 +139,25 @@ type ECRings struct {
 // ECPartPurchase is an EC part's purchase and order lifecycle, plus how
 // many were bought.
 type ECPartPurchase struct {
-	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the parts were bought"`
-	Price        *float64 `json:"price,omitempty" jsonschema:"the total paid for quantity parts"`
-	Currency     *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
-	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
-	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
-	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
-	Quantity     *int     `json:"quantity,omitempty" jsonschema:"how many were bought"`
+	Vendor                *string  `json:"vendor,omitempty" jsonschema:"where the parts were bought"`
+	Price                 *float64 `json:"price,omitempty" jsonschema:"the total paid for quantity parts"`
+	Currency              *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
+	OrderDate             *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate          *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
+	EstimatedDeliveryDate *string  `json:"estimated_delivery_date,omitempty" jsonschema:"when it's expected to arrive (YYYY-MM-DD)"`
+	OrderStatus           *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Quantity              *int     `json:"quantity,omitempty" jsonschema:"how many were bought"`
 }
 
 // ECPartPurchaseInput is the writable form of ECPartPurchase.
 type ECPartPurchaseInput struct {
-	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the parts were bought; must be an approved vendor lookup value"`
-	Price        *float64 `json:"price,omitempty" jsonschema:"the total paid for quantity parts"`
-	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
-	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
-	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands; must be an approved order_status lookup value"`
-	Quantity     *int     `json:"quantity,omitempty" jsonschema:"how many were bought"`
+	Vendor                *string  `json:"vendor,omitempty" jsonschema:"where the parts were bought; must be an approved vendor lookup value"`
+	Price                 *float64 `json:"price,omitempty" jsonschema:"the total paid for quantity parts"`
+	OrderDate             *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate          *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD); can't be before order_date"`
+	EstimatedDeliveryDate *string  `json:"estimated_delivery_date,omitempty" jsonschema:"when it's expected to arrive (YYYY-MM-DD), e.g. the last day of the quarter a group buy lists; can't be before order_date"`
+	OrderStatus           *string  `json:"order_status,omitempty" jsonschema:"where the order stands; must be an approved order_status lookup value"`
+	Quantity              *int     `json:"quantity,omitempty" jsonschema:"how many were bought"`
 }
 
 // DeleteECPartInput is the delete_ec_part tool's input.

@@ -289,7 +289,7 @@ func (k Keyboard) PCBToRepo(in api.KeyboardPCBInput) repository.KeyboardPCB {
 }
 
 func (k Keyboard) purchaseToAPI(p repository.KeyboardPurchase, isOwner bool, ownerPrefs repository.ProfilePreferences) (*api.Purchase, error) {
-	if p.Vendor == nil && p.Price == nil && p.OrderDate == nil && p.DeliveryDate == nil && p.OrderStatus == nil {
+	if p == (repository.KeyboardPurchase{}) {
 		return nil, nil //nolint:nilnil // no purchase data is a valid, expected result
 	}
 
@@ -315,6 +315,13 @@ func (k Keyboard) purchaseToAPI(p repository.KeyboardPurchase, isOwner bool, own
 		}
 		out.DeliveryDate = d
 	}
+	if p.EstimatedDeliveryDate != nil {
+		d, err := parseAPIDate(*p.EstimatedDeliveryDate)
+		if err != nil {
+			return nil, fmt.Errorf("parsing estimated_delivery_date: %w", err)
+		}
+		out.EstimatedDeliveryDate = d
+	}
 
 	return out, nil
 }
@@ -336,6 +343,10 @@ func (k Keyboard) purchaseToRepo(p *api.PurchaseInput) repository.KeyboardPurcha
 	if p.DeliveryDate != nil {
 		s := p.DeliveryDate.Format(dateLayout)
 		out.DeliveryDate = &s
+	}
+	if p.EstimatedDeliveryDate != nil {
+		s := p.EstimatedDeliveryDate.Format(dateLayout)
+		out.EstimatedDeliveryDate = &s
 	}
 
 	return out

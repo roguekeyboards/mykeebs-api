@@ -164,42 +164,46 @@ type KeyboardPCBInput struct {
 // KeyboardPartPurchase is a plate's or PCB's own purchase, independent of
 // the keyboard's - extras are often bought from another vendor.
 type KeyboardPartPurchase struct {
-	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the part was bought"`
-	Price        *float64 `json:"price,omitempty" jsonschema:"price paid"`
-	Currency     *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
-	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
-	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
-	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Vendor                *string  `json:"vendor,omitempty" jsonschema:"where the part was bought"`
+	Price                 *float64 `json:"price,omitempty" jsonschema:"price paid"`
+	Currency              *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
+	OrderDate             *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate          *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
+	EstimatedDeliveryDate *string  `json:"estimated_delivery_date,omitempty" jsonschema:"when it's expected to arrive (YYYY-MM-DD)"`
+	OrderStatus           *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
 }
 
 // KeyboardPartPurchaseInput is the writable form of KeyboardPartPurchase.
 type KeyboardPartPurchaseInput struct {
-	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the part was bought"`
-	Price        *float64 `json:"price,omitempty" jsonschema:"price paid"`
-	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
-	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
-	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Vendor                *string  `json:"vendor,omitempty" jsonschema:"where the part was bought"`
+	Price                 *float64 `json:"price,omitempty" jsonschema:"price paid"`
+	OrderDate             *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate          *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD); can't be before order_date"`
+	EstimatedDeliveryDate *string  `json:"estimated_delivery_date,omitempty" jsonschema:"when it's expected to arrive (YYYY-MM-DD), e.g. the last day of the quarter a group buy lists; can't be before order_date"`
+	OrderStatus           *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
 }
 
 // KeyboardPurchase is a keyboard's purchase and order lifecycle. Dates
 // are strings, not a date type - see
 // [github.com/roguekeyboards/mykeebs-api/internal/repomcp.KeyboardToMCP].
 type KeyboardPurchase struct {
-	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the keyboard was bought"`
-	Price        *float64 `json:"price,omitempty" jsonschema:"price paid"`
-	Currency     *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
-	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
-	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
-	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Vendor                *string  `json:"vendor,omitempty" jsonschema:"where the keyboard was bought"`
+	Price                 *float64 `json:"price,omitempty" jsonschema:"price paid"`
+	Currency              *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
+	OrderDate             *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate          *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
+	EstimatedDeliveryDate *string  `json:"estimated_delivery_date,omitempty" jsonschema:"when it's expected to arrive (YYYY-MM-DD)"`
+	OrderStatus           *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
 }
 
 // KeyboardPurchaseInput is the writable form of KeyboardPurchase.
 type KeyboardPurchaseInput struct {
-	Vendor       *string  `json:"vendor,omitempty" jsonschema:"where the keyboard was bought"`
-	Price        *float64 `json:"price,omitempty" jsonschema:"price paid"`
-	OrderDate    *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
-	DeliveryDate *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD)"`
-	OrderStatus  *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
+	Vendor                *string  `json:"vendor,omitempty" jsonschema:"where the keyboard was bought"`
+	Price                 *float64 `json:"price,omitempty" jsonschema:"price paid"`
+	OrderDate             *string  `json:"order_date,omitempty" jsonschema:"when it was ordered (YYYY-MM-DD)"`
+	DeliveryDate          *string  `json:"delivery_date,omitempty" jsonschema:"when it arrived (YYYY-MM-DD); can't be before order_date"`
+	EstimatedDeliveryDate *string  `json:"estimated_delivery_date,omitempty" jsonschema:"when it's expected to arrive (YYYY-MM-DD), e.g. the last day of the quarter a group buy lists; can't be before order_date"`
+	OrderStatus           *string  `json:"order_status,omitempty" jsonschema:"where the order stands, e.g. ordered or delivered"`
 }
 
 // ListKeyboardImagesInput is the list_keyboard_images tool's input.

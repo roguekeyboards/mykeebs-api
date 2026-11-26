@@ -82,9 +82,10 @@ func (s *KeyboardValidateSuite) TestPlate_InvalidInput_ReportsEveryField() {
 		{Field: "thickness", Reason: "must be at least 0"},
 		{Field: "purchase.price", Reason: "must be at most 100000000000000"},
 		{Field: "purchase.delivery_date", Reason: `"x" must be a date in YYYY-MM-DD form`},
+		{Field: "purchase.estimated_delivery_date", Reason: `"Q4" must be a date in YYYY-MM-DD form`},
 	}, validate.Check(schema.UpdateKeyboardPlateInput{KeyboardPlateInput: schema.KeyboardPlateInput{
 		Thickness: new(-1.5),
-		Purchase:  &schema.KeyboardPartPurchaseInput{Price: new(float64(validate.MaxMoney) + 1), DeliveryDate: new("x")},
+		Purchase:  &schema.KeyboardPartPurchaseInput{Price: new(float64(validate.MaxMoney) + 1), DeliveryDate: new("x"), EstimatedDeliveryDate: new("Q4")},
 	}}))
 }
 

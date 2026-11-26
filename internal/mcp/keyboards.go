@@ -15,6 +15,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
+	"github.com/roguekeyboards/mykeebs-api/internal/purchasevalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/repomcp"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
@@ -309,6 +310,9 @@ func validatedKeyboard(
 	kb := repomcp.Keyboard{}.FromMCP(in)
 
 	if err := lookupErrors(lookup.ValidateKeyboard(ctx, kb)); err != nil {
+		return repository.Keyboard{}, err
+	}
+	if err := purchaseErrors(purchasevalidate.KeyboardPurchase(kb.Purchase)); err != nil {
 		return repository.Keyboard{}, err
 	}
 

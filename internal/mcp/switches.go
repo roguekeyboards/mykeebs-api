@@ -14,6 +14,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
+	"github.com/roguekeyboards/mykeebs-api/internal/purchasevalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/repomcp"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
@@ -305,6 +306,9 @@ func validatedSwitch(
 	sw := repomcp.Switch{}.FromMCP(in)
 
 	if err := lookupErrors(lookup.ValidateSwitch(ctx, sw)); err != nil {
+		return repository.Switch{}, err
+	}
+	if err := purchaseErrors(purchasevalidate.BulkPurchases(sw.Purchases)); err != nil {
 		return repository.Switch{}, err
 	}
 

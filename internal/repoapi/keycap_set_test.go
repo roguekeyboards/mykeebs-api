@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
@@ -331,11 +333,12 @@ func fullRepoKeycapKit() repository.KeycapKit {
 		Name:      "Base",
 		ImagePath: imageKeyPtr("keycap-sets/alice/ks1/kits/kit1/image/up1"),
 		Purchase: repository.KeycapKitPurchase{
-			Vendor:       strPtr("CannonKeys"),
-			Price:        floatPtr(120.00),
-			OrderDate:    strPtr("2026-01-15"),
-			DeliveryDate: strPtr("2026-03-01"),
-			OrderStatus:  strPtr("delivered"),
+			Vendor:                strPtr("CannonKeys"),
+			Price:                 floatPtr(120.00),
+			OrderDate:             strPtr("2026-01-15"),
+			DeliveryDate:          strPtr("2026-03-01"),
+			EstimatedDeliveryDate: strPtr("2026-02-28"),
+			OrderStatus:           strPtr("delivered"),
 		},
 	}
 }
@@ -368,6 +371,8 @@ func (s *KeycapKitToAPISuite) TestFullRoundTrip_PreservesEveryField() {
 	s.Equal(*k.Purchase.OrderDate, out.Purchase.OrderDate.Format(dateLayout))
 	s.Require().NotNil(out.Purchase.DeliveryDate)
 	s.Equal(*k.Purchase.DeliveryDate, out.Purchase.DeliveryDate.Format(dateLayout))
+	s.Require().NotNil(out.Purchase.EstimatedDeliveryDate)
+	s.Equal(*k.Purchase.EstimatedDeliveryDate, out.Purchase.EstimatedDeliveryDate.Format(dateLayout))
 }
 
 func (s *KeycapKitToAPISuite) TestAllOptionalFieldsNil_OmittedNotZeroValue() {
@@ -438,9 +443,10 @@ func fullAPIKeycapKitInput() api.KeycapKitInput {
 	return api.KeycapKitInput{
 		Name: "Base",
 		Purchase: &api.PurchaseInput{
-			Vendor:      strPtr("CannonKeys"),
-			Price:       floatPtr(120.00),
-			OrderStatus: strPtr("delivered"),
+			Vendor:                strPtr("CannonKeys"),
+			Price:                 floatPtr(120.00),
+			OrderStatus:           strPtr("delivered"),
+			EstimatedDeliveryDate: &openapi_types.Date{Time: time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)},
 		},
 	}
 }
@@ -461,6 +467,7 @@ func (s *KeycapKitToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 	s.Equal(in.Purchase.Vendor, out.Purchase.Vendor)
 	s.Equal(in.Purchase.Price, out.Purchase.Price)
 	s.Equal(in.Purchase.OrderStatus, out.Purchase.OrderStatus)
+	s.Equal(strPtr("2026-03-31"), out.Purchase.EstimatedDeliveryDate)
 	s.Empty(out.KitID)
 }
 
