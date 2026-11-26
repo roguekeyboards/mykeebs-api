@@ -27,6 +27,18 @@ func (s *BulkPurchasesSuite) TestTotalQuantity_NoneKnown_ReturnsNil() {
 	s.Nil(repository.BulkPurchases(nil).TotalQuantity())
 }
 
+func (s *BulkPurchasesSuite) TestDeliveredQuantity_SumsOnlyDelivered() {
+	ps := repository.BulkPurchases{
+		{Quantity: new(70), OrderStatus: new("Delivered")},
+		{Quantity: new(35), OrderStatus: new("Shipped")},
+		{Quantity: new(10)},
+		{OrderStatus: new("Delivered")},
+		{Quantity: new(20), OrderStatus: new("Delivered")},
+	}
+
+	s.Equal(90, ps.DeliveredQuantity())
+}
+
 func (s *BulkPurchasesSuite) TestTotalPrice_SumsKnownPricesRoundedToCents() {
 	ps := repository.BulkPurchases{{Price: new(0.1)}, {Price: new(0.2)}, {}}
 

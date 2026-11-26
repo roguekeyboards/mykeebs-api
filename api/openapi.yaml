@@ -2472,7 +2472,7 @@ components:
 
     Switch:
       type: object
-      required: [id, brand, name, type]
+      required: [id, brand, name, type, available_quantity]
       properties:
         id:
           type: string
@@ -2510,6 +2510,15 @@ components:
           description: >
             The sum of the quantities of purchases not Cancelled. Absent
             when none has a quantity.
+        available_quantity:
+          type: integer
+          minimum: 0
+          description: >
+            Derived, read-only: how many are free for a new build: the sum of the quantities of
+            Delivered purchases, less the switches on each keyboard's
+            current build (its newest by build_date; one without a
+            build_date counts as oldest). Older builds of a keyboard don't
+            count. Never below 0.
         order_status:
           type: string
           description: >

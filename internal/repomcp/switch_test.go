@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -54,7 +55,7 @@ func (s *SwitchToMCPSuite) TestMapsAllFields() {
 		Visibility: repository.VisibilityPublic,
 	}
 
-	out := Switch{}.ToMCP(sw, true, repository.ProfilePreferences{})
+	out := Switch{}.ToMCP(sw, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Equal("sw-1", out.ID)
 	s.Require().NotNil(out.Manufacturer)
@@ -86,7 +87,7 @@ func (s *SwitchToMCPSuite) TestMapsAllFields() {
 }
 
 func (s *SwitchToMCPSuite) TestNonOwner_OmitsVisibility() {
-	out := Switch{}.ToMCP(repository.Switch{ID: "sw-1", Visibility: repository.VisibilityPublic}, false, repository.ProfilePreferences{})
+	out := Switch{}.ToMCP(repository.Switch{ID: "sw-1", Visibility: repository.VisibilityPublic}, false, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Nil(out.Visibility)
 }
@@ -94,7 +95,7 @@ func (s *SwitchToMCPSuite) TestNonOwner_OmitsVisibility() {
 // An all-unset group collapses to nil so it's omitted from the tool result
 // entirely, rather than appearing as an object of zero values.
 func (s *SwitchToMCPSuite) TestEmptyGroups_CollapseToNil() {
-	out := Switch{}.ToMCP(repository.Switch{ID: "sw-1", Visibility: repository.VisibilityPrivate}, true, repository.ProfilePreferences{})
+	out := Switch{}.ToMCP(repository.Switch{ID: "sw-1", Visibility: repository.VisibilityPrivate}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Nil(out.Material)
 	s.Nil(out.Force)
@@ -113,7 +114,7 @@ func (s *SwitchToMCPSuite) TestPartiallySetGroup_IsRetained() {
 
 	out := Switch{}.ToMCP(repository.Switch{
 		Force: repository.SwitchForce{BottomOut: &bottomOut},
-	}, true, repository.ProfilePreferences{})
+	}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Require().NotNil(out.Force)
 	s.Require().NotNil(out.Force.BottomOut)
@@ -126,7 +127,7 @@ func (s *SwitchToMCPSuite) TestOnlySpringLengthSet_SpringRetained() {
 
 	out := Switch{}.ToMCP(repository.Switch{
 		Spring: repository.SwitchSpring{Length: &length},
-	}, true, repository.ProfilePreferences{})
+	}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Require().NotNil(out.Spring)
 	s.Require().NotNil(out.Spring.Length)
@@ -144,7 +145,7 @@ func (s *SwitchToMCPSuite) TestRecordedZero_SurvivesRoundTrip() {
 	out := Switch{}.ToMCP(repository.Switch{
 		Pins:      &pins,
 		Purchases: repository.BulkPurchases{{Price: &price, Quantity: &quantity}},
-	}, true, repository.ProfilePreferences{Currency: "USD"})
+	}, true, repository.ProfilePreferences{Currency: "USD"}, availability.Usage{})
 
 	s.Require().NotNil(out.Pins)
 	s.Zero(*out.Pins)
@@ -157,13 +158,13 @@ func (s *SwitchToMCPSuite) TestRecordedZero_SurvivesRoundTrip() {
 	raw, err := json.Marshal(out)
 	s.Require().NoError(err)
 	s.JSONEq(
-		`{"id":"","brand":"","name":"","type":"","pins":0,"purchases":[{"price":0,"currency":"USD","quantity":0}],"total_quantity":0,"total_cost":0,"currency":"USD","visibility":"","has_image":false}`,
+		`{"id":"","brand":"","name":"","type":"","pins":0,"purchases":[{"price":0,"currency":"USD","quantity":0}],"total_quantity":0,"available_quantity":0,"total_cost":0,"currency":"USD","visibility":"","has_image":false}`,
 		string(raw),
 	)
 }
 
 func (s *SwitchToMCPSuite) TestNoImagePath_HasImageFalse() {
-	out := Switch{}.ToMCP(repository.Switch{}, true, repository.ProfilePreferences{})
+	out := Switch{}.ToMCP(repository.Switch{}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.False(out.HasImage)
 }
@@ -171,7 +172,7 @@ func (s *SwitchToMCPSuite) TestNoImagePath_HasImageFalse() {
 func (s *SwitchToMCPSuite) TestImagePathSet_HasImageTrue() {
 	key := repository.SwitchImageKey("switches/u/sw-1/image/up1")
 
-	out := Switch{}.ToMCP(repository.Switch{ImagePath: &key}, true, repository.ProfilePreferences{})
+	out := Switch{}.ToMCP(repository.Switch{ImagePath: &key}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.True(out.HasImage)
 }
@@ -185,7 +186,7 @@ func (s *SwitchToMCPSuite) TestNonOwnerShowPriceToOthersFalse_OmitsPriceKeepsRes
 		ID:         "sw-1",
 		Purchases:  repository.BulkPurchases{{Vendor: &vendor, OrderStatus: &status, Price: &price}},
 		Visibility: repository.VisibilityPublic,
-	}, false, repository.ProfilePreferences{ShowPriceToOthers: false})
+	}, false, repository.ProfilePreferences{ShowPriceToOthers: false}, availability.Usage{})
 
 	s.Require().Len(out.Purchases, 1)
 	s.Nil(out.Purchases[0].Price)
@@ -201,7 +202,7 @@ func (s *SwitchToMCPSuite) TestNonOwnerShowPriceToOthersTrue_IncludesPrice() {
 		ID:         "sw-1",
 		Purchases:  repository.BulkPurchases{{Price: &price}},
 		Visibility: repository.VisibilityPublic,
-	}, false, repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true})
+	}, false, repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true}, availability.Usage{})
 
 	s.Require().Len(out.Purchases, 1)
 	s.Require().NotNil(out.Purchases[0].Price)
@@ -217,7 +218,7 @@ func (s *SwitchToMCPSuite) TestOwner_AlwaysIncludesPriceRegardlessOfShowPriceToM
 		ID:         "sw-1",
 		Purchases:  repository.BulkPurchases{{Price: &price}},
 		Visibility: repository.VisibilityPublic,
-	}, true, repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false})
+	}, true, repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false}, availability.Usage{})
 
 	s.Require().Len(out.Purchases, 1)
 	s.Require().NotNil(out.Purchases[0].Price)
@@ -245,7 +246,7 @@ func (s *SwitchToMCPSummarySuite) TestMapsSummaryFields() {
 		Type:      "linear",
 		Notes:     &notes,
 		Purchases: repository.BulkPurchases{{OrderStatus: &orderStatus}},
-	}, true, repository.ProfilePreferences{})
+	}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Equal("sw-1", out.ID)
 	s.Equal("Gateron", out.Brand)
@@ -258,7 +259,7 @@ func (s *SwitchToMCPSummarySuite) TestMapsSummaryFields() {
 func (s *SwitchToMCPSummarySuite) TestImagePathSet_HasImageTrue() {
 	key := repository.SwitchImageKey("switches/u/sw-1/image/up1")
 
-	out := Switch{}.ToMCPSummary(repository.Switch{ImagePath: &key}, true, repository.ProfilePreferences{})
+	out := Switch{}.ToMCPSummary(repository.Switch{ImagePath: &key}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.True(out.HasImage)
 }
@@ -269,7 +270,7 @@ func (s *SwitchToMCPSummarySuite) TestOwnerShowPriceToMeTrue_IncludesPrice() {
 	out := Switch{}.ToMCPSummary(repository.Switch{
 		ID:        "sw-1",
 		Purchases: repository.BulkPurchases{{Price: &price}},
-	}, true, repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: true})
+	}, true, repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: true}, availability.Usage{})
 
 	s.Require().NotNil(out.Price)
 	s.InDelta(price, *out.Price, 0.0001)
@@ -283,7 +284,7 @@ func (s *SwitchToMCPSummarySuite) TestOwnerShowPriceToMeFalse_OmitsPrice() {
 	out := Switch{}.ToMCPSummary(repository.Switch{
 		ID:        "sw-1",
 		Purchases: repository.BulkPurchases{{Price: &price}},
-	}, true, repository.ProfilePreferences{ShowPriceToMe: false})
+	}, true, repository.ProfilePreferences{ShowPriceToMe: false}, availability.Usage{})
 
 	s.Nil(out.Price)
 	s.Nil(out.Currency)
@@ -295,7 +296,7 @@ func (s *SwitchToMCPSummarySuite) TestNonOwnerShowPriceToOthersFalse_OmitsPrice(
 	out := Switch{}.ToMCPSummary(repository.Switch{
 		ID:        "sw-1",
 		Purchases: repository.BulkPurchases{{Price: &price}},
-	}, false, repository.ProfilePreferences{ShowPriceToOthers: false})
+	}, false, repository.ProfilePreferences{ShowPriceToOthers: false}, availability.Usage{})
 
 	s.Nil(out.Price)
 	s.Nil(out.Currency)
@@ -307,7 +308,7 @@ func (s *SwitchToMCPSummarySuite) TestNonOwnerShowPriceToOthersTrue_IncludesPric
 	out := Switch{}.ToMCPSummary(repository.Switch{
 		ID:        "sw-1",
 		Purchases: repository.BulkPurchases{{Price: &price}},
-	}, false, repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true})
+	}, false, repository.ProfilePreferences{Currency: "EUR", ShowPriceToOthers: true}, availability.Usage{})
 
 	s.Require().NotNil(out.Price)
 	s.InDelta(price, *out.Price, 0.0001)
@@ -390,7 +391,7 @@ func (s *SwitchToMCPSummarySuite) TestOwner_IncludesVisibility() {
 	out := Switch{}.ToMCPSummary(repository.Switch{
 		ID:         "sw-1",
 		Visibility: repository.VisibilityPrivate,
-	}, true, repository.ProfilePreferences{})
+	}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Require().NotNil(out.Visibility)
 	s.Equal("private", *out.Visibility)
@@ -400,7 +401,7 @@ func (s *SwitchToMCPSummarySuite) TestNonOwner_OmitsVisibility() {
 	out := Switch{}.ToMCPSummary(repository.Switch{
 		ID:         "sw-1",
 		Visibility: repository.VisibilityPublic,
-	}, false, repository.ProfilePreferences{ShowPriceToOthers: true})
+	}, false, repository.ProfilePreferences{ShowPriceToOthers: true}, availability.Usage{})
 
 	s.Nil(out.Visibility)
 }
@@ -412,7 +413,7 @@ func (s *SwitchToMCPSummarySuite) TestSeveralPurchases_AggregatesStatusAndPrice(
 			{OrderStatus: new("Delivered"), Price: new(36.0)},
 			{OrderStatus: new("Ordered"), Price: new(54.0)},
 		},
-	}, true, repository.ProfilePreferences{ShowPriceToMe: true})
+	}, true, repository.ProfilePreferences{ShowPriceToMe: true}, availability.Usage{})
 
 	s.Equal(new("Ordered"), out.OrderStatus)
 	s.Equal(new(90.0), out.Price)
@@ -422,7 +423,7 @@ func (s *SwitchToMCPSuite) TestSeveralPurchases_MapsEachAndTotalsQuantity() {
 	out := Switch{}.ToMCP(repository.Switch{
 		ID:        "sw-1",
 		Purchases: repository.BulkPurchases{{Vendor: new("CannonKeys"), Quantity: new(70)}, {Vendor: new("Divinikey"), Quantity: new(35)}},
-	}, true, repository.ProfilePreferences{})
+	}, true, repository.ProfilePreferences{}, availability.Usage{})
 
 	s.Equal([]schema.SwitchPurchase{{Vendor: new("CannonKeys"), Quantity: new(70)}, {Vendor: new("Divinikey"), Quantity: new(35)}}, out.Purchases)
 	s.Equal(new(105), out.TotalQuantity)

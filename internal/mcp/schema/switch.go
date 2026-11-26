@@ -5,6 +5,8 @@ type ListSwitchesInput struct {
 	UserID string `json:"user_id,omitempty" jsonschema:"whose collection to list; omit for your own"`
 	Limit  *int   `json:"limit,omitempty" jsonschema:"maximum number of switches to return (1-100, default 20)"`
 	Cursor string `json:"cursor,omitempty" jsonschema:"resume from a previous call's next_cursor"`
+
+	MinAvailableQuantity *int `json:"min_available_quantity,omitempty" jsonschema:"only return switches with at least this many available (at least 1). Applied to each page after it's read, so a page can hold fewer than limit, even none, while next_cursor is still set"`
 }
 
 // ListSwitchesOutput is the list_switches tool result.
@@ -16,15 +18,16 @@ type ListSwitchesOutput struct {
 // SwitchSummary is the abbreviated switch shape returned by list_switches.
 // Call get_switch for the remaining fields.
 type SwitchSummary struct {
-	ID          string   `json:"id" jsonschema:"the switch's unique id"`
-	Brand       string   `json:"brand" jsonschema:"the switch's brand"`
-	Name        string   `json:"name" jsonschema:"the switch's name"`
-	Type        string   `json:"type" jsonschema:"the switch type, e.g. linear or tactile"`
-	OrderStatus *string  `json:"order_status,omitempty" jsonschema:"derived from every purchase's order_status: the least-progressed status wins (Planned < Ordered < Shipped < Delivered); a Cancelled purchase is ignored unless every purchase is Cancelled; omitted if no purchase has a status set"`
-	HasImage    bool     `json:"has_image" jsonschema:"whether this switch has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
-	Price       *float64 `json:"price,omitempty" jsonschema:"total paid across purchases not Cancelled with a known price; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
-	Currency    *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
-	Visibility  *string  `json:"visibility,omitempty" jsonschema:"who can read this switch; one of \"public\", \"authenticated\", \"private\"; only ever present for the switch's owner"`
+	ID                string   `json:"id" jsonschema:"the switch's unique id"`
+	Brand             string   `json:"brand" jsonschema:"the switch's brand"`
+	Name              string   `json:"name" jsonschema:"the switch's name"`
+	Type              string   `json:"type" jsonschema:"the switch type, e.g. linear or tactile"`
+	AvailableQuantity int      `json:"available_quantity" jsonschema:"how many are free for a new build: the quantities of Delivered purchases, less the switches on each keyboard's current build (its newest by build_date, one without a build_date counting as oldest); never below 0"`
+	OrderStatus       *string  `json:"order_status,omitempty" jsonschema:"derived from every purchase's order_status: the least-progressed status wins (Planned < Ordered < Shipped < Delivered); a Cancelled purchase is ignored unless every purchase is Cancelled; omitted if no purchase has a status set"`
+	HasImage          bool     `json:"has_image" jsonschema:"whether this switch has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
+	Price             *float64 `json:"price,omitempty" jsonschema:"total paid across purchases not Cancelled with a known price; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
+	Currency          *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for price; present exactly when price is"`
+	Visibility        *string  `json:"visibility,omitempty" jsonschema:"who can read this switch; one of \"public\", \"authenticated\", \"private\"; only ever present for the switch's owner"`
 }
 
 // GetSwitchInput is the get_switch tool arguments.
@@ -104,24 +107,25 @@ type SwitchInput struct {
 // stays distinguishable from an unset field, which is omitted entirely -
 // matching what REST returns for the same stored switch.
 type Switch struct {
-	ID            string           `json:"id" jsonschema:"the switch's unique id"`
-	Brand         string           `json:"brand" jsonschema:"the switch's brand"`
-	Manufacturer  *string          `json:"manufacturer,omitempty" jsonschema:"who physically manufactures the switch, if different from the brand"`
-	Name          string           `json:"name" jsonschema:"the switch's name"`
-	Type          string           `json:"type" jsonschema:"the switch type, e.g. linear or tactile"`
-	Pins          *int             `json:"pins,omitempty" jsonschema:"pin count, typically 3 or 5"`
-	FactoryLubed  *bool            `json:"factory_lubed,omitempty" jsonschema:"whether the switch ships pre-lubed"`
-	Material      *SwitchMaterial  `json:"material,omitempty" jsonschema:"housing and stem materials"`
-	Force         *SwitchForce     `json:"force,omitempty" jsonschema:"actuation and bottom-out force, in grams"`
-	Spring        *SwitchSpring    `json:"spring,omitempty" jsonschema:"spring material, plus its length and travel distances in mm"`
-	Purchases     []SwitchPurchase `json:"purchases,omitempty" jsonschema:"every order of this switch, each with where it was bought and the order's status"`
-	TotalQuantity *int             `json:"total_quantity,omitempty" jsonschema:"the sum of the quantities of purchases not Cancelled; omitted if none has a quantity"`
-	OrderStatus   *string          `json:"order_status,omitempty" jsonschema:"the least-progressed order_status across purchases; a Cancelled purchase is ignored unless every purchase is Cancelled"`
-	TotalCost     *float64         `json:"total_cost,omitempty" jsonschema:"the total price of purchases not Cancelled; shown under the same rules as purchase prices"`
-	Currency      *string          `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for total_cost; present exactly when total_cost is"`
-	Notes         *string          `json:"notes,omitempty" jsonschema:"free-form notes"`
-	Visibility    *string          `json:"visibility,omitempty" jsonschema:"who can read this switch; one of \"public\", \"authenticated\", \"private\"; only ever present for the switch's owner"`
-	HasImage      bool             `json:"has_image" jsonschema:"whether this switch has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
+	ID                string           `json:"id" jsonschema:"the switch's unique id"`
+	Brand             string           `json:"brand" jsonschema:"the switch's brand"`
+	Manufacturer      *string          `json:"manufacturer,omitempty" jsonschema:"who physically manufactures the switch, if different from the brand"`
+	Name              string           `json:"name" jsonschema:"the switch's name"`
+	Type              string           `json:"type" jsonschema:"the switch type, e.g. linear or tactile"`
+	Pins              *int             `json:"pins,omitempty" jsonschema:"pin count, typically 3 or 5"`
+	FactoryLubed      *bool            `json:"factory_lubed,omitempty" jsonschema:"whether the switch ships pre-lubed"`
+	Material          *SwitchMaterial  `json:"material,omitempty" jsonschema:"housing and stem materials"`
+	Force             *SwitchForce     `json:"force,omitempty" jsonschema:"actuation and bottom-out force, in grams"`
+	Spring            *SwitchSpring    `json:"spring,omitempty" jsonschema:"spring material, plus its length and travel distances in mm"`
+	Purchases         []SwitchPurchase `json:"purchases,omitempty" jsonschema:"every order of this switch, each with where it was bought and the order's status"`
+	TotalQuantity     *int             `json:"total_quantity,omitempty" jsonschema:"the sum of the quantities of purchases not Cancelled; omitted if none has a quantity"`
+	AvailableQuantity int              `json:"available_quantity" jsonschema:"how many are free for a new build: the quantities of Delivered purchases, less the switches on each keyboard's current build (its newest by build_date, one without a build_date counting as oldest); never below 0"`
+	OrderStatus       *string          `json:"order_status,omitempty" jsonschema:"the least-progressed order_status across purchases; a Cancelled purchase is ignored unless every purchase is Cancelled"`
+	TotalCost         *float64         `json:"total_cost,omitempty" jsonschema:"the total price of purchases not Cancelled; shown under the same rules as purchase prices"`
+	Currency          *string          `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for total_cost; present exactly when total_cost is"`
+	Notes             *string          `json:"notes,omitempty" jsonschema:"free-form notes"`
+	Visibility        *string          `json:"visibility,omitempty" jsonschema:"who can read this switch; one of \"public\", \"authenticated\", \"private\"; only ever present for the switch's owner"`
+	HasImage          bool             `json:"has_image" jsonschema:"whether this switch has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
 
 	ImageStatus          *string `json:"image_status,omitempty" jsonschema:"the image's moderation status: pending until it's checked, then approved or rejected; only ever present for the switch's owner"`
 	ImageRejectionReason *string `json:"image_rejection_reason,omitempty" jsonschema:"why a rejected image was rejected: the moderation label; not_webp when the file isn't a WebP; too_large when its longest side is over 2560px; or unprocessable when the file couldn't be checked; only ever present for the switch's owner"`

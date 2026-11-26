@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -95,20 +96,20 @@ func (s *ImageModerationSuite) TestSwitch() {
 	path := repository.SwitchImageKey("s/1")
 	sw := repository.Switch{ImagePath: &path, ImageStatus: repository.ImageStatusRejected, ImageRejectionReason: ptr("Violence")}
 
-	owner := Switch{}.ToMCP(sw, true, repository.ProfilePreferences{})
+	owner := Switch{}.ToMCP(sw, true, repository.ProfilePreferences{}, availability.Usage{})
 	s.True(owner.HasImage)
 	s.Equal(ptr("rejected"), owner.ImageStatus)
 	s.Equal(ptr("Violence"), owner.ImageRejectionReason)
 
-	other := Switch{}.ToMCP(sw, false, repository.ProfilePreferences{})
+	other := Switch{}.ToMCP(sw, false, repository.ProfilePreferences{}, availability.Usage{})
 	s.False(other.HasImage)
 	s.Nil(other.ImageStatus)
 	s.Nil(other.ImageRejectionReason)
-	s.False(Switch{}.ToMCPSummary(sw, false, repository.ProfilePreferences{}).HasImage)
+	s.False(Switch{}.ToMCPSummary(sw, false, repository.ProfilePreferences{}, availability.Usage{}).HasImage)
 }
 
 func (s *ImageModerationSuite) TestSwitch_NoImage_NoStatus() {
-	s.Nil(Switch{}.ToMCP(repository.Switch{}, true, repository.ProfilePreferences{}).ImageStatus)
+	s.Nil(Switch{}.ToMCP(repository.Switch{}, true, repository.ProfilePreferences{}, availability.Usage{}).ImageStatus)
 }
 
 func (s *ImageModerationSuite) TestKeycapKit() {

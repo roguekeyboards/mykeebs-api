@@ -54,6 +54,7 @@ Shared business rules (deliberately transport-neutral, called by both REST and M
 - `profileread/` — resolves a profile identifier and applies the discoverable-or-owner visibility rule.
 - `profilevalidate/` — field-level rules for a profile's writable body.
 - `ecpartvalidate/` — the EC part rule neither the spec nor the catalog expresses: only the sub-object matching `part_type` may be set.
+- `availability/` — what's free for a new build: Delivered purchases less what each keyboard's current (newest by `build_date`) build uses, counted over every build the owner has, whatever the caller can see.
 - `purchasevalidate/` — the purchase rule the spec can't express: `delivery_date` and `estimated_delivery_date` can't be before `order_date`.
 
 Image moderation:

@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/authz"
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/cascadedelete"
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
@@ -26,7 +27,7 @@ var errSwitchAlreadyExists = errors.New("switch already exists")
 
 var listSwitchesTool = &mcp.Tool{
 	Name:        "list_switches",
-	Description: "Lists switches in a user's collection, most useful for browsing. Returns an abbreviated shape; call get_switch for a single switch's full details. Omit user_id to list your own switches.",
+	Description: "Lists switches in a user's collection, most useful for browsing. Returns an abbreviated shape; call get_switch for a single switch's full details. Omit user_id to list your own switches. To find switches for a new build, set min_available_quantity to the number it needs and keep paging until next_cursor is empty.",
 }
 
 var getSwitchTool = &mcp.Tool{
@@ -61,6 +62,7 @@ var deleteSwitchImageTool = &mcp.Tool{
 
 func handleListSwitches(
 	repo repository.SwitchRepository,
+	buildRepo repository.BuildRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.ListSwitchesInput, schema.ListSwitchesOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.ListSwitchesInput) (*mcp.CallToolResult, schema.ListSwitchesOutput, error) {
@@ -86,10 +88,20 @@ func handleListSwitches(
 			return nil, schema.ListSwitchesOutput{}, errors.New("failed to list switches")
 		}
 
+		usage, err := availability.Load(ctx, buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(ctx).Error("loading build usage", log.Error, err)
+			return nil, schema.ListSwitchesOutput{}, errors.New("failed to list switches")
+		}
+
 		isOwner := authz.IsOwner(ctx, ownerID)
-		items := make([]schema.SwitchSummary, len(switches))
-		for i, sw := range switches {
-			items[i] = repomcp.Switch{}.ToMCPSummary(sw, isOwner, ownerPrefs)
+		items := make([]schema.SwitchSummary, 0, len(switches))
+		for _, sw := range switches {
+			item := repomcp.Switch{}.ToMCPSummary(sw, isOwner, ownerPrefs, usage)
+			if in.MinAvailableQuantity != nil && item.AvailableQuantity < *in.MinAvailableQuantity {
+				continue
+			}
+			items = append(items, item)
 		}
 
 		return nil, schema.ListSwitchesOutput{Switches: items, NextCursor: nextCursor}, nil
@@ -98,6 +110,7 @@ func handleListSwitches(
 
 func handleGetSwitch(
 	repo repository.SwitchRepository,
+	buildRepo repository.BuildRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.GetSwitchInput, schema.GetSwitchOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetSwitchInput) (*mcp.CallToolResult, schema.GetSwitchOutput, error) {
@@ -119,7 +132,13 @@ func handleGetSwitch(
 			return nil, schema.GetSwitchOutput{}, errors.New("failed to get switch")
 		}
 
-		return nil, schema.GetSwitchOutput{Switch: repomcp.Switch{}.ToMCP(*sw, isOwner, ownerPrefs)}, nil
+		usage, err := availability.Load(ctx, buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(ctx).Error("loading build usage", log.Error, err, log.SwitchID, in.SwitchID)
+			return nil, schema.GetSwitchOutput{}, errors.New("failed to get switch")
+		}
+
+		return nil, schema.GetSwitchOutput{Switch: repomcp.Switch{}.ToMCP(*sw, isOwner, ownerPrefs, usage)}, nil
 	}
 }
 
@@ -155,12 +174,14 @@ func handleCreateSwitch(
 		}
 
 		// isOwner: true, this always targets the caller's own collection.
-		return nil, schema.CreateSwitchOutput{Switch: repomcp.Switch{}.ToMCP(*created, true, ownerPrefs)}, nil
+		// No build can use a switch that didn't exist until now.
+		return nil, schema.CreateSwitchOutput{Switch: repomcp.Switch{}.ToMCP(*created, true, ownerPrefs, availability.Usage{})}, nil
 	}
 }
 
 func handleUpdateSwitch(
 	switchRepo repository.SwitchRepository,
+	buildRepo repository.BuildRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateSwitchInput, schema.UpdateSwitchOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateSwitchInput) (*mcp.CallToolResult, schema.UpdateSwitchOutput, error) {
@@ -177,13 +198,23 @@ func handleUpdateSwitch(
 			return nil, schema.UpdateSwitchOutput{}, errors.New("failed to update switch")
 		}
 
+		subject, err := callerSubject(ctx)
+		if err != nil {
+			return nil, schema.UpdateSwitchOutput{}, err
+		}
+		usage, err := availability.Load(ctx, buildRepo, subject)
+		if err != nil {
+			log.FromContext(ctx).Error("loading build usage", log.Error, err, log.SwitchID, sw.ID)
+			return nil, schema.UpdateSwitchOutput{}, errors.New("failed to update switch")
+		}
+
 		updated, err := switchRepo.Update(ctx, sw)
 		if mutErr := handleMutationError(ctx, err, log.SwitchID, sw.ID); mutErr != nil {
 			return nil, schema.UpdateSwitchOutput{}, mutErr
 		}
 
 		// isOwner: true, this always targets the caller's own collection.
-		return nil, schema.UpdateSwitchOutput{Switch: repomcp.Switch{}.ToMCP(*updated, true, ownerPrefs)}, nil
+		return nil, schema.UpdateSwitchOutput{Switch: repomcp.Switch{}.ToMCP(*updated, true, ownerPrefs, usage)}, nil
 	}
 }
 
