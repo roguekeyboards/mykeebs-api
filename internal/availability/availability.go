@@ -3,6 +3,7 @@ package availability
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -19,6 +20,11 @@ var allVisibilities = []repository.Visibility{
 // with no builds.
 type Usage struct {
 	switches map[string]int
+	kits     map[kitRef]bool
+}
+
+type kitRef struct {
+	setID, kitID string
 }
 
 // Load reads every build ownerID has and returns what their current builds
@@ -51,10 +57,13 @@ func FromBuilds(builds []repository.Build) Usage {
 		}
 	}
 
-	u := Usage{switches: map[string]int{}}
+	u := Usage{switches: map[string]int{}, kits: map[kitRef]bool{}}
 	for _, b := range current {
 		for _, e := range b.Switches {
 			u.switches[e.Switch] += e.Count
+		}
+		for _, e := range b.KeycapKits {
+			u.kits[kitRef{e.KeycapSet, e.Kit}] = true
 		}
 	}
 	return u
@@ -71,4 +80,39 @@ func newer(a, b repository.Build) bool {
 // quantity less what current builds use, and never below zero.
 func (u Usage) SwitchQuantity(sw repository.Switch) int {
 	return max(sw.Purchases.DeliveredQuantity()-u.switches[sw.ID], 0)
+}
+
+// KeycapSetAvailable reports whether one of set's base kits is Delivered
+// and not on a current build. The base kits are the primary kit, if set;
+// otherwise the only kit, if there's one; otherwise every kit whose name
+// contains "base", in any case.
+func (u Usage) KeycapSetAvailable(set repository.KeycapSet) bool {
+	for _, k := range baseKits(set) {
+		delivered := k.Purchase.OrderStatus != nil && *k.Purchase.OrderStatus == "Delivered"
+		if delivered && !u.kits[kitRef{set.ID, k.KitID}] {
+			return true
+		}
+	}
+	return false
+}
+
+func baseKits(set repository.KeycapSet) []repository.KeycapKit {
+	if set.PrimaryKitID != nil {
+		if k, ok := set.Kits[*set.PrimaryKitID]; ok {
+			return []repository.KeycapKit{k}
+		}
+	}
+	if len(set.Kits) == 1 {
+		for _, k := range set.Kits {
+			return []repository.KeycapKit{k}
+		}
+	}
+
+	var bases []repository.KeycapKit
+	for _, k := range set.Kits {
+		if strings.Contains(strings.ToLower(k.Name), "base") {
+			bases = append(bases, k)
+		}
+	}
+	return bases
 }

@@ -15,8 +15,19 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
 )
 
+func deliveredBaseSet(id string) repository.KeycapSet {
+	return repository.KeycapSet{ID: id, Visibility: repository.VisibilityPublic, Kits: map[string]repository.KeycapKit{
+		"k-1": {KitID: "k-1", Name: "Base", Purchase: repository.KeycapKitPurchase{OrderStatus: new("Delivered")}},
+	}}
+}
+
+var ks1BaseOnBuild = repository.Build{Keyboard: "kb-1", KeycapKits: []repository.BuildKeycapKitEntry{{KeycapSet: "ks-1", Kit: "k-1"}}}
+
 type HandleListKeycapSetsSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockRepo  *mocks.MockKeycapSetRepository
 	mockPrefs *mocks.MockPreferencesReader
@@ -29,6 +40,57 @@ func TestHandleListKeycapSetsSuite(t *testing.T) {
 func (s *HandleListKeycapSetsSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockKeycapSetRepository(s.T())
 	s.mockPrefs = mocks.NewMockPreferencesReader(s.T())
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, mock.Anything, mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
+}
+
+func (s *HandleListKeycapSetsSuite) TestAvailableOnly_DropsSetsOnCurrentBuilds() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, callerID, mock.Anything, mock.Anything, mock.Anything).
+		Return([]repository.KeycapSet{deliveredBaseSet("ks-1"), deliveredBaseSet("ks-2")}, "next", nil)
+	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
+	s.builds = []repository.Build{ks1BaseOnBuild}
+
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
+	_, out, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{AvailableOnly: true})
+
+	s.Require().NoError(err)
+	s.Require().Len(out.KeycapSets, 1)
+	s.Equal("ks-2", out.KeycapSets[0].ID)
+	s.True(out.KeycapSets[0].Available)
+	s.Equal("next", out.NextCursor)
+}
+
+func (s *HandleListKeycapSetsSuite) TestWithoutAvailableOnly_ReturnsEverySet() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, callerID, mock.Anything, mock.Anything, mock.Anything).
+		Return([]repository.KeycapSet{deliveredBaseSet("ks-1"), deliveredBaseSet("ks-2")}, "", nil)
+	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
+	s.builds = []repository.Build{ks1BaseOnBuild}
+
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
+	_, out, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{})
+
+	s.Require().NoError(err)
+	s.Require().Len(out.KeycapSets, 2)
+	s.False(out.KeycapSets[0].Available)
+}
+
+func (s *HandleListKeycapSetsSuite) TestBuildsError_ReturnsError() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, callerID, mock.Anything, mock.Anything, mock.Anything).
+		Return([]repository.KeycapSet{{ID: "ks-1"}}, "", nil)
+	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
+	s.buildsErr = errors.New("boom")
+
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
+	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{})
+
+	s.Require().EqualError(err, "failed to list keycap sets")
 }
 
 func (s *HandleListKeycapSetsSuite) TestBlankUserID_DefaultsToCaller() {
@@ -37,7 +99,7 @@ func (s *HandleListKeycapSetsSuite) TestBlankUserID_DefaultsToCaller() {
 		Return([]repository.KeycapSet{{ID: "ks-1", Brand: "GMK", Name: "Olivia"}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{})
 
 	s.Require().NoError(err)
@@ -55,7 +117,7 @@ func (s *HandleListKeycapSetsSuite) TestOwnCollection_ReadsAllVisibilityTiers() 
 		Return(nil, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{})
 
 	s.Require().NoError(err)
@@ -71,7 +133,7 @@ func (s *HandleListKeycapSetsSuite) TestOwnCollectionShowPriceToMeTrue_IncludesT
 		}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{ShowPriceToMe: true}, nil)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{})
 
 	s.Require().NoError(err)
@@ -90,7 +152,7 @@ func (s *HandleListKeycapSetsSuite) TestOwnCollectionShowPriceToMeFalse_OmitsTot
 		}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{ShowPriceToMe: false}, nil)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{})
 
 	s.Require().NoError(err)
@@ -108,7 +170,7 @@ func (s *HandleListKeycapSetsSuite) TestOtherUsersCollectionShowPriceToOthersFal
 		}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: false}, nil)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{UserID: otherID})
 
 	s.Require().NoError(err)
@@ -126,7 +188,7 @@ func (s *HandleListKeycapSetsSuite) TestOtherUsersCollectionShowPriceToOthersTru
 		}}, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: true}, nil)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{UserID: otherID})
 
 	s.Require().NoError(err)
@@ -144,7 +206,7 @@ func (s *HandleListKeycapSetsSuite) TestOtherUsersCollection_ExcludesPrivate() {
 		Return(nil, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{UserID: otherID})
 
 	s.Require().NoError(err)
@@ -156,7 +218,7 @@ func (s *HandleListKeycapSetsSuite) TestCursorIsPropagated() {
 		Return(nil, "page-3", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, mock.Anything).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{Cursor: "page-2"})
 
 	s.Require().NoError(err)
@@ -164,7 +226,7 @@ func (s *HandleListKeycapSetsSuite) TestCursorIsPropagated() {
 }
 
 func (s *HandleListKeycapSetsSuite) TestNoCallerIdentity_ReturnsError() {
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(s.T().Context(), nil, schema.ListKeycapSetsInput{})
 
 	s.Require().ErrorIs(err, errNoCallerIdentity)
@@ -175,7 +237,7 @@ func (s *HandleListKeycapSetsSuite) TestRepositoryError_ReturnsError() {
 		List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, "", errors.New("query failed"))
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{})
 
 	s.Require().ErrorContains(err, "failed to list keycap sets")
@@ -186,7 +248,7 @@ func (s *HandleListKeycapSetsSuite) TestInvalidCursor_ReturnsError() {
 		List(mock.Anything, mock.Anything, mock.Anything, mock.Anything, "stale").
 		Return(nil, "", repository.ErrInvalidCursor)
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{Cursor: "stale"})
 
 	s.Require().Error(err)
@@ -198,7 +260,7 @@ func (s *HandleListKeycapSetsSuite) TestPreferencesError_ReturnsError() {
 		Return(nil, "", nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, mock.Anything).Return(repository.ProfilePreferences{}, errors.New("dynamo down"))
 
-	handler := handleListKeycapSets(s.mockRepo, s.mockPrefs)
+	handler := handleListKeycapSets(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.ListKeycapSetsInput{})
 
 	s.Require().ErrorContains(err, "failed to list keycap sets")
@@ -206,6 +268,9 @@ func (s *HandleListKeycapSetsSuite) TestPreferencesError_ReturnsError() {
 
 type HandleGetKeycapSetSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockRepo  *mocks.MockKeycapSetRepository
 	mockPrefs *mocks.MockPreferencesReader
@@ -218,6 +283,25 @@ func TestHandleGetKeycapSetSuite(t *testing.T) {
 func (s *HandleGetKeycapSetSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockKeycapSetRepository(s.T())
 	s.mockPrefs = mocks.NewMockPreferencesReader(s.T())
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, mock.Anything, mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
+}
+
+func (s *HandleGetKeycapSetSuite) TestBaseOnCurrentBuild_NotAvailable() {
+	ks := deliveredBaseSet("ks-1")
+	s.mockRepo.EXPECT().Get(mock.Anything, callerID, "ks-1").Return(&ks, nil)
+	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, nil)
+	s.builds = []repository.Build{ks1BaseOnBuild}
+
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
+	_, out, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1"})
+
+	s.Require().NoError(err)
+	s.False(out.KeycapSet.Available)
 }
 
 func (s *HandleGetKeycapSetSuite) TestSucceeds() {
@@ -231,7 +315,7 @@ func (s *HandleGetKeycapSetSuite) TestSucceeds() {
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.DefaultProfilePreferences(), nil)
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1"})
 
 	s.Require().NoError(err)
@@ -253,7 +337,7 @@ func (s *HandleGetKeycapSetSuite) TestKitsMapWithHasImage() {
 				"kit-2": {KitID: "kit-2", Name: "Novelties"}},
 		}, nil)
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1"})
 
 	s.Require().NoError(err)
@@ -267,7 +351,7 @@ func (s *HandleGetKeycapSetSuite) TestNotFound_ReturnsNotFound() {
 		Get(mock.Anything, mock.Anything, "missing").
 		Return(nil, repository.ErrNotFound)
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "missing"})
 
 	s.Require().ErrorIs(err, errKeycapSetNotFound)
@@ -278,7 +362,7 @@ func (s *HandleGetKeycapSetSuite) TestOtherUsersPrivateKeycapSet_ReturnsNotFound
 		Get(mock.Anything, otherID, "ks-1").
 		Return(&repository.KeycapSet{ID: "ks-1", Visibility: repository.VisibilityPrivate}, nil)
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1", UserID: otherID})
 
 	s.Require().ErrorIs(err, errKeycapSetNotFound)
@@ -294,7 +378,7 @@ func (s *HandleGetKeycapSetSuite) TestOtherUsersPublicKeycapSet_Succeeds() {
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{}, nil)
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1", UserID: otherID})
 
 	s.Require().NoError(err)
@@ -312,7 +396,7 @@ func (s *HandleGetKeycapSetSuite) TestOtherUsersPublicKeycapSetShowPriceToOthers
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: true}, nil)
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1", UserID: otherID})
 
 	s.Require().NoError(err)
@@ -332,7 +416,7 @@ func (s *HandleGetKeycapSetSuite) TestOtherUsersPublicKeycapSetShowPriceToOthers
 		}, nil)
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, otherID).Return(repository.ProfilePreferences{ShowPriceToOthers: false}, nil)
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1", UserID: otherID})
 
 	s.Require().NoError(err)
@@ -352,7 +436,7 @@ func (s *HandleGetKeycapSetSuite) TestOwner_AlwaysIncludesKitPriceAndCurrency() 
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).
 		Return(repository.ProfilePreferences{Currency: "EUR", ShowPriceToMe: false}, nil)
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1"})
 
 	s.Require().NoError(err)
@@ -369,7 +453,7 @@ func (s *HandleGetKeycapSetSuite) TestRepositoryError_ReturnsError() {
 		Get(mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, errors.New("get failed"))
 
-	handler := handleGetKeycapSet(s.mockRepo, s.mockPrefs)
+	handler := handleGetKeycapSet(s.mockRepo, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.GetKeycapSetInput{KeycapSetID: "ks-1"})
 
 	s.Require().ErrorContains(err, "failed to get keycap set")
@@ -464,6 +548,9 @@ func (s *HandleCreateKeycapSetSuite) TestRepositoryError_ReturnsError() {
 
 type HandleUpdateKeycapSetSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockPrefs      *mocks.MockPreferencesReader
 	mockKeycapSets *mocks.MockKeycapSetRepository
@@ -478,6 +565,12 @@ func (s *HandleUpdateKeycapSetSuite) SetupTest() {
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).
 		Return(repository.ProfilePreferences{Currency: "EUR"}, nil).Maybe()
 	s.mockKeycapSets = mocks.NewMockKeycapSetRepository(s.T())
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, mock.Anything, mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
 }
 
 func (s *HandleUpdateKeycapSetSuite) TestSucceeds() {
@@ -487,7 +580,7 @@ func (s *HandleUpdateKeycapSetSuite) TestSucceeds() {
 			return &ks, nil
 		})
 
-	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockPrefs)
+	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapSetInput{
 		KeycapSetID:    "ks-1",
 		KeycapSetInput: validKeycapSetInput(),
@@ -497,12 +590,32 @@ func (s *HandleUpdateKeycapSetSuite) TestSucceeds() {
 	s.Equal("ks-1", out.KeycapSet.ID, "update must target the requested id")
 }
 
+func (s *HandleUpdateKeycapSetSuite) TestDeliveredBase_Available() {
+	ks := deliveredBaseSet("ks-1")
+	s.mockKeycapSets.EXPECT().Update(mock.Anything, mock.Anything).Return(&ks, nil)
+
+	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockBuilds, s.mockPrefs)
+	_, out, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapSetInput{KeycapSetID: "ks-1", KeycapSetInput: validKeycapSetInput()})
+
+	s.Require().NoError(err)
+	s.True(out.KeycapSet.Available)
+}
+
+func (s *HandleUpdateKeycapSetSuite) TestBuildsError_ReturnsErrorBeforeWrite() {
+	s.buildsErr = errors.New("boom")
+
+	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockBuilds, s.mockPrefs)
+	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapSetInput{KeycapSetID: "ks-1", KeycapSetInput: validKeycapSetInput()})
+
+	s.Require().EqualError(err, "failed to update keycap set")
+}
+
 func (s *HandleUpdateKeycapSetSuite) TestNotFound_ReturnsNotFound() {
 	s.mockKeycapSets.EXPECT().
 		Update(mock.Anything, mock.Anything).
 		Return(nil, repository.ErrNotFound)
 
-	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockPrefs)
+	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapSetInput{
 		KeycapSetID:    "missing",
 		KeycapSetInput: validKeycapSetInput(),
@@ -516,7 +629,7 @@ func (s *HandleUpdateKeycapSetSuite) TestRepositoryError_ReturnsError() {
 		Update(mock.Anything, mock.Anything).
 		Return(nil, errors.New("update failed"))
 
-	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockPrefs)
+	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapSetInput{
 		KeycapSetID:    "ks-1",
 		KeycapSetInput: validKeycapSetInput(),
@@ -1353,7 +1466,7 @@ func (s *HandleUpdateKeycapSetSuite) TestReturnsOwnersCurrencyWithPrice() {
 	s.mockKeycapSets.EXPECT().Update(mock.Anything, mock.Anything).
 		Return(&repository.KeycapSet{ID: "ks-1", Kits: map[string]repository.KeycapKit{"kit-1": {KitID: "kit-1", Purchase: repository.KeycapKitPurchase{Price: &price}}}}, nil)
 
-	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockPrefs)
+	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockBuilds, s.mockPrefs)
 	_, out, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapSetInput{KeycapSetID: "ks-1", KeycapSetInput: validKeycapSetInput()})
 
 	s.Require().NoError(err)
@@ -1365,7 +1478,7 @@ func (s *HandleUpdateKeycapSetSuite) TestPreferencesError_ReturnsErrorBeforeWrit
 	s.mockPrefs.ExpectedCalls = nil
 	s.mockPrefs.EXPECT().GetPreferences(mock.Anything, callerID).Return(repository.ProfilePreferences{}, errors.New("boom"))
 
-	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockPrefs)
+	handler := handleUpdateKeycapSet(s.mockKeycapSets, s.mockBuilds, s.mockPrefs)
 	_, _, err := handler(callerContext(s.T()), nil, schema.UpdateKeycapSetInput{KeycapSetID: "ks-1", KeycapSetInput: validKeycapSetInput()})
 
 	s.Require().EqualError(err, "failed to update keycap set")

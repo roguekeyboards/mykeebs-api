@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -20,8 +21,9 @@ type KeycapSet struct {
 // ownerPrefs.ShowPriceToOthers. Returns an error if a stored kit's Purchase
 // date doesn't match dateLayout, or if a kit has an ImagePath and signing
 // its URL fails. Kits are mapped concurrently, in repository.SortedKits
-// order (seq, the order they were added, then kit_id).
-func (ks KeycapSet) ToAPI(ctx context.Context, set repository.KeycapSet, isOwner bool, ownerPrefs repository.ProfilePreferences) (api.KeycapSet, error) {
+// order (seq, the order they were added, then kit_id). usage is what the
+// owner's current builds use.
+func (ks KeycapSet) ToAPI(ctx context.Context, set repository.KeycapSet, isOwner bool, ownerPrefs repository.ProfilePreferences, usage availability.Usage) (api.KeycapSet, error) {
 	var kits *[]api.KeycapKit
 	if len(set.Kits) > 0 {
 		sorted := repository.SortedKits(set.Kits)
@@ -62,6 +64,7 @@ func (ks KeycapSet) ToAPI(ctx context.Context, set repository.KeycapSet, isOwner
 		Kits:         kits,
 		PrimaryKitId: validPrimaryKitID(set.PrimaryKitID, set.Kits),
 		OrderStatus:  repository.AggregateOrderStatus(set.Kits),
+		Available:    usage.KeycapSetAvailable(set),
 	}
 	if ownerPrefs.ShowPriceSingle(isOwner) {
 		out.TotalCost = set.TotalCost()

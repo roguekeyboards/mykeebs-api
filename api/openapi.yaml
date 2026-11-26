@@ -3146,7 +3146,7 @@ components:
 
     KeycapSet:
       type: object
-      required: [id, brand, name]
+      required: [id, brand, name, available]
       properties:
         id:
           type: string
@@ -3192,6 +3192,18 @@ components:
             comparison unless every kit is Cancelled, in which case
             this is Cancelled too. Omitted if no kit has an order_status
             set, or the set has no kits.
+        available:
+          type: boolean
+          description: >
+            Derived, read-only: whether the set is free for a new build.
+            True when one of its base kits has purchase.order_status
+            Delivered and isn't on any keyboard's current build (its
+            newest by build_date; one without a build_date counts as
+            oldest). The base kits are the primary kit, if set; otherwise
+            the only kit, if the set has one; otherwise every kit whose
+            name contains "base", in any case. A set with no base kit is
+            never available. Other kits don't count, so an add-on still
+            shipping doesn't hide a delivered base.
         total_cost:
           $ref: "#/components/schemas/Money"
           description: >

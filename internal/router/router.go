@@ -169,13 +169,13 @@ func New(
 	// security: [{}, BearerAuth] in api/openapi.yaml - anonymous callers see
 	// only public keycap sets (see [github.com/roguekeyboards/mykeebs-api/internal/authz.ReadableVisibilities]).
 	mux.Handle("GET /v1/users/{userId}/keycap-sets",
-		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.ListKeycapSets(keycapSetRepo, kcr)))))
+		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.ListKeycapSets(keycapSetRepo, buildRepo, kcr)))))
 	mux.Handle("GET /v1/users/{userId}/keycap-sets/{keycapSetId}",
-		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.GetKeycapSet(keycapSetRepo, kcr)))))
+		middleware.OptionalAuth(verifier)(ownerPrefs(validate(handlers.GetKeycapSet(keycapSetRepo, buildRepo, kcr)))))
 	mux.Handle("POST /v1/users/{userId}/keycap-sets",
 		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.CreateKeycapSet(keycapSetRepo, kcr)))))
 	mux.Handle("PUT /v1/users/{userId}/keycap-sets/{keycapSetId}",
-		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.UpdateKeycapSet(keycapSetRepo, kcr)))))
+		middleware.RequireAuthorizerIdentity(ownerPrefs(validate(handlers.UpdateKeycapSet(keycapSetRepo, buildRepo, kcr)))))
 	mux.Handle("DELETE /v1/users/{userId}/keycap-sets/{keycapSetId}",
 		middleware.RequireAuthorizerIdentity(validate(handlers.DeleteKeycapSet(keycapSetRepo, buildRepo, buildImageStore, imageStore))))
 	mux.Handle("POST /v1/users/{userId}/keycap-sets/{keycapSetId}/kits",

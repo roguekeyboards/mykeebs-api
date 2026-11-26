@@ -24,6 +24,9 @@ import (
 
 type ListKeycapSetsSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockRepo   *mocks.MockKeycapSetRepository
 	mockImages *mocks.MockKeycapKitImageStore
@@ -39,7 +42,49 @@ func (s *ListKeycapSetsSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockKeycapSetRepository(s.T())
 	s.mockImages = mocks.NewMockKeycapKitImageStore(s.T())
 	s.prefs = repository.ProfilePreferences{}
-	s.handler = ListKeycapSets(s.mockRepo, repoapi.KeycapSet{Images: s.mockImages})
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, "alice", mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
+	s.handler = ListKeycapSets(s.mockRepo, s.mockBuilds, repoapi.KeycapSet{Images: s.mockImages})
+}
+
+func (s *ListKeycapSetsSuite) TestListKeycapSets_BaseOnCurrentBuild_NotAvailable() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, "alice", mock.Anything, 20, "").
+		Return([]repository.KeycapSet{
+			{ID: "ks1", Visibility: repository.VisibilityPublic, Kits: map[string]repository.KeycapKit{
+				"k1": {KitID: "k1", Name: "Base", Purchase: repository.KeycapKitPurchase{OrderStatus: new("Delivered")}},
+			}},
+			{ID: "ks2", Visibility: repository.VisibilityPublic, Kits: map[string]repository.KeycapKit{
+				"k1": {KitID: "k1", Name: "Base", Purchase: repository.KeycapKitPurchase{OrderStatus: new("Delivered")}},
+			}},
+		}, "", nil)
+	s.builds = []repository.Build{{Keyboard: "kb1", Visibility: repository.VisibilityPrivate, KeycapKits: []repository.BuildKeycapKitEntry{{KeycapSet: "ks1", Kit: "k1"}}}}
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, s.newRequest(s.T().Context(), "limit=20"))
+
+	s.Equal(http.StatusOK, rec.Code)
+	var got api.KeycapSetListPage
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Require().Len(*got.Items, 2)
+	s.False((*got.Items)[0].Available)
+	s.True((*got.Items)[1].Available)
+}
+
+func (s *ListKeycapSetsSuite) TestListKeycapSets_BuildsError_Returns500() {
+	s.mockRepo.EXPECT().
+		List(mock.Anything, "alice", mock.Anything, 20, "").
+		Return([]repository.KeycapSet{{ID: "ks1"}}, "", nil)
+	s.buildsErr = errors.New("query failed")
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, s.newRequest(s.T().Context(), "limit=20"))
+
+	s.Equal(http.StatusInternalServerError, rec.Code)
 }
 
 func (s *ListKeycapSetsSuite) newRequest(ctx context.Context, query string) *http.Request {
@@ -298,6 +343,9 @@ func (s *ListKeycapSetsSuite) TestListKeycapSets_InvalidCursor_Returns400() {
 
 type GetKeycapSetSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	mockRepo   *mocks.MockKeycapSetRepository
 	mockImages *mocks.MockKeycapKitImageStore
@@ -313,7 +361,40 @@ func (s *GetKeycapSetSuite) SetupTest() {
 	s.mockRepo = mocks.NewMockKeycapSetRepository(s.T())
 	s.mockImages = mocks.NewMockKeycapKitImageStore(s.T())
 	s.prefs = repository.ProfilePreferences{}
-	s.handler = GetKeycapSet(s.mockRepo, repoapi.KeycapSet{Images: s.mockImages})
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, "alice", mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
+	s.handler = GetKeycapSet(s.mockRepo, s.mockBuilds, repoapi.KeycapSet{Images: s.mockImages})
+}
+
+func (s *GetKeycapSetSuite) TestGetKeycapSet_DeliveredBaseNotOnBuild_Available() {
+	ks := repository.KeycapSet{ID: "ks1", Visibility: repository.VisibilityPublic, Kits: map[string]repository.KeycapKit{
+		"k1": {KitID: "k1", Name: "Base", Purchase: repository.KeycapKitPurchase{OrderStatus: new("Delivered")}},
+	}}
+	s.mockRepo.EXPECT().Get(mock.Anything, "alice", "ks1").Return(&ks, nil)
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, s.newRequest(s.T().Context()))
+
+	s.Equal(http.StatusOK, rec.Code)
+	var got api.KeycapSet
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.True(got.Available)
+}
+
+func (s *GetKeycapSetSuite) TestGetKeycapSet_BuildsError_Returns500() {
+	s.mockRepo.EXPECT().
+		Get(mock.Anything, "alice", "ks1").
+		Return(&repository.KeycapSet{ID: "ks1", Visibility: repository.VisibilityPublic}, nil)
+	s.buildsErr = errors.New("query failed")
+
+	rec := httptest.NewRecorder()
+	s.handler(rec, s.newRequest(s.T().Context()))
+
+	s.Equal(http.StatusInternalServerError, rec.Code)
 }
 
 func (s *GetKeycapSetSuite) newRequest(ctx context.Context) *http.Request {
@@ -717,6 +798,9 @@ func (s *CreateKeycapSetSuite) TestCreateKeycapSet_RepositoryError_Returns500() 
 
 type UpdateKeycapSetSuite struct {
 	suite.Suite
+	mockBuilds *mocks.MockBuildRepository
+	builds     []repository.Build
+	buildsErr  error
 
 	prefs             repository.ProfilePreferences
 	mockKeycapSetRepo *mocks.MockKeycapSetRepository
@@ -732,7 +816,13 @@ func (s *UpdateKeycapSetSuite) SetupTest() {
 	s.prefs = repository.ProfilePreferences{Currency: "EUR"}
 	s.mockKeycapSetRepo = mocks.NewMockKeycapSetRepository(s.T())
 	s.mockImages = mocks.NewMockKeycapKitImageStore(s.T())
-	s.handler = UpdateKeycapSet(s.mockKeycapSetRepo, repoapi.KeycapSet{Images: s.mockImages})
+	s.mockBuilds = mocks.NewMockBuildRepository(s.T())
+	s.builds, s.buildsErr = nil, nil
+	s.mockBuilds.EXPECT().List(mock.Anything, "alice", mock.Anything, "", mock.Anything, "").
+		RunAndReturn(func(context.Context, string, []repository.Visibility, string, int, string) ([]repository.Build, string, error) {
+			return s.builds, "", s.buildsErr
+		}).Maybe()
+	s.handler = UpdateKeycapSet(s.mockKeycapSetRepo, s.mockBuilds, repoapi.KeycapSet{Images: s.mockImages})
 }
 
 func (s *UpdateKeycapSetSuite) newRequest(ctx context.Context, body string) *http.Request {
@@ -745,6 +835,33 @@ func (s *UpdateKeycapSetSuite) newRequest(ctx context.Context, body string) *htt
 
 func (s *UpdateKeycapSetSuite) ownerCtx() context.Context {
 	return apictx.WithUserID(s.T().Context(), "alice")
+}
+
+func (s *UpdateKeycapSetSuite) TestUpdateKeycapSet_BaseOnCurrentBuild_NotAvailable() {
+	ks := repository.KeycapSet{ID: "ks1", Visibility: repository.VisibilityPublic, Kits: map[string]repository.KeycapKit{
+		"k1": {KitID: "k1", Name: "Base", Purchase: repository.KeycapKitPurchase{OrderStatus: new("Delivered")}},
+	}}
+	s.mockKeycapSetRepo.EXPECT().Update(mock.Anything, mock.Anything).Return(&ks, nil)
+	s.builds = []repository.Build{{Keyboard: "kb1", Visibility: repository.VisibilityPrivate, KeycapKits: []repository.BuildKeycapKitEntry{{KeycapSet: "ks1", Kit: "k1"}}}}
+
+	req := s.newRequest(s.ownerCtx(), `{"brand":"GMK","name":"Laser","visibility":"private"}`)
+	rec := httptest.NewRecorder()
+	s.handler(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+	var got api.KeycapSet
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.False(got.Available)
+}
+
+func (s *UpdateKeycapSetSuite) TestUpdateKeycapSet_BuildsError_Returns500WithoutUpdating() {
+	s.buildsErr = errors.New("query failed")
+
+	req := s.newRequest(s.ownerCtx(), `{"brand":"GMK","name":"Laser","visibility":"private"}`)
+	rec := httptest.NewRecorder()
+	s.handler(rec, req)
+
+	s.Equal(http.StatusInternalServerError, rec.Code)
 }
 
 func (s *UpdateKeycapSetSuite) TestUpdateKeycapSet_Succeeds() {

@@ -104,3 +104,83 @@ func (s *AvailabilitySuite) TestLoad_ListError_ReturnsError() {
 
 	s.Require().Error(err)
 }
+
+func kit(id, name, status string) repository.KeycapKit {
+	k := repository.KeycapKit{KitID: id, Name: name}
+	if status != "" {
+		k.Purchase.OrderStatus = new(status)
+	}
+	return k
+}
+
+func set(primary *string, kits ...repository.KeycapKit) repository.KeycapSet {
+	ks := repository.KeycapSet{ID: "ks1", PrimaryKitID: primary, Kits: map[string]repository.KeycapKit{}}
+	for _, k := range kits {
+		ks.Kits[k.KitID] = k
+	}
+	return ks
+}
+
+func buildWithKit(date *string, kitID string) repository.Build {
+	return repository.Build{
+		Keyboard:   "kb1",
+		BuildDate:  date,
+		KeycapKits: []repository.BuildKeycapKitEntry{{KeycapSet: "ks1", Kit: kitID}},
+	}
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_PrimaryKitDecides() {
+	ks := set(new("k2"), kit("k1", "Base", "Delivered"), kit("k2", "Alphas", "Shipped"))
+
+	s.False(availability.Usage{}.KeycapSetAvailable(ks))
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_DanglingPrimary_FallsBackToBaseName() {
+	ks := set(new("gone"), kit("k1", "Base", "Delivered"), kit("k2", "Novelties", "Shipped"))
+
+	s.True(availability.Usage{}.KeycapSetAvailable(ks))
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_OnlyKitIsBase() {
+	s.True(availability.Usage{}.KeycapSetAvailable(set(nil, kit("k1", "Alphas", "Delivered"))))
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_DeliveredBaseWithAddOnStillShipping_Available() {
+	ks := set(nil, kit("k1", "BASE kit", "Delivered"), kit("k2", "Spacebars", "Shipped"))
+
+	s.True(availability.Usage{}.KeycapSetAvailable(ks))
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_NoBaseKit_NotAvailable() {
+	ks := set(nil, kit("k1", "Alphas", "Delivered"), kit("k2", "Mods", "Delivered"))
+
+	s.False(availability.Usage{}.KeycapSetAvailable(ks))
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_NoKits_NotAvailable() {
+	s.False(availability.Usage{}.KeycapSetAvailable(set(nil)))
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_BaseOnCurrentBuild_NotAvailable() {
+	ks := set(nil, kit("k1", "Base", "Delivered"))
+	u := availability.FromBuilds([]repository.Build{buildWithKit(nil, "k1")})
+
+	s.False(u.KeycapSetAvailable(ks))
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_BaseOnlyOnOlderBuild_Available() {
+	ks := set(nil, kit("k1", "Base", "Delivered"))
+	u := availability.FromBuilds([]repository.Build{
+		buildWithKit(new("2026-01-01"), "k1"),
+		buildWithKit(new("2026-06-01"), "other"),
+	})
+
+	s.True(u.KeycapSetAvailable(ks))
+}
+
+func (s *AvailabilitySuite) TestKeycapSet_OneOfTwoBasesFree_Available() {
+	ks := set(nil, kit("k1", "Base", "Delivered"), kit("k2", "Base (second)", "Delivered"))
+	u := availability.FromBuilds([]repository.Build{buildWithKit(nil, "k1")})
+
+	s.True(u.KeycapSetAvailable(ks))
+}

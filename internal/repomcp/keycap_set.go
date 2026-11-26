@@ -3,6 +3,7 @@ package repomcp
 import (
 	"math"
 
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 )
@@ -14,8 +15,9 @@ type KeycapSet struct{}
 
 // ToMCP maps a repository.KeycapSet to its MCP tool shape. The owner
 // always sees each kit's own purchase.price; a non-owner sees it only if
-// ownerPrefs.ShowPriceToOthers.
-func (ks KeycapSet) ToMCP(set repository.KeycapSet, isOwner bool, ownerPrefs repository.ProfilePreferences) schema.KeycapSet {
+// ownerPrefs.ShowPriceToOthers. usage is what the owner's current builds
+// use.
+func (ks KeycapSet) ToMCP(set repository.KeycapSet, isOwner bool, ownerPrefs repository.ProfilePreferences, usage availability.Usage) schema.KeycapSet {
 	var kits []schema.KeycapKit
 	if len(set.Kits) > 0 {
 		sorted := repository.SortedKits(set.Kits)
@@ -36,6 +38,7 @@ func (ks KeycapSet) ToMCP(set repository.KeycapSet, isOwner bool, ownerPrefs rep
 		Kits:         kits,
 		PrimaryKitID: validPrimaryKitID(set.PrimaryKitID, set.Kits),
 		OrderStatus:  repository.AggregateOrderStatus(set.Kits),
+		Available:    usage.KeycapSetAvailable(set),
 	}
 	if ownerPrefs.ShowPriceSingle(isOwner) {
 		out.TotalCost = set.TotalCost()
@@ -52,7 +55,7 @@ func (ks KeycapSet) ToMCP(set repository.KeycapSet, isOwner bool, ownerPrefs rep
 // per ownerPrefs.ShowPriceToMe (owner) or ownerPrefs.ShowPriceToOthers
 // (non-owner) - unlike [KeycapSet.ToMCP], the owner isn't unconditionally
 // shown price here.
-func (ks KeycapSet) ToMCPSummary(set repository.KeycapSet, isOwner bool, ownerPrefs repository.ProfilePreferences) schema.KeycapSetSummary {
+func (ks KeycapSet) ToMCPSummary(set repository.KeycapSet, isOwner bool, ownerPrefs repository.ProfilePreferences, usage availability.Usage) schema.KeycapSetSummary {
 	primaryKitID := validPrimaryKitID(set.PrimaryKitID, set.Kits)
 	primaryKit := findKit(primaryKitID, set.Kits)
 
@@ -64,6 +67,7 @@ func (ks KeycapSet) ToMCPSummary(set repository.KeycapSet, isOwner bool, ownerPr
 		PrimaryKitID:       primaryKitID,
 		PrimaryKitHasImage: primaryKit != nil && primaryKit.ImagePath != nil && primaryKit.ImageStatus.VisibleTo(isOwner),
 		OrderStatus:        repository.AggregateOrderStatus(set.Kits),
+		Available:          usage.KeycapSetAvailable(set),
 	}
 	if ownerPrefs.ShowPriceSummary(isOwner) {
 		summary.TotalCost = set.TotalCost()

@@ -120,12 +120,12 @@ func (s *ImageModerationSuite) TestKeycapKit() {
 	owner := KeycapSet{}.KitToMCP(kit, true, repository.ProfilePreferences{})
 	s.True(owner.HasImage)
 	s.Equal(ptr("pending"), owner.ImageStatus)
-	s.True(KeycapSet{}.ToMCPSummary(set, true, repository.ProfilePreferences{}).PrimaryKitHasImage)
+	s.True(KeycapSet{}.ToMCPSummary(set, true, repository.ProfilePreferences{}, availability.Usage{}).PrimaryKitHasImage)
 
 	other := KeycapSet{}.KitToMCP(kit, false, repository.ProfilePreferences{})
 	s.False(other.HasImage)
 	s.Nil(other.ImageStatus)
-	s.False(KeycapSet{}.ToMCPSummary(set, false, repository.ProfilePreferences{}).PrimaryKitHasImage)
+	s.False(KeycapSet{}.ToMCPSummary(set, false, repository.ProfilePreferences{}, availability.Usage{}).PrimaryKitHasImage)
 }
 
 func (s *ImageModerationSuite) TestProfile() {

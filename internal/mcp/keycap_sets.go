@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/authz"
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/cascadedelete"
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
@@ -26,7 +27,7 @@ var errKeycapSetAlreadyExists = errors.New("keycap set already exists")
 
 var listKeycapSetsTool = &mcp.Tool{
 	Name:        "list_keycap_sets",
-	Description: "Lists keycap sets in a user's collection, most useful for browsing. Returns an abbreviated shape; call get_keycap_set for a single set's full details, including its kits. Omit user_id to list your own keycap sets.",
+	Description: "Lists keycap sets in a user's collection, most useful for browsing. Returns an abbreviated shape; call get_keycap_set for a single set's full details, including its kits. Omit user_id to list your own keycap sets. To find sets for a new build, set available_only and keep paging until next_cursor is empty.",
 }
 
 var getKeycapSetTool = &mcp.Tool{
@@ -76,6 +77,7 @@ var deleteKeycapKitImageTool = &mcp.Tool{
 
 func handleListKeycapSets(
 	repo repository.KeycapSetRepository,
+	buildRepo repository.BuildRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.ListKeycapSetsInput, schema.ListKeycapSetsOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.ListKeycapSetsInput) (*mcp.CallToolResult, schema.ListKeycapSetsOutput, error) {
@@ -101,10 +103,20 @@ func handleListKeycapSets(
 			return nil, schema.ListKeycapSetsOutput{}, errors.New("failed to list keycap sets")
 		}
 
+		usage, err := availability.Load(ctx, buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(ctx).Error("loading build usage", log.Error, err)
+			return nil, schema.ListKeycapSetsOutput{}, errors.New("failed to list keycap sets")
+		}
+
 		isOwner := authz.IsOwner(ctx, ownerID)
-		items := make([]schema.KeycapSetSummary, len(sets))
-		for i, ks := range sets {
-			items[i] = repomcp.KeycapSet{}.ToMCPSummary(ks, isOwner, ownerPrefs)
+		items := make([]schema.KeycapSetSummary, 0, len(sets))
+		for _, ks := range sets {
+			item := repomcp.KeycapSet{}.ToMCPSummary(ks, isOwner, ownerPrefs, usage)
+			if in.AvailableOnly && !item.Available {
+				continue
+			}
+			items = append(items, item)
 		}
 
 		return nil, schema.ListKeycapSetsOutput{KeycapSets: items, NextCursor: nextCursor}, nil
@@ -113,6 +125,7 @@ func handleListKeycapSets(
 
 func handleGetKeycapSet(
 	repo repository.KeycapSetRepository,
+	buildRepo repository.BuildRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.GetKeycapSetInput, schema.GetKeycapSetOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.GetKeycapSetInput) (*mcp.CallToolResult, schema.GetKeycapSetOutput, error) {
@@ -134,7 +147,13 @@ func handleGetKeycapSet(
 			return nil, schema.GetKeycapSetOutput{}, errors.New("failed to get keycap set")
 		}
 
-		return nil, schema.GetKeycapSetOutput{KeycapSet: repomcp.KeycapSet{}.ToMCP(*ks, isOwner, ownerPrefs)}, nil
+		usage, err := availability.Load(ctx, buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(ctx).Error("loading build usage", log.Error, err, log.KeycapSetID, in.KeycapSetID)
+			return nil, schema.GetKeycapSetOutput{}, errors.New("failed to get keycap set")
+		}
+
+		return nil, schema.GetKeycapSetOutput{KeycapSet: repomcp.KeycapSet{}.ToMCP(*ks, isOwner, ownerPrefs, usage)}, nil
 	}
 }
 
@@ -166,12 +185,14 @@ func handleCreateKeycapSet(
 		}
 
 		// isOwner: true, this always targets the caller's own collection.
-		return nil, schema.CreateKeycapSetOutput{KeycapSet: repomcp.KeycapSet{}.ToMCP(*created, true, ownerPrefs)}, nil
+		// A new set has no kits, so no build can use it.
+		return nil, schema.CreateKeycapSetOutput{KeycapSet: repomcp.KeycapSet{}.ToMCP(*created, true, ownerPrefs, availability.Usage{})}, nil
 	}
 }
 
 func handleUpdateKeycapSet(
 	keycapSetRepo repository.KeycapSetRepository,
+	buildRepo repository.BuildRepository,
 	prefs repository.PreferencesReader,
 ) mcp.ToolHandlerFor[schema.UpdateKeycapSetInput, schema.UpdateKeycapSetOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in schema.UpdateKeycapSetInput) (*mcp.CallToolResult, schema.UpdateKeycapSetOutput, error) {
@@ -188,13 +209,23 @@ func handleUpdateKeycapSet(
 			return nil, schema.UpdateKeycapSetOutput{}, errors.New("failed to update keycap set")
 		}
 
+		subject, err := callerSubject(ctx)
+		if err != nil {
+			return nil, schema.UpdateKeycapSetOutput{}, err
+		}
+		usage, err := availability.Load(ctx, buildRepo, subject)
+		if err != nil {
+			log.FromContext(ctx).Error("loading build usage", log.Error, err, log.KeycapSetID, ks.ID)
+			return nil, schema.UpdateKeycapSetOutput{}, errors.New("failed to update keycap set")
+		}
+
 		updated, err := keycapSetRepo.Update(ctx, ks)
 		if mutErr := handleMutationError(ctx, err, log.KeycapSetID, ks.ID); mutErr != nil {
 			return nil, schema.UpdateKeycapSetOutput{}, mutErr
 		}
 
 		// isOwner: true, this always targets the caller's own collection.
-		return nil, schema.UpdateKeycapSetOutput{KeycapSet: repomcp.KeycapSet{}.ToMCP(*updated, true, ownerPrefs)}, nil
+		return nil, schema.UpdateKeycapSetOutput{KeycapSet: repomcp.KeycapSet{}.ToMCP(*updated, true, ownerPrefs, usage)}, nil
 	}
 }
 
