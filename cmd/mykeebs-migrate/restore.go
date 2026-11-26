@@ -512,11 +512,12 @@ func purchaseInput(p *api.Purchase) *api.PurchaseInput {
 		return nil
 	}
 	return &api.PurchaseInput{
-		Vendor:       p.Vendor,
-		Price:        p.Price,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
+		Vendor:                p.Vendor,
+		Price:                 p.Price,
+		OrderDate:             p.OrderDate,
+		DeliveryDate:          p.DeliveryDate,
+		EstimatedDeliveryDate: p.EstimatedDeliveryDate,
+		OrderStatus:           p.OrderStatus,
 	}
 }
 
@@ -527,12 +528,13 @@ func switchPurchasesInput(ps *[]api.SwitchPurchase) *[]api.SwitchPurchaseInput {
 	out := make([]api.SwitchPurchaseInput, len(*ps))
 	for i, p := range *ps {
 		out[i] = api.SwitchPurchaseInput{
-			Vendor:       p.Vendor,
-			Price:        p.Price,
-			OrderDate:    p.OrderDate,
-			DeliveryDate: p.DeliveryDate,
-			OrderStatus:  p.OrderStatus,
-			Quantity:     p.Quantity,
+			Vendor:                p.Vendor,
+			Price:                 p.Price,
+			OrderDate:             p.OrderDate,
+			DeliveryDate:          p.DeliveryDate,
+			EstimatedDeliveryDate: p.EstimatedDeliveryDate,
+			OrderStatus:           p.OrderStatus,
+			Quantity:              p.Quantity,
 		}
 	}
 	return &out
@@ -545,12 +547,13 @@ func ecPartPurchasesInput(ps *[]api.ECPartPurchase) *[]api.ECPartPurchaseInput {
 	out := make([]api.ECPartPurchaseInput, len(*ps))
 	for i, p := range *ps {
 		out[i] = api.ECPartPurchaseInput{
-			Vendor:       p.Vendor,
-			Price:        p.Price,
-			OrderDate:    p.OrderDate,
-			DeliveryDate: p.DeliveryDate,
-			OrderStatus:  p.OrderStatus,
-			Quantity:     p.Quantity,
+			Vendor:                p.Vendor,
+			Price:                 p.Price,
+			OrderDate:             p.OrderDate,
+			DeliveryDate:          p.DeliveryDate,
+			EstimatedDeliveryDate: p.EstimatedDeliveryDate,
+			OrderStatus:           p.OrderStatus,
+			Quantity:              p.Quantity,
 		}
 	}
 	return &out

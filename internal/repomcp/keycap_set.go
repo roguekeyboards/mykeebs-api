@@ -125,27 +125,28 @@ func (ks KeycapSet) kitPurchaseFromMCP(p *schema.KeycapKitPurchaseInput) reposit
 	}
 
 	return repository.KeycapKitPurchase{
-		Vendor:       p.Vendor,
-		Price:        p.Price,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
+		Vendor:                p.Vendor,
+		Price:                 p.Price,
+		OrderDate:             p.OrderDate,
+		DeliveryDate:          p.DeliveryDate,
+		EstimatedDeliveryDate: p.EstimatedDeliveryDate,
+		OrderStatus:           p.OrderStatus,
 	}
 }
 
 // Dates pass through as strings, unlike repoapi's mapping, so this can't
 // fail on a malformed one. Mirrors [Keyboard.purchaseToMCP].
 func (ks KeycapSet) kitPurchaseToMCP(p repository.KeycapKitPurchase, isOwner bool, ownerPrefs repository.ProfilePreferences) *schema.KeycapKitPurchase {
-	if p.Vendor == nil && p.Price == nil && p.OrderDate == nil &&
-		p.DeliveryDate == nil && p.OrderStatus == nil {
+	if p == (repository.KeycapKitPurchase{}) {
 		return nil
 	}
 
 	out := &schema.KeycapKitPurchase{
-		Vendor:       p.Vendor,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
+		Vendor:                p.Vendor,
+		OrderDate:             p.OrderDate,
+		DeliveryDate:          p.DeliveryDate,
+		EstimatedDeliveryDate: p.EstimatedDeliveryDate,
+		OrderStatus:           p.OrderStatus,
 	}
 	if ownerPrefs.ShowPriceSingle(isOwner) {
 		out.Price = p.Price

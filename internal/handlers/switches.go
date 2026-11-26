@@ -17,6 +17,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/ownerprefs"
 	"github.com/roguekeyboards/mykeebs-api/internal/problem"
+	"github.com/roguekeyboards/mykeebs-api/internal/purchasevalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/repoapi"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
@@ -185,6 +186,9 @@ func CreateSwitch(switchRepo repository.SwitchRepository, sr repoapi.Switch) htt
 		if !writeLookupErrors(w, lookup.ValidateSwitch(r.Context(), sw)) {
 			return
 		}
+		if !writePurchaseErrors(w, purchasevalidate.BulkPurchases(sw.Purchases)) {
+			return
+		}
 
 		sw.ID = uuid.NewString()
 
@@ -243,6 +247,9 @@ func UpdateSwitch(switchRepo repository.SwitchRepository, sr repoapi.Switch) htt
 		}
 
 		if !writeLookupErrors(w, lookup.ValidateSwitch(r.Context(), sw)) {
+			return
+		}
+		if !writePurchaseErrors(w, purchasevalidate.BulkPurchases(sw.Purchases)) {
 			return
 		}
 

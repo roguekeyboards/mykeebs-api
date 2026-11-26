@@ -11,11 +11,12 @@ import (
 // KeycapKitPurchase tracks a kit's own purchase lifecycle, independent of
 // the parent set's (a set can be assembled from kits bought separately).
 type KeycapKitPurchase struct {
-	Vendor       *string  `dynamodbav:"vendor,omitempty" json:"vendor,omitempty"`
-	Price        *float64 `dynamodbav:"price,omitempty" json:"price,omitempty"`
-	OrderDate    *string  `dynamodbav:"order_date,omitempty" json:"order_date,omitempty"`
-	DeliveryDate *string  `dynamodbav:"delivery_date,omitempty" json:"delivery_date,omitempty"`
-	OrderStatus  *string  `dynamodbav:"order_status,omitempty" json:"order_status,omitempty"`
+	Vendor                *string  `dynamodbav:"vendor,omitempty" json:"vendor,omitempty"`
+	Price                 *float64 `dynamodbav:"price,omitempty" json:"price,omitempty"`
+	OrderDate             *string  `dynamodbav:"order_date,omitempty" json:"order_date,omitempty"`
+	DeliveryDate          *string  `dynamodbav:"delivery_date,omitempty" json:"delivery_date,omitempty"`
+	EstimatedDeliveryDate *string  `dynamodbav:"estimated_delivery_date,omitempty" json:"estimated_delivery_date,omitempty"`
+	OrderStatus           *string  `dynamodbav:"order_status,omitempty" json:"order_status,omitempty"`
 }
 
 // KeycapKit is one purchase within a KeycapSet (e.g. "Base", "Extension").

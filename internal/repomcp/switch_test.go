@@ -29,6 +29,7 @@ func (s *SwitchToMCPSuite) TestMapsAllFields() {
 	price := 65.0
 	orderDate := "2026-01-15"
 	deliveryDate := "2026-01-22"
+	estimatedDeliveryDate := "2026-03-31"
 	status := "Delivered"
 	quantity := 90
 	notes := "smooth"
@@ -46,7 +47,7 @@ func (s *SwitchToMCPSuite) TestMapsAllFields() {
 		Spring:       repository.SwitchSpring{Material: &springMaterial},
 		Purchases: repository.BulkPurchases{{
 			Vendor: &vendor, Price: &price,
-			OrderDate: &orderDate, DeliveryDate: &deliveryDate, OrderStatus: &status,
+			OrderDate: &orderDate, DeliveryDate: &deliveryDate, EstimatedDeliveryDate: &estimatedDeliveryDate, OrderStatus: &status,
 			Quantity: &quantity,
 		}},
 		Notes:      &notes,
@@ -74,6 +75,8 @@ func (s *SwitchToMCPSuite) TestMapsAllFields() {
 	s.Equal("2026-01-15", *out.Purchases[0].OrderDate)
 	s.Require().NotNil(out.Purchases[0].DeliveryDate)
 	s.Equal("2026-01-22", *out.Purchases[0].DeliveryDate)
+	s.Require().NotNil(out.Purchases[0].EstimatedDeliveryDate)
+	s.Equal("2026-03-31", *out.Purchases[0].EstimatedDeliveryDate)
 	s.Require().NotNil(out.Purchases[0].OrderStatus)
 	s.Equal("Delivered", *out.Purchases[0].OrderStatus)
 	s.Require().NotNil(out.Notes)
@@ -328,6 +331,7 @@ func (s *SwitchFromMCPSuite) TestMapsAllFields() {
 	price := 0.0
 	orderDate := "2026-01-15"
 	deliveryDate := "2026-01-22"
+	estimatedDeliveryDate := "2026-03-31"
 	status := "Delivered"
 
 	out := Switch{}.FromMCP(schema.SwitchInput{
@@ -339,7 +343,7 @@ func (s *SwitchFromMCPSuite) TestMapsAllFields() {
 		Spring:   &schema.SwitchSpring{Length: &springLength},
 		Purchases: []schema.SwitchPurchaseInput{{
 			Vendor: &vendor, Price: &price,
-			OrderDate: &orderDate, DeliveryDate: &deliveryDate, OrderStatus: &status,
+			OrderDate: &orderDate, DeliveryDate: &deliveryDate, EstimatedDeliveryDate: &estimatedDeliveryDate, OrderStatus: &status,
 		}},
 		Visibility: "public",
 	})
@@ -358,6 +362,8 @@ func (s *SwitchFromMCPSuite) TestMapsAllFields() {
 	s.Equal("2026-01-15", *out.Purchases[0].OrderDate)
 	s.Require().NotNil(out.Purchases[0].DeliveryDate)
 	s.Equal("2026-01-22", *out.Purchases[0].DeliveryDate)
+	s.Require().NotNil(out.Purchases[0].EstimatedDeliveryDate)
+	s.Equal("2026-03-31", *out.Purchases[0].EstimatedDeliveryDate)
 	s.Require().NotNil(out.Purchases[0].OrderStatus)
 	s.Equal("Delivered", *out.Purchases[0].OrderStatus)
 }

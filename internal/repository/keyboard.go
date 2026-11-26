@@ -110,11 +110,12 @@ func sortedBySeq[T any](m map[string]T, key func(T) (int, string)) []T {
 // order lifecycle. Fuller shape than SwitchPurchase - keyboards are
 // tracked with order/delivery dates and status.
 type KeyboardPurchase struct {
-	Vendor       *string  `dynamodbav:"vendor,omitempty" json:"vendor,omitempty"`
-	Price        *float64 `dynamodbav:"price,omitempty" json:"price,omitempty"`
-	OrderDate    *string  `dynamodbav:"order_date,omitempty" json:"order_date,omitempty"`
-	DeliveryDate *string  `dynamodbav:"delivery_date,omitempty" json:"delivery_date,omitempty"`
-	OrderStatus  *string  `dynamodbav:"order_status,omitempty" json:"order_status,omitempty"`
+	Vendor                *string  `dynamodbav:"vendor,omitempty" json:"vendor,omitempty"`
+	Price                 *float64 `dynamodbav:"price,omitempty" json:"price,omitempty"`
+	OrderDate             *string  `dynamodbav:"order_date,omitempty" json:"order_date,omitempty"`
+	DeliveryDate          *string  `dynamodbav:"delivery_date,omitempty" json:"delivery_date,omitempty"`
+	EstimatedDeliveryDate *string  `dynamodbav:"estimated_delivery_date,omitempty" json:"estimated_delivery_date,omitempty"`
+	OrderStatus           *string  `dynamodbav:"order_status,omitempty" json:"order_status,omitempty"`
 }
 
 // KeyboardImageEntry is one value in the Keyboard.Images map (keyed by

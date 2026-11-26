@@ -8,12 +8,13 @@ import (
 // many, plus its order lifecycle. Price is the total for Quantity units,
 // not a per-unit price.
 type BulkPurchase struct {
-	Vendor       *string  `dynamodbav:"vendor,omitempty" json:"vendor,omitempty"`
-	Price        *float64 `dynamodbav:"price,omitempty" json:"price,omitempty"`
-	OrderDate    *string  `dynamodbav:"order_date,omitempty" json:"order_date,omitempty"`
-	DeliveryDate *string  `dynamodbav:"delivery_date,omitempty" json:"delivery_date,omitempty"`
-	OrderStatus  *string  `dynamodbav:"order_status,omitempty" json:"order_status,omitempty"`
-	Quantity     *int     `dynamodbav:"quantity,omitempty" json:"quantity,omitempty"`
+	Vendor                *string  `dynamodbav:"vendor,omitempty" json:"vendor,omitempty"`
+	Price                 *float64 `dynamodbav:"price,omitempty" json:"price,omitempty"`
+	OrderDate             *string  `dynamodbav:"order_date,omitempty" json:"order_date,omitempty"`
+	DeliveryDate          *string  `dynamodbav:"delivery_date,omitempty" json:"delivery_date,omitempty"`
+	EstimatedDeliveryDate *string  `dynamodbav:"estimated_delivery_date,omitempty" json:"estimated_delivery_date,omitempty"`
+	OrderStatus           *string  `dynamodbav:"order_status,omitempty" json:"order_status,omitempty"`
+	Quantity              *int     `dynamodbav:"quantity,omitempty" json:"quantity,omitempty"`
 }
 
 // BulkPurchases is every order of one switch or EC part. The units are

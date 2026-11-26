@@ -624,6 +624,21 @@ func (s *CreateKeyboardSuite) TestCreateKeyboard_LayoutInvalidForSize_Returns400
 	s.Equal("layout", got.InvalidParams[0].Name)
 }
 
+func (s *CreateKeyboardSuite) TestCreateKeyboard_DeliveryDateBeforeOrderDate_Returns400() {
+	req := s.newRequest(s.ownerCtx(),
+		`{"brand":"Keychron","name":"Q1","visibility":"private","purchase":{"order_date":"2026-03-01","delivery_date":"2026-02-28"}}`)
+	rec := httptest.NewRecorder()
+	s.handler(rec, req)
+
+	s.Equal(http.StatusBadRequest, rec.Code)
+
+	var got struct {
+		InvalidParams []problem.InvalidParam `json:"invalid_params"`
+	}
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &got))
+	s.Equal([]problem.InvalidParam{{Name: "purchase.delivery_date", Reason: "can't be before order_date"}}, got.InvalidParams)
+}
+
 func (s *CreateKeyboardSuite) TestCreateKeyboard_UnrecognizedLayout_Returns400() {
 	req := s.newRequest(s.ownerCtx(),
 		`{"brand":"Keychron","name":"Q1","visibility":"private","layout":"NotALayout"}`)

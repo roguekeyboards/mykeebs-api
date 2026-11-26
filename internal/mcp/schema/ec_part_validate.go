@@ -52,7 +52,7 @@ func checkECPartSize(v *validate.V, field string, size *string) {
 
 // Validate implements [validate.Validatable].
 func (in ECPartPurchaseInput) Validate(v *validate.V) {
-	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate)
+	checkPurchase(v, in.Price, in.OrderDate, in.DeliveryDate, in.EstimatedDeliveryDate)
 	v.Positive("quantity", in.Quantity)
 }
 

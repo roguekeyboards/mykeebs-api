@@ -22,11 +22,12 @@ func bulkPurchasesToMCP[T any](
 	out := make([]T, len(ps))
 	for i, p := range ps {
 		mapped := schema.SwitchPurchase{
-			Vendor:       p.Vendor,
-			OrderDate:    p.OrderDate,
-			DeliveryDate: p.DeliveryDate,
-			OrderStatus:  p.OrderStatus,
-			Quantity:     p.Quantity,
+			Vendor:                p.Vendor,
+			OrderDate:             p.OrderDate,
+			DeliveryDate:          p.DeliveryDate,
+			EstimatedDeliveryDate: p.EstimatedDeliveryDate,
+			OrderStatus:           p.OrderStatus,
+			Quantity:              p.Quantity,
 		}
 		if ownerPrefs.ShowPriceSingle(isOwner) {
 			mapped.Price = p.Price
@@ -47,12 +48,13 @@ func bulkPurchasesFromMCP[T any](in []T, conv func(T) schema.SwitchPurchaseInput
 	for i, p := range in {
 		c := conv(p)
 		out[i] = repository.BulkPurchase{
-			Vendor:       c.Vendor,
-			Price:        c.Price,
-			OrderDate:    c.OrderDate,
-			DeliveryDate: c.DeliveryDate,
-			OrderStatus:  c.OrderStatus,
-			Quantity:     c.Quantity,
+			Vendor:                c.Vendor,
+			Price:                 c.Price,
+			OrderDate:             c.OrderDate,
+			DeliveryDate:          c.DeliveryDate,
+			EstimatedDeliveryDate: c.EstimatedDeliveryDate,
+			OrderStatus:           c.OrderStatus,
+			Quantity:              c.Quantity,
 		}
 	}
 

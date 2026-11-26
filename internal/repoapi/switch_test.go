@@ -50,12 +50,13 @@ func fullRepoSwitch() repository.Switch {
 			Length:      floatPtr(22),
 		},
 		Purchases: repository.BulkPurchases{{
-			Vendor:       strPtr("CannonKeys"),
-			Price:        floatPtr(0.35),
-			OrderDate:    strPtr("2026-01-15"),
-			DeliveryDate: strPtr("2026-01-22"),
-			OrderStatus:  strPtr("Delivered"),
-			Quantity:     intPtr(90),
+			Vendor:                strPtr("CannonKeys"),
+			Price:                 floatPtr(0.35),
+			OrderDate:             strPtr("2026-01-15"),
+			DeliveryDate:          strPtr("2026-01-22"),
+			EstimatedDeliveryDate: strPtr("2026-03-31"),
+			OrderStatus:           strPtr("Delivered"),
+			Quantity:              intPtr(90),
 		}},
 		Notes:      strPtr("smooth"),
 		Visibility: repository.VisibilityPrivate,
@@ -112,6 +113,8 @@ func (s *SwitchToAPISuite) TestFullRoundTrip_PreservesEveryField() {
 	s.Equal(*sw.Purchases[0].OrderDate, (*out.Purchases)[0].OrderDate.Format(dateLayout))
 	s.Require().NotNil((*out.Purchases)[0].DeliveryDate)
 	s.Equal(*sw.Purchases[0].DeliveryDate, (*out.Purchases)[0].DeliveryDate.Format(dateLayout))
+	s.Require().NotNil((*out.Purchases)[0].EstimatedDeliveryDate)
+	s.Equal(*sw.Purchases[0].EstimatedDeliveryDate, (*out.Purchases)[0].EstimatedDeliveryDate.Format(dateLayout))
 }
 
 func (s *SwitchToAPISuite) TestNonOwner_OmitsVisibility() {
@@ -281,6 +284,7 @@ func TestSwitchToRepoSuite(t *testing.T) {
 func (s *SwitchToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 	orderDate := openapi_types.Date{Time: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)}
 	deliveryDate := openapi_types.Date{Time: time.Date(2026, 1, 22, 0, 0, 0, 0, time.UTC)}
+	estimatedDeliveryDate := openapi_types.Date{Time: time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)}
 	in := api.SwitchInput{
 		Brand:        "Gateron",
 		Manufacturer: strPtr("Gateron Inc"),
@@ -304,12 +308,13 @@ func (s *SwitchToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 			Length:      floatPtr(22),
 		},
 		Purchases: &[]api.SwitchPurchaseInput{{
-			Vendor:       strPtr("CannonKeys"),
-			Price:        floatPtr(0.35),
-			OrderDate:    &orderDate,
-			DeliveryDate: &deliveryDate,
-			OrderStatus:  strPtr("Delivered"),
-			Quantity:     intPtr(90),
+			Vendor:                strPtr("CannonKeys"),
+			Price:                 floatPtr(0.35),
+			OrderDate:             &orderDate,
+			DeliveryDate:          &deliveryDate,
+			EstimatedDeliveryDate: &estimatedDeliveryDate,
+			OrderStatus:           strPtr("Delivered"),
+			Quantity:              intPtr(90),
 		}},
 		Notes:      strPtr("smooth"),
 		Visibility: api.VisibilityPrivate,
@@ -345,6 +350,8 @@ func (s *SwitchToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 	s.Equal((*in.Purchases)[0].OrderDate.Format(dateLayout), *sw.Purchases[0].OrderDate)
 	s.Require().NotNil(sw.Purchases[0].DeliveryDate)
 	s.Equal((*in.Purchases)[0].DeliveryDate.Format(dateLayout), *sw.Purchases[0].DeliveryDate)
+	s.Require().NotNil(sw.Purchases[0].EstimatedDeliveryDate)
+	s.Equal((*in.Purchases)[0].EstimatedDeliveryDate.Format(dateLayout), *sw.Purchases[0].EstimatedDeliveryDate)
 }
 
 func (s *SwitchToRepoSuite) TestNilSubStructs_ProduceZeroValueStructs() {

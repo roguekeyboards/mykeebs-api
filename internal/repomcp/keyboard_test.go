@@ -103,6 +103,15 @@ func (s *KeyboardToMCPSuite) TestDesignWithOnlyOnePart_IsRetained() {
 	s.Nil(out.Design.BottomCase)
 }
 
+func (s *KeyboardToMCPSuite) TestOnlyEstimatedDeliveryDate_KeepsPurchase() {
+	out := Keyboard{}.ToMCP(repository.Keyboard{
+		Purchase: repository.KeyboardPurchase{EstimatedDeliveryDate: new("2026-12-31")},
+	}, true, repository.ProfilePreferences{})
+
+	s.Require().NotNil(out.Purchase)
+	s.Equal(new("2026-12-31"), out.Purchase.EstimatedDeliveryDate)
+}
+
 // A recorded zero must stay distinct from an unset field, or MCP would
 // report "not recorded" for a keyboard REST reports as 0.
 func (s *KeyboardToMCPSuite) TestRecordedZero_SurvivesRoundTrip() {
@@ -308,12 +317,12 @@ func (s *KeyboardFromMCPSuite) TestMapsAllFields() {
 func (s *KeyboardFromMCPSuite) TestPlateFromMCP_MapsAllFields() {
 	out := Keyboard{}.PlateFromMCP(schema.KeyboardPlateInput{
 		Material: "Brass", Color: new("Raw"), Thickness: new(1.5),
-		Purchase: &schema.KeyboardPartPurchaseInput{Vendor: new("Divinikey"), OrderDate: new("2026-02-01")},
+		Purchase: &schema.KeyboardPartPurchaseInput{Vendor: new("Divinikey"), OrderDate: new("2026-02-01"), EstimatedDeliveryDate: new("2026-06-30")},
 	})
 
 	s.Equal(repository.KeyboardPlate{
 		Material: "Brass", Color: new("Raw"), Thickness: new(1.5),
-		Purchase: repository.KeyboardPurchase{Vendor: new("Divinikey"), OrderDate: new("2026-02-01")},
+		Purchase: repository.KeyboardPurchase{Vendor: new("Divinikey"), OrderDate: new("2026-02-01"), EstimatedDeliveryDate: new("2026-06-30")},
 	}, out)
 }
 

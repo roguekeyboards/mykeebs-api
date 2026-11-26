@@ -1930,6 +1930,13 @@ components:
         delivery_date:
           type: string
           format: date
+          description: Can't be before order_date.
+        estimated_delivery_date:
+          type: string
+          format: date
+          description: >
+            When it's expected to arrive, e.g. the last day of the quarter a
+            group buy lists. Can't be before order_date.
         order_status:
           type: string
           description: Open vocabulary — validated against the "order_status" lookup at request time.
@@ -1952,6 +1959,9 @@ components:
           type: string
           format: date
         delivery_date:
+          type: string
+          format: date
+        estimated_delivery_date:
           type: string
           format: date
         order_status:
@@ -2332,6 +2342,13 @@ components:
         delivery_date:
           type: string
           format: date
+          description: Can't be before order_date.
+        estimated_delivery_date:
+          type: string
+          format: date
+          description: >
+            When it's expected to arrive, e.g. the last day of the quarter a
+            group buy lists. Can't be before order_date.
         order_status:
           type: string
           description: Open vocabulary — validated against the "order_status" lookup at request time.
@@ -2362,6 +2379,9 @@ components:
           type: string
           format: date
         delivery_date:
+          type: string
+          format: date
+        estimated_delivery_date:
           type: string
           format: date
         order_status:
@@ -2633,6 +2653,13 @@ components:
         delivery_date:
           type: string
           format: date
+          description: Can't be before order_date.
+        estimated_delivery_date:
+          type: string
+          format: date
+          description: >
+            When it's expected to arrive, e.g. the last day of the quarter a
+            group buy lists. Can't be before order_date.
         order_status:
           type: string
           description: Open vocabulary — validated against the "order_status" lookup at request time.
@@ -2661,6 +2688,9 @@ components:
           type: string
           format: date
         delivery_date:
+          type: string
+          format: date
+        estimated_delivery_date:
           type: string
           format: date
         order_status:

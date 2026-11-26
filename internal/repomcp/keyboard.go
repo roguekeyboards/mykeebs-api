@@ -171,16 +171,16 @@ func (k Keyboard) partPurchaseToMCP(p repository.KeyboardPurchase, isOwner bool,
 // Dates pass through as strings, unlike [repoapi.Keyboard.ToAPI], so this
 // can't fail on a malformed one.
 func (k Keyboard) purchaseToMCP(p repository.KeyboardPurchase, isOwner bool, ownerPrefs repository.ProfilePreferences) *schema.KeyboardPurchase {
-	if p.Vendor == nil && p.Price == nil && p.OrderDate == nil &&
-		p.DeliveryDate == nil && p.OrderStatus == nil {
+	if p == (repository.KeyboardPurchase{}) {
 		return nil
 	}
 
 	out := &schema.KeyboardPurchase{
-		Vendor:       p.Vendor,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
+		Vendor:                p.Vendor,
+		OrderDate:             p.OrderDate,
+		DeliveryDate:          p.DeliveryDate,
+		EstimatedDeliveryDate: p.EstimatedDeliveryDate,
+		OrderStatus:           p.OrderStatus,
 	}
 	if ownerPrefs.ShowPriceSingle(isOwner) {
 		out.Price = p.Price
@@ -265,10 +265,11 @@ func (k Keyboard) purchaseFromMCP(p *schema.KeyboardPurchaseInput) repository.Ke
 	}
 
 	return repository.KeyboardPurchase{
-		Vendor:       p.Vendor,
-		Price:        p.Price,
-		OrderDate:    p.OrderDate,
-		DeliveryDate: p.DeliveryDate,
-		OrderStatus:  p.OrderStatus,
+		Vendor:                p.Vendor,
+		Price:                 p.Price,
+		OrderDate:             p.OrderDate,
+		DeliveryDate:          p.DeliveryDate,
+		EstimatedDeliveryDate: p.EstimatedDeliveryDate,
+		OrderStatus:           p.OrderStatus,
 	}
 }

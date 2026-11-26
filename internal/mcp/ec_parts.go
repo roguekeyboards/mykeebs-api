@@ -15,6 +15,7 @@ import (
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
 	"github.com/roguekeyboards/mykeebs-api/internal/lookup"
 	"github.com/roguekeyboards/mykeebs-api/internal/mcp/schema"
+	"github.com/roguekeyboards/mykeebs-api/internal/purchasevalidate"
 	"github.com/roguekeyboards/mykeebs-api/internal/repomcp"
 	"github.com/roguekeyboards/mykeebs-api/internal/repository"
 	"github.com/roguekeyboards/mykeebs-api/internal/uploadlimit"
@@ -182,6 +183,9 @@ func validatedECPart(ctx context.Context, in schema.ECPartInput) (repository.ECP
 	p := repomcp.ECPart{}.FromMCP(in)
 
 	if err := lookupErrors(lookup.ValidateECPart(ctx, p)); err != nil {
+		return repository.ECPart{}, err
+	}
+	if err := purchaseErrors(purchasevalidate.BulkPurchases(p.Purchases)); err != nil {
 		return repository.ECPart{}, err
 	}
 

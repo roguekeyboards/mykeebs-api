@@ -132,6 +132,25 @@ var _ = Describe("Creating a keyboard over MCP", func() {
 			})
 		})
 
+		Context("given an estimated delivery date before the order date", func() {
+			When("the create_keyboard tool is called", func() {
+				BeforeEach(func(ctx SpecContext) {
+					result, err = client.CallTool(ctx, "create_keyboard", map[string]any{
+						"brand":      "Mode",
+						"name":       "Sixty",
+						"visibility": "private",
+						"purchase":   map[string]any{"order_date": "2026-03-01", "estimated_delivery_date": "2026-02-01"},
+					})
+					captureCreatedID(result)
+				})
+
+				It("returns an MCP tool error result", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.IsError).To(BeTrue())
+				})
+			})
+		})
+
 		Context("given an invalid visibility", func() {
 			When("the create_keyboard tool is called", func() {
 				BeforeEach(func(ctx SpecContext) {

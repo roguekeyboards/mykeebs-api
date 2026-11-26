@@ -42,11 +42,12 @@ func fullRepoKeyboard() repository.Keyboard {
 			Connectivity: strPtr("Wired"),
 		}}),
 		Purchase: repository.KeyboardPurchase{
-			Vendor:       strPtr("Keychron"),
-			Price:        floatPtr(199.99),
-			OrderDate:    strPtr("2026-01-15"),
-			DeliveryDate: strPtr("2026-01-22"),
-			OrderStatus:  strPtr("Delivered"),
+			Vendor:                strPtr("Keychron"),
+			Price:                 floatPtr(199.99),
+			OrderDate:             strPtr("2026-01-15"),
+			DeliveryDate:          strPtr("2026-01-22"),
+			EstimatedDeliveryDate: strPtr("2026-03-31"),
+			OrderStatus:           strPtr("Delivered"),
 		},
 		Notes:      strPtr("stock lubed"),
 		Visibility: repository.VisibilityPrivate,
@@ -117,6 +118,8 @@ func (s *KeyboardToAPISuite) TestFullRoundTrip_PreservesEveryField() {
 		s.Equal(*kb.Purchase.OrderDate, out.Purchase.OrderDate.Format(dateLayout))
 		s.Require().NotNil(out.Purchase.DeliveryDate)
 		s.Equal(*kb.Purchase.DeliveryDate, out.Purchase.DeliveryDate.Format(dateLayout))
+		s.Require().NotNil(out.Purchase.EstimatedDeliveryDate)
+		s.Equal(*kb.Purchase.EstimatedDeliveryDate, out.Purchase.EstimatedDeliveryDate.Format(dateLayout))
 	}
 }
 
@@ -299,6 +302,7 @@ func TestKeyboardToRepoSuite(t *testing.T) {
 func (s *KeyboardToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 	orderDate := openapi_types.Date{Time: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)}
 	deliveryDate := openapi_types.Date{Time: time.Date(2026, 1, 22, 0, 0, 0, 0, time.UTC)}
+	estimatedDeliveryDate := openapi_types.Date{Time: time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)}
 	in := api.KeyboardInput{
 		Brand: "Keychron",
 		Name:  "Q1",
@@ -309,11 +313,12 @@ func (s *KeyboardToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 			Weight:     &api.MaterialColor{Material: strPtr("Brass"), Color: strPtr("Gold")},
 		},
 		Purchase: &api.PurchaseInput{
-			Vendor:       strPtr("Keychron"),
-			Price:        floatPtr(199.99),
-			OrderDate:    &orderDate,
-			DeliveryDate: &deliveryDate,
-			OrderStatus:  strPtr("Delivered"),
+			Vendor:                strPtr("Keychron"),
+			Price:                 floatPtr(199.99),
+			OrderDate:             &orderDate,
+			DeliveryDate:          &deliveryDate,
+			EstimatedDeliveryDate: &estimatedDeliveryDate,
+			OrderStatus:           strPtr("Delivered"),
 		},
 		Notes:      strPtr("stock lubed"),
 		Visibility: api.VisibilityPrivate,
@@ -339,6 +344,8 @@ func (s *KeyboardToRepoSuite) TestFullRoundTrip_PreservesEveryField() {
 	s.Equal(in.Purchase.OrderDate.Format(dateLayout), *kb.Purchase.OrderDate)
 	s.Require().NotNil(kb.Purchase.DeliveryDate)
 	s.Equal(in.Purchase.DeliveryDate.Format(dateLayout), *kb.Purchase.DeliveryDate)
+	s.Require().NotNil(kb.Purchase.EstimatedDeliveryDate)
+	s.Equal(in.Purchase.EstimatedDeliveryDate.Format(dateLayout), *kb.Purchase.EstimatedDeliveryDate)
 }
 
 func (s *KeyboardToRepoSuite) TestPlateToRepo_MapsAllFields() {
