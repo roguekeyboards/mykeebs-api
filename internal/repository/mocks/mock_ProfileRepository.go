@@ -587,15 +587,15 @@ func (_mock *MockProfileRepository) SetAvatarStatus(ctx context.Context, ownerID
 
 	var r0 bool
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, repository.ProfileImageKey, repository.ImageStatus, repository.ImageStatus, *string) (bool, error)); ok {
+	if returnFunc, ok1 := ret.Get(0).(func(context.Context, string, repository.ProfileImageKey, repository.ImageStatus, repository.ImageStatus, *string) (bool, error)); ok1 {
 		return returnFunc(ctx, ownerID, forPath, from, to, reason)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, repository.ProfileImageKey, repository.ImageStatus, repository.ImageStatus, *string) bool); ok {
+	if returnFunc, ok1 := ret.Get(0).(func(context.Context, string, repository.ProfileImageKey, repository.ImageStatus, repository.ImageStatus, *string) bool); ok1 {
 		r0 = returnFunc(ctx, ownerID, forPath, from, to, reason)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, repository.ProfileImageKey, repository.ImageStatus, repository.ImageStatus, *string) error); ok {
+	if returnFunc, ok1 := ret.Get(1).(func(context.Context, string, repository.ProfileImageKey, repository.ImageStatus, repository.ImageStatus, *string) error); ok1 {
 		r1 = returnFunc(ctx, ownerID, forPath, from, to, reason)
 	} else {
 		r1 = ret.Error(1)
