@@ -5,6 +5,8 @@ type ListKeycapSetsInput struct {
 	UserID string `json:"user_id,omitempty" jsonschema:"whose collection to list; omit for your own"`
 	Limit  *int   `json:"limit,omitempty" jsonschema:"maximum number of keycap sets to return (1-100, default 20)"`
 	Cursor string `json:"cursor,omitempty" jsonschema:"resume from a previous call's next_cursor"`
+
+	AvailableOnly bool `json:"available_only,omitempty" jsonschema:"only return sets that are available for a new build. Applied to each page after it's read, so a page can hold fewer than limit, even none, while next_cursor is still set"`
 }
 
 // ListKeycapSetsOutput is the list_keycap_sets tool output.
@@ -22,6 +24,7 @@ type KeycapSetSummary struct {
 	PrimaryKitID       *string  `json:"primary_kit_id,omitempty" jsonschema:"the id of the kit whose image represents this set, if one is designated and it still exists"`
 	PrimaryKitHasImage bool     `json:"primary_kit_has_image" jsonschema:"whether the primary kit has an image you can see (its owner sees it whatever its moderation status, anyone else only once approved)"`
 	OrderStatus        *string  `json:"order_status,omitempty" jsonschema:"derived from every kit's purchase.order_status: the least-progressed status wins (Planned < Ordered < Shipped < Delivered), so the set isn't Delivered while a kit is still en route; a Cancelled kit is ignored unless every kit is Cancelled; omitted if no kit has a status set"`
+	Available          bool     `json:"available" jsonschema:"whether the set is free for a new build: one of its base kits is Delivered and not on any keyboard's current build (its newest by build_date, one without a build_date counting as oldest). The base kits are the primary kit, if set; otherwise the only kit; otherwise every kit whose name contains \"base\", in any case"`
 	TotalCost          *float64 `json:"total_cost,omitempty" jsonschema:"total cost of the set's kits with a known purchase price; kits with no known price are excluded rather than treated as zero, so this may undercount; present for the owner only if their show_price_to_me preference is set, and for any other caller only if the owner's show_price_to_others is"`
 	Currency           *string  `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for total_cost; present exactly when total_cost is"`
 	Visibility         *string  `json:"visibility,omitempty" jsonschema:"who can read this keycap set, set on the keycap set itself rather than derived from its kits; one of \"public\", \"authenticated\", \"private\"; only ever present for the set's owner"`
@@ -52,6 +55,7 @@ type KeycapSet struct {
 	Kits         []KeycapKit `json:"kits,omitempty" jsonschema:"the kits purchased as part of this set"`
 	PrimaryKitID *string     `json:"primary_kit_id,omitempty" jsonschema:"the id of the kit, among kits, whose image represents this set; match against kits[].kit_id to find its image"`
 	OrderStatus  *string     `json:"order_status,omitempty" jsonschema:"derived from every kit's purchase.order_status: the least-progressed status wins (Planned < Ordered < Shipped < Delivered), so the set isn't Delivered while a kit is still en route; a Cancelled kit is ignored unless every kit is Cancelled; omitted if no kit has a status set"`
+	Available    bool        `json:"available" jsonschema:"whether the set is free for a new build: one of its base kits is Delivered and not on any keyboard's current build (its newest by build_date, one without a build_date counting as oldest). The base kits are the primary kit, if set; otherwise the only kit; otherwise every kit whose name contains \"base\", in any case"`
 	TotalCost    *float64    `json:"total_cost,omitempty" jsonschema:"total cost of the set's kits with a known purchase price; kits with no known price are excluded rather than treated as zero, so this may undercount"`
 	Currency     *string     `json:"currency,omitempty" jsonschema:"the owner's display currency (an ISO 4217 code) for total_cost; present exactly when total_cost is"`
 }

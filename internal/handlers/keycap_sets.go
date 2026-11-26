@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/roguekeyboards/mykeebs-api/internal/authz"
+	"github.com/roguekeyboards/mykeebs-api/internal/availability"
 	"github.com/roguekeyboards/mykeebs-api/internal/cascadedelete"
 	"github.com/roguekeyboards/mykeebs-api/internal/handlers/api"
 	"github.com/roguekeyboards/mykeebs-api/internal/log"
@@ -27,7 +28,7 @@ import (
 // the caller (if any) may read, per [authz.ReadableVisibilities]. Prices
 // follow [repository.ProfilePreferences.ShowPriceSummary], which only ever
 // hides prices [repoapi.KeycapSet.ToAPI] shows.
-func ListKeycapSets(repo repository.KeycapSetRepository, kr repoapi.KeycapSet) http.HandlerFunc {
+func ListKeycapSets(repo repository.KeycapSetRepository, buildRepo repository.BuildRepository, kr repoapi.KeycapSet) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := r.PathValue("userId")
 
@@ -54,6 +55,13 @@ func ListKeycapSets(repo repository.KeycapSetRepository, kr repoapi.KeycapSet) h
 			return
 		}
 
+		usage, err := availability.Load(r.Context(), buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(r.Context()).Error("loading build usage", log.Error, err)
+			problem.Internal(w, "failed to list keycap sets")
+			return
+		}
+
 		items := make([]api.KeycapSet, len(sets))
 		errs := make([]error, len(sets))
 
@@ -66,7 +74,7 @@ func ListKeycapSets(repo repository.KeycapSetRepository, kr repoapi.KeycapSet) h
 			go func(i int, ks repository.KeycapSet) {
 				defer wg.Done()
 
-				item, err := kr.ToAPI(ctx, ks, isOwner, ownerPrefs)
+				item, err := kr.ToAPI(ctx, ks, isOwner, ownerPrefs, usage)
 				if err != nil {
 					errs[i] = fmt.Errorf("mapping keycap set %q to API: %w", ks.ID, err)
 					return
@@ -101,7 +109,7 @@ func ListKeycapSets(repo repository.KeycapSetRepository, kr repoapi.KeycapSet) h
 // returns 404, not 403, to avoid revealing it exists. The owner always
 // sees each kit's price; a non-owner's visibility is gated by the owner's
 // Profile preferences - see [repoapi.KeycapSet.ToAPI].
-func GetKeycapSet(repo repository.KeycapSetRepository, kr repoapi.KeycapSet) http.HandlerFunc {
+func GetKeycapSet(repo repository.KeycapSetRepository, buildRepo repository.BuildRepository, kr repoapi.KeycapSet) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := r.PathValue("userId")
 		id := r.PathValue("keycapSetId")
@@ -131,7 +139,14 @@ func GetKeycapSet(repo repository.KeycapSetRepository, kr repoapi.KeycapSet) htt
 			return
 		}
 
-		out, err := kr.ToAPI(r.Context(), *ks, isOwner, ownerPrefs)
+		usage, err := availability.Load(r.Context(), buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(r.Context()).Error("loading build usage", log.Error, err, log.KeycapSetID, id)
+			problem.Internal(w, "failed to get keycap set")
+			return
+		}
+
+		out, err := kr.ToAPI(r.Context(), *ks, isOwner, ownerPrefs, usage)
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping keycap set to API", log.Error, err, log.KeycapSetID, id)
 			problem.Internal(w, "failed to get keycap set")
@@ -200,7 +215,8 @@ func CreateKeycapSet(keycapSetRepo repository.KeycapSetRepository, kr repoapi.Ke
 		}
 
 		// isOwner: true, already gated above - owner sees price unconditionally.
-		out, err := kr.ToAPI(r.Context(), *created, true, ownerPrefs)
+		// A new set has no kits, so no build can use it.
+		out, err := kr.ToAPI(r.Context(), *created, true, ownerPrefs, availability.Usage{})
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping keycap set to API", log.Error, err, log.KeycapSetID, created.ID)
 			problem.Internal(w, "failed to create keycap set")
@@ -217,7 +233,7 @@ func CreateKeycapSet(keycapSetRepo repository.KeycapSetRepository, kr repoapi.Ke
 // authenticated caller. userId must be the caller's own subject; updating
 // another user's keycap set, or one that doesn't exist, both return 404, to
 // avoid revealing it exists.
-func UpdateKeycapSet(keycapSetRepo repository.KeycapSetRepository, kr repoapi.KeycapSet) http.HandlerFunc {
+func UpdateKeycapSet(keycapSetRepo repository.KeycapSetRepository, buildRepo repository.BuildRepository, kr repoapi.KeycapSet) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := r.PathValue("userId")
 		id := r.PathValue("keycapSetId")
@@ -245,13 +261,20 @@ func UpdateKeycapSet(keycapSetRepo repository.KeycapSetRepository, kr repoapi.Ke
 			return
 		}
 
+		usage, err := availability.Load(r.Context(), buildRepo, ownerID)
+		if err != nil {
+			log.FromContext(r.Context()).Error("loading build usage", log.Error, err, log.KeycapSetID, ks.ID)
+			problem.Internal(w, "failed to update keycap set")
+			return
+		}
+
 		updated, err := keycapSetRepo.Update(r.Context(), ks)
 		if handleMutationError(w, r, err, log.KeycapSetID, id) {
 			return
 		}
 
 		// isOwner: true, already gated above - owner sees price unconditionally.
-		out, err := kr.ToAPI(r.Context(), *updated, true, ownerPrefs)
+		out, err := kr.ToAPI(r.Context(), *updated, true, ownerPrefs, usage)
 		if err != nil {
 			log.FromContext(r.Context()).Error("mapping keycap set to API", log.Error, err, log.KeycapSetID, updated.ID)
 			problem.Internal(w, "failed to update keycap set")
