@@ -6,22 +6,22 @@ require (
 	github.com/HugoSmits86/nativewebp v1.3.0
 	github.com/alecthomas/kong v1.17.0
 	github.com/aws/aws-lambda-go v1.55.1
-	github.com/aws/aws-sdk-go-v2 v1.48.0
-	github.com/aws/aws-sdk-go-v2/config v1.33.21
-	github.com/aws/aws-sdk-go-v2/credentials v1.21.3
-	github.com/aws/aws-sdk-go-v2/feature/cloudfront/sign v1.12.12
-	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.21.23
-	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.10.11
-	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.86.0
-	github.com/aws/aws-sdk-go-v2/service/cloudfront v1.76.0
-	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.92.2
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.74.1
-	github.com/aws/aws-sdk-go-v2/service/lambda v1.118.0
-	github.com/aws/aws-sdk-go-v2/service/rekognition v1.62.6
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.116.0
-	github.com/aws/aws-sdk-go-v2/service/sns v1.48.0
-	github.com/aws/aws-sdk-go-v2/service/sqs v1.53.0
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.83.0
+	github.com/aws/aws-sdk-go-v2 v1.48.1
+	github.com/aws/aws-sdk-go-v2/config v1.33.22
+	github.com/aws/aws-sdk-go-v2/credentials v1.21.4
+	github.com/aws/aws-sdk-go-v2/feature/cloudfront/sign v1.12.13
+	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.21.24
+	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.10.12
+	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.86.1
+	github.com/aws/aws-sdk-go-v2/service/cloudfront v1.78.1
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.92.3
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.74.2
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.118.1
+	github.com/aws/aws-sdk-go-v2/service/rekognition v1.62.7
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.116.1
+	github.com/aws/aws-sdk-go-v2/service/sns v1.48.1
+	github.com/aws/aws-sdk-go-v2/service/sqs v1.53.1
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.84.1
 	github.com/aws/smithy-go v1.28.10
 	github.com/bep/imagemeta v1.1.2
 	github.com/coreos/go-oidc/v3 v3.21.0
@@ -43,21 +43,21 @@ require (
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.27 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.9 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.12 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.12 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v1.48.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.25 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.13 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.13.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.14.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.39.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.53.0 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.28 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v1.48.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.26 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.14 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.13.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.14.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.39.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.53.1 // indirect
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
