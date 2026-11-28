@@ -22,7 +22,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sns v1.48.1
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.53.1
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.84.1
-	github.com/aws/smithy-go v1.28.10
+	github.com/aws/smithy-go v1.28.11
 	github.com/bep/imagemeta v1.1.2
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/gen2brain/webp v0.6.4
